@@ -7,6 +7,8 @@ class TransferZHeaderControls
     protected float m_HeaderLabelY;
     protected float m_HeaderLabelW;
     protected float m_HeaderLabelH;
+    protected Widget m_TooltipRoot;
+    protected TextWidget m_TooltipText;
     protected ButtonWidget m_DestinationButton;
     protected ButtonWidget m_TransferButton;
     protected ButtonWidget m_UnpackButton;
@@ -32,19 +34,37 @@ class TransferZHeaderControls
             return;
         }
 
+        m_TooltipRoot = GetGame().GetWorkspace().CreateWidgets("TransferZ/GUI/layouts/transferz_header_tooltip.layout", parent);
+        if (m_TooltipRoot)
+        {
+            m_TooltipText = TextWidget.Cast(m_TooltipRoot.FindAnyWidget("TransferZ_TooltipText"));
+            m_TooltipRoot.Show(false);
+        }
+
         m_DestinationButton = ButtonWidget.Cast(m_Root.FindAnyWidget("TransferZ_Destination"));
         m_TransferButton = ButtonWidget.Cast(m_Root.FindAnyWidget("TransferZ_Transfer"));
         m_UnpackButton = ButtonWidget.Cast(m_Root.FindAnyWidget("TransferZ_Unpack"));
         m_LinkButton = ButtonWidget.Cast(m_Root.FindAnyWidget("TransferZ_Link"));
         m_PreferredButton = ButtonWidget.Cast(m_Root.FindAnyWidget("TransferZ_Preferred"));
 
-        WidgetEventHandler.GetInstance().RegisterOnClick(m_DestinationButton, this, "OnDestination");
-        WidgetEventHandler.GetInstance().RegisterOnClick(m_TransferButton, this, "OnTransfer");
-        WidgetEventHandler.GetInstance().RegisterOnClick(m_UnpackButton, this, "OnUnpack");
-        WidgetEventHandler.GetInstance().RegisterOnClick(m_LinkButton, this, "OnLink");
-        WidgetEventHandler.GetInstance().RegisterOnClick(m_PreferredButton, this, "OnPreferred");
+        RegisterButton(m_DestinationButton, "OnDestination");
+        RegisterButton(m_TransferButton, "OnTransfer");
+        RegisterButton(m_UnpackButton, "OnUnpack");
+        RegisterButton(m_LinkButton, "OnLink");
+        RegisterButton(m_PreferredButton, "OnPreferred");
 
         m_Root.Show(false);
+    }
+
+    protected void RegisterButton(ButtonWidget button, string clickFunction)
+    {
+        if (!button)
+            return;
+
+        WidgetEventHandler handler = WidgetEventHandler.GetInstance();
+        handler.RegisterOnClick(button, this, clickFunction);
+        handler.RegisterOnMouseEnter(button, this, "OnButtonMouseEnter");
+        handler.RegisterOnMouseLeave(button, this, "OnButtonMouseLeave");
     }
 
     protected void RestoreHeaderText()
@@ -90,7 +110,10 @@ class TransferZHeaderControls
         if (show)
             UpdateControls();
         else
+        {
+            HideTooltip();
             RestoreHeaderText();
+        }
     }
 
     protected bool CanBePreferred()
@@ -119,6 +142,104 @@ class TransferZHeaderControls
         }
 
         return current == player && depth > 0;
+    }
+
+    protected string DisplayName(EntityAI entity)
+    {
+        if (!entity)
+            return "none";
+
+        string name = entity.GetDisplayName();
+        if (name == "")
+            name = entity.GetType();
+        return name;
+    }
+
+    protected string TooltipFor(Widget w)
+    {
+        if (!m_Entity)
+            return "";
+
+        TransferZClientState state = TransferZClientState.Get();
+        EntityAI destination = state.GetDestination();
+
+        if (w == m_DestinationButton)
+        {
+            if (state.IsDestination(m_Entity))
+                return "Destination selected: " + DisplayName(m_Entity);
+            return "Set destination: " + DisplayName(m_Entity);
+        }
+
+        if (w == m_TransferButton)
+        {
+            if (destination)
+                return "Transfer contents to " + DisplayName(destination);
+            return "Transfer: select a destination first";
+        }
+
+        if (w == m_UnpackButton)
+        {
+            if (destination)
+                return "Unpack contents recursively to " + DisplayName(destination);
+            return "Unpack: select a destination first";
+        }
+
+        if (w == m_LinkButton)
+        {
+            EntityAI linked = state.GetLinkedDestination(m_Entity);
+            if (linked)
+                return "Linked to " + DisplayName(linked) + " - double-click moves items";
+            if (state.IsLinkAnchor(m_Entity))
+                return "Link anchor selected - click L on another container";
+            return "Link this container to another container";
+        }
+
+        if (w == m_PreferredButton)
+        {
+            if (state.IsPreferred(m_Entity))
+                return "Preferred vicinity destination: " + DisplayName(m_Entity);
+            return "Set preferred vicinity destination: " + DisplayName(m_Entity);
+        }
+
+        return "";
+    }
+
+    protected void ShowTooltip(Widget source)
+    {
+        if (!m_TooltipRoot || !m_TooltipText)
+            return;
+
+        string text = TooltipFor(source);
+        if (text == "")
+        {
+            HideTooltip();
+            return;
+        }
+
+        ItemManager itemManager = ItemManager.GetInstance();
+        if (itemManager)
+            itemManager.HideTooltip();
+
+        m_TooltipText.SetText(text);
+        m_TooltipRoot.Show(true);
+    }
+
+    protected void HideTooltip()
+    {
+        if (m_TooltipRoot)
+            m_TooltipRoot.Show(false);
+    }
+
+    bool OnButtonMouseEnter(Widget w, int x, int y)
+    {
+        ShowTooltip(w);
+        return true;
+    }
+
+    bool OnButtonMouseLeave(Widget w, Widget enter_w, int x, int y)
+    {
+        HideTooltip();
+        return true;
     }
 
     void UpdateControls()
@@ -171,6 +292,7 @@ class TransferZHeaderControls
 
         TransferZClientState.Get().SetDestination(m_Entity);
         UpdateControls();
+        ShowTooltip(w);
     }
 
     void OnTransfer(Widget w, int x, int y, int button)
@@ -179,6 +301,7 @@ class TransferZHeaderControls
             return;
 
         TransferZClientState.Get().RequestTransfer(m_Entity);
+        ShowTooltip(w);
     }
 
     void OnUnpack(Widget w, int x, int y, int button)
@@ -187,6 +310,7 @@ class TransferZHeaderControls
             return;
 
         TransferZClientState.Get().RequestUnpack(m_Entity);
+        ShowTooltip(w);
     }
 
     void OnLink(Widget w, int x, int y, int button)
@@ -196,6 +320,7 @@ class TransferZHeaderControls
 
         TransferZClientState.Get().ToggleLink(m_Entity);
         UpdateControls();
+        ShowTooltip(w);
     }
 
     void OnPreferred(Widget w, int x, int y, int button)
@@ -205,6 +330,7 @@ class TransferZHeaderControls
 
         TransferZClientState.Get().SetPreferred(m_Entity);
         UpdateControls();
+        ShowTooltip(w);
     }
 }
 
