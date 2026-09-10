@@ -39,46 +39,65 @@ class TransferZServerService
         return GameInventory.CheckManipulatedObjectsDistances(entity, player, GameInventory.c_MaxItemDistanceRadius);
     }
 
+    static bool MoveFailure(string reason, EntityAI item, EntityAI destination)
+    {
+        string itemName = "<null>";
+        string destinationName = "<null>";
+        if (item)
+            itemName = item.GetType();
+        if (destination)
+            destinationName = destination.GetType();
+
+        Print("[TransferZ] Move rejected: " + reason + " item=" + itemName + " destination=" + destinationName);
+        return false;
+    }
+
     static bool TryMoveToExactCargo(PlayerBase player, EntityAI item, EntityAI destination)
     {
         if (!player || !item || !destination || item == destination)
-            return false;
+            return MoveFailure("invalid arguments", item, destination);
 
-        if (!IsReachable(player, item) || !IsReachable(player, destination))
-            return false;
+        if (!IsReachable(player, item))
+            return MoveFailure("item not reachable", item, destination);
+
+        if (!IsReachable(player, destination))
+            return MoveFailure("destination not reachable", item, destination);
 
         CargoBase destinationCargo = destination.GetInventory().GetCargo();
         if (!destinationCargo)
-            return false;
+            return MoveFailure("destination has no cargo", item, destination);
 
         if (!item.GetInventory().CanRemoveEntity())
-            return false;
+            return MoveFailure("item cannot be removed", item, destination);
 
         InventoryLocation src = new InventoryLocation();
         if (!item.GetInventory().GetCurrentInventoryLocation(src))
-            return false;
+            return MoveFailure("source location unavailable", item, destination);
 
         EntityAI sourceParent = src.GetParent();
         if (sourceParent && src.GetType() == InventoryLocationType.CARGO && !sourceParent.CanReleaseCargo(item))
-            return false;
+            return MoveFailure("source cargo refuses release", item, destination);
 
         if (!destination.CanReceiveItemIntoCargo(item))
-            return false;
+            return MoveFailure("destination refuses cargo item", item, destination);
 
         InventoryLocation dst = new InventoryLocation();
         if (!destination.GetInventory().FindFreeLocationFor(item, FindInventoryLocationType.CARGO, dst))
-            return false;
+            return MoveFailure("no free exact cargo location", item, destination);
 
         if (!dst.IsValid() || dst.GetType() != InventoryLocationType.CARGO || dst.GetParent() != destination)
-            return false;
+            return MoveFailure("resolved location is not destination cargo", item, destination);
 
         if (!GameInventory.CheckMoveToDstRequest(player, src, dst, GameInventory.c_MaxItemDistanceRadius))
-            return false;
+            return MoveFailure("native move request validation failed", item, destination);
 
         if (!GameInventory.LocationCanMoveEntity(src, dst))
-            return false;
+            return MoveFailure("native location move validation failed", item, destination);
 
-        return player.GetInventory().TakeToDst(InventoryMode.SERVER, src, dst);
+        if (!player.GetInventory().TakeToDst(InventoryMode.SERVER, src, dst))
+            return MoveFailure("TakeToDst failed", item, destination);
+
+        return true;
     }
 
     static void SnapshotDirectCargo(EntityAI source, notnull array<EntityAI> items)
@@ -141,6 +160,8 @@ class TransferZServerService
             if (TryMoveToExactCargo(player, item, destination))
                 moved++;
         }
+
+        Print("[TransferZ] Transfer result source=" + source.GetType() + " destination=" + destination.GetType() + " moved=" + moved.ToString() + "/" + items.Count().ToString());
         return moved;
     }
 
@@ -167,6 +188,8 @@ class TransferZServerService
             if (TryMoveToExactCargo(player, item, destination))
                 moved++;
         }
+
+        Print("[TransferZ] Unpack result source=" + source.GetType() + " destination=" + destination.GetType() + " moved=" + moved.ToString() + "/" + leaves.Count().ToString());
         return moved;
     }
 
@@ -178,16 +201,31 @@ class TransferZServerService
         if (IsDescendantOf(destination, item))
             return false;
 
-        return TryMoveToExactCargo(player, item, destination);
+        bool moved = TryMoveToExactCargo(player, item, destination);
+        Print("[TransferZ] MoveItem result item=" + item.GetType() + " destination=" + destination.GetType() + " moved=" + moved.ToString());
+        return moved;
     }
 
     static void HandleRequest(PlayerBase player, PlayerIdentity sender, ParamsReadContext ctx)
     {
-        if (!player || !sender || !player.GetIdentity())
+        if (!player)
             return;
 
-        if (sender.GetId() != player.GetIdentity().GetId())
-            return;
+        if (GetGame().IsMultiplayer())
+        {
+            PlayerIdentity playerIdentity = player.GetIdentity();
+            if (!sender || !playerIdentity)
+            {
+                Print("[TransferZ] RPC rejected: missing multiplayer identity");
+                return;
+            }
+
+            if (sender.GetId() != playerIdentity.GetId())
+            {
+                Print("[TransferZ] RPC rejected: sender does not own player");
+                return;
+            }
+        }
 
         int operation;
         int sourceLow;
