@@ -232,11 +232,27 @@ class TransferZClientState
         return entity && GetPreferredDestination() == entity;
     }
 
+    protected void ExecuteOfflineRequest(int operation, PlayerBase player, EntityAI source, EntityAI destination, EntityAI item)
+    {
+        if (operation == TransferZOperation.TRANSFER)
+            TransferZServerService.Transfer(player, source, destination);
+        else if (operation == TransferZOperation.UNPACK)
+            TransferZServerService.Unpack(player, source, destination);
+        else if (operation == TransferZOperation.MOVE_ITEM)
+            TransferZServerService.MoveItem(player, item, destination);
+    }
+
     protected void SendRequest(int operation, EntityAI source, EntityAI destination, EntityAI item)
     {
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
         if (!player || !destination)
             return;
+
+        if (!GetGame().IsMultiplayer())
+        {
+            ExecuteOfflineRequest(operation, player, source, destination, item);
+            return;
+        }
 
         int sourceLow;
         int sourceHigh;
@@ -256,7 +272,7 @@ class TransferZClientState
         rpc.Write(destinationHigh);
         rpc.Write(itemLow);
         rpc.Write(itemHigh);
-        rpc.Send(player, TransferZRPC.REQUEST, true, null);
+        rpc.Send(player, TransferZRPC.REQUEST, true, player.GetIdentity());
     }
 
     bool RequestTransfer(EntityAI source)
