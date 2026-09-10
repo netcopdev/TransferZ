@@ -1,7 +1,7 @@
 PanelWidgetClass TransferZHeaderControls {
  ignorepointer 1
- position 75 0
- size 123 29
+ position 43 0
+ size 103 29
  halign right_ref
  valign center_ref
  hexactpos 1
@@ -14,7 +14,7 @@ PanelWidgetClass TransferZHeaderControls {
   ButtonWidgetClass TransferZ_Destination {
    ignorepointer 0
    position 0 3
-   size 23 23
+   size 19 23
    hexactpos 1
    vexactpos 1
    hexactsize 1
@@ -27,8 +27,8 @@ PanelWidgetClass TransferZHeaderControls {
   }
   ButtonWidgetClass TransferZ_Transfer {
    ignorepointer 0
-   position 25 3
-   size 23 23
+   position 21 3
+   size 19 23
    hexactpos 1
    vexactpos 1
    hexactsize 1
@@ -41,8 +41,8 @@ PanelWidgetClass TransferZHeaderControls {
   }
   ButtonWidgetClass TransferZ_Unpack {
    ignorepointer 0
-   position 50 3
-   size 23 23
+   position 42 3
+   size 19 23
    hexactpos 1
    vexactpos 1
    hexactsize 1
@@ -55,8 +55,8 @@ PanelWidgetClass TransferZHeaderControls {
   }
   ButtonWidgetClass TransferZ_Link {
    ignorepointer 0
-   position 75 3
-   size 23 23
+   position 63 3
+   size 19 23
    hexactpos 1
    vexactpos 1
    hexactsize 1
@@ -69,8 +69,8 @@ PanelWidgetClass TransferZHeaderControls {
   }
   ButtonWidgetClass TransferZ_Preferred {
    ignorepointer 0
-   position 100 3
-   size 23 23
+   position 84 3
+   size 19 23
    hexactpos 1
    vexactpos 1
    hexactsize 1
