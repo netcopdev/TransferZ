@@ -1,0 +1,13 @@
+PanelWidgetClass TransferZHeaderDropTarget {
+ visible 0
+ ignorepointer 0
+ color 0 0 0 0.03
+ position 0 0
+ size 10 10
+ hexactpos 1
+ vexactpos 1
+ hexactsize 1
+ vexactsize 1
+ priority 9990
+ style blank
+}
