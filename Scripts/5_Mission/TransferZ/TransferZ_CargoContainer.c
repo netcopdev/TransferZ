@@ -13,18 +13,58 @@ modded class CargoContainer
         TransferZ_UpdateControls();
     }
 
+    override void UpdateInterval()
+    {
+        super.UpdateInterval();
+
+        if (!m_TransferZDestinationButton)
+            TransferZ_InitControls();
+
+        TransferZ_UpdateControls();
+    }
+
+    protected Widget TransferZ_GetControlHost()
+    {
+        if (m_IsAttachment && m_CargoHeader)
+        {
+            Widget attachmentHeader = m_CargoHeader.FindAnyWidget("grid_container_header");
+            if (attachmentHeader)
+                return attachmentHeader;
+            return m_CargoHeader;
+        }
+
+        Container parentContainer = Container.Cast(GetParent());
+        if (!parentContainer)
+            return null;
+
+        Header header = parentContainer.GetHeader();
+        if (!header)
+            return null;
+
+        Widget headerWidget = header.GetMainWidget();
+        if (!headerWidget)
+            return null;
+
+        Widget panelWidget = headerWidget.FindAnyWidget("PanelWidget");
+        if (panelWidget)
+            return panelWidget;
+
+        return headerWidget;
+    }
+
     protected ButtonWidget TransferZ_CreateButton(Widget parent, string name, string text, float x)
     {
-        Widget raw = GetGame().GetWorkspace().CreateWidget(ButtonWidgetTypeID, 0, 0, 1, 1, WidgetFlags.VISIBLE, ARGB(210, 35, 35, 35), 1000, parent);
+        Widget raw = GetGame().GetWorkspace().CreateWidget(ButtonWidgetTypeID, 0, 0, 1, 1, WidgetFlags.VISIBLE | WidgetFlags.SOURCEALPHA | WidgetFlags.BLEND, ARGB(220, 35, 35, 35), 1000, parent);
         ButtonWidget button = ButtonWidget.Cast(raw);
         if (!button)
             return null;
 
         button.SetName(name);
         button.SetPos(x, 0.08);
-        button.SetSize(0.07, 0.84);
+        button.SetSize(0.05, 0.84);
         button.SetText(text);
         button.SetTextColor(ARGB(255, 230, 230, 230));
+        button.SetTextProportion(0.7);
         return button;
     }
 
@@ -39,23 +79,15 @@ modded class CargoContainer
         if (m_TransferZDestinationButton)
             return;
 
-        Container parentContainer = Container.Cast(GetParent());
-        if (!parentContainer)
-            return;
-
-        Header header = parentContainer.GetHeader();
-        if (!header)
-            return;
-
-        Widget headerWidget = header.GetMainWidget();
+        Widget headerWidget = TransferZ_GetControlHost();
         if (!headerWidget)
             return;
 
-        m_TransferZDestinationButton = TransferZ_CreateButton(headerWidget, "TransferZ_Destination", "D", 0.625);
-        m_TransferZTransferButton = TransferZ_CreateButton(headerWidget, "TransferZ_Transfer", "T", 0.700);
-        m_TransferZUnpackButton = TransferZ_CreateButton(headerWidget, "TransferZ_Unpack", "U", 0.775);
-        m_TransferZLinkButton = TransferZ_CreateButton(headerWidget, "TransferZ_Link", "L", 0.850);
-        m_TransferZPreferredButton = TransferZ_CreateButton(headerWidget, "TransferZ_Preferred", "P", 0.925);
+        m_TransferZDestinationButton = TransferZ_CreateButton(headerWidget, "TransferZ_Destination", "D", 0.650);
+        m_TransferZTransferButton = TransferZ_CreateButton(headerWidget, "TransferZ_Transfer", "T", 0.705);
+        m_TransferZUnpackButton = TransferZ_CreateButton(headerWidget, "TransferZ_Unpack", "U", 0.760);
+        m_TransferZLinkButton = TransferZ_CreateButton(headerWidget, "TransferZ_Link", "L", 0.815);
+        m_TransferZPreferredButton = TransferZ_CreateButton(headerWidget, "TransferZ_Preferred", "P", 0.870);
 
         TransferZ_RegisterButton(m_TransferZDestinationButton, "TransferZ_OnDestination");
         TransferZ_RegisterButton(m_TransferZTransferButton, "TransferZ_OnTransfer");
@@ -67,14 +99,29 @@ modded class CargoContainer
     protected bool TransferZ_CanBePreferred()
     {
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
-        if (!player || !m_Entity)
+        if (!player || !m_Entity || !m_Entity.GetInventory().GetCargo())
             return false;
 
-        InventoryLocation location = new InventoryLocation();
-        if (!m_Entity.GetInventory().GetCurrentInventoryLocation(location))
-            return false;
+        EntityAI current = m_Entity;
+        int depth = 0;
 
-        return location.GetType() == InventoryLocationType.ATTACHMENT && location.GetParent() == player;
+        while (current && current != player && depth < 16)
+        {
+            InventoryLocation location = new InventoryLocation();
+            if (!current.GetInventory().GetCurrentInventoryLocation(location))
+                return false;
+            if (location.GetType() != InventoryLocationType.ATTACHMENT)
+                return false;
+
+            EntityAI parent = location.GetParent();
+            if (!parent)
+                return false;
+
+            current = parent;
+            depth++;
+        }
+
+        return current == player && depth > 0;
     }
 
     protected void TransferZ_UpdateControls()
