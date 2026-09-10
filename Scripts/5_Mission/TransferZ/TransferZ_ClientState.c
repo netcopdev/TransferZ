@@ -1,6 +1,12 @@
 class TransferZPreferences
 {
     string preferred_slot = "";
+    ref array<string> preferred_path;
+
+    void TransferZPreferences()
+    {
+        preferred_path = new array<string>();
+    }
 }
 
 class TransferZClientState
@@ -37,7 +43,11 @@ class TransferZClientState
         string errorMessage;
         ref TransferZPreferences loaded = new TransferZPreferences();
         if (JsonFileLoader<TransferZPreferences>.LoadFile(PREFERENCES_PATH, loaded, errorMessage) && loaded)
+        {
+            if (!loaded.preferred_path)
+                loaded.preferred_path = new array<string>();
             m_Preferences = loaded;
+        }
     }
 
     protected void SavePreferences()
@@ -140,18 +150,45 @@ class TransferZClientState
         if (!player || !container || !container.GetInventory().GetCargo())
             return false;
 
-        InventoryLocation location = new InventoryLocation();
-        if (!container.GetInventory().GetCurrentInventoryLocation(location))
+        ref array<string> reversePath = new array<string>();
+        EntityAI current = container;
+        int depth = 0;
+
+        while (current && current != player && depth < 16)
+        {
+            InventoryLocation location = new InventoryLocation();
+            if (!current.GetInventory().GetCurrentInventoryLocation(location))
+                return false;
+            if (location.GetType() != InventoryLocationType.ATTACHMENT)
+                return false;
+
+            EntityAI parent = location.GetParent();
+            if (!parent)
+                return false;
+
+            string slotName = InventorySlots.GetSlotName(location.GetSlot());
+            if (slotName == "")
+                return false;
+
+            reversePath.Insert(slotName);
+            current = parent;
+            depth++;
+        }
+
+        if (current != player || reversePath.Count() == 0)
             return false;
 
-        if (location.GetType() != InventoryLocationType.ATTACHMENT || location.GetParent() != player)
-            return false;
+        if (!m_Preferences.preferred_path)
+            m_Preferences.preferred_path = new array<string>();
+        m_Preferences.preferred_path.Clear();
 
-        string slotName = InventorySlots.GetSlotName(location.GetSlot());
-        if (slotName == "")
-            return false;
+        for (int i = reversePath.Count() - 1; i >= 0; i--)
+            m_Preferences.preferred_path.Insert(reversePath.Get(i));
 
-        m_Preferences.preferred_slot = slotName;
+        m_Preferences.preferred_slot = "";
+        if (m_Preferences.preferred_path.Count() == 1)
+            m_Preferences.preferred_slot = m_Preferences.preferred_path.Get(0);
+
         SavePreferences();
         return true;
     }
@@ -159,13 +196,35 @@ class TransferZClientState
     EntityAI GetPreferredDestination()
     {
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
-        if (!player || !m_Preferences || m_Preferences.preferred_slot == "")
+        if (!player || !m_Preferences)
             return null;
 
-        EntityAI destination = player.FindAttachmentBySlotName(m_Preferences.preferred_slot);
-        if (!destination || !destination.GetInventory().GetCargo())
+        if (m_Preferences.preferred_path && m_Preferences.preferred_path.Count() > 0)
+        {
+            EntityAI current = player;
+            for (int i = 0; i < m_Preferences.preferred_path.Count(); i++)
+            {
+                string slotName = m_Preferences.preferred_path.Get(i);
+                if (slotName == "")
+                    return null;
+
+                current = current.FindAttachmentBySlotName(slotName);
+                if (!current)
+                    return null;
+            }
+
+            if (current.GetInventory().GetCargo())
+                return current;
             return null;
-        return destination;
+        }
+
+        if (m_Preferences.preferred_slot == "")
+            return null;
+
+        EntityAI legacyDestination = player.FindAttachmentBySlotName(m_Preferences.preferred_slot);
+        if (!legacyDestination || !legacyDestination.GetInventory().GetCargo())
+            return null;
+        return legacyDestination;
     }
 
     bool IsPreferred(EntityAI entity)
