@@ -1,200 +1,55 @@
-modded class CargoContainer
+class TransferZHeaderControls
 {
-    protected ButtonWidget m_TransferZDestinationButton;
-    protected ButtonWidget m_TransferZTransferButton;
-    protected ButtonWidget m_TransferZUnpackButton;
-    protected ButtonWidget m_TransferZLinkButton;
-    protected ButtonWidget m_TransferZPreferredButton;
-    protected Widget m_TransferZControlHost;
-    protected Widget m_TransferZControlsRoot;
-    protected bool m_TransferZLoggedHostFailure;
-    protected bool m_TransferZLoggedLayout;
+    protected EntityAI m_Entity;
+    protected Widget m_Root;
+    protected ButtonWidget m_DestinationButton;
+    protected ButtonWidget m_TransferButton;
+    protected ButtonWidget m_UnpackButton;
+    protected ButtonWidget m_LinkButton;
+    protected ButtonWidget m_PreferredButton;
 
-    void ~CargoContainer()
+    void TransferZHeaderControls(Widget parent)
     {
-        if (m_TransferZControlsRoot)
-        {
-            m_TransferZControlsRoot.Unlink();
-            m_TransferZControlsRoot = null;
-        }
-    }
-
-    override void SetEntity(EntityAI item, int cargo_index = 0, bool immedUpdate = true)
-    {
-        Print("[TransferZ] CargoContainer.SetEntity ENTER");
-        super.SetEntity(item, cargo_index, immedUpdate);
-
-        if (item)
-            Print("[TransferZ] CargoContainer.SetEntity entity=" + item.GetType());
-        else
-            Print("[TransferZ] CargoContainer.SetEntity entity=<null>");
-
-        TransferZ_InitControls();
-        TransferZ_LayoutControls();
-        TransferZ_UpdateControls();
-    }
-
-    override void UpdateInterval()
-    {
-        super.UpdateInterval();
-
-        if (!m_TransferZDestinationButton)
-            TransferZ_InitControls();
-
-        TransferZ_LayoutControls();
-        TransferZ_UpdateControls();
-    }
-
-    protected Widget TransferZ_GetControlHost()
-    {
-        if (m_IsAttachment && m_CargoHeader)
-        {
-            Widget attachmentHeader = m_CargoHeader.FindAnyWidget("grid_container_header");
-            if (attachmentHeader)
-                return attachmentHeader;
-            return m_CargoHeader;
-        }
-
-        Container parentContainer = Container.Cast(GetParent());
-        if (!parentContainer)
-            return null;
-
-        Header header = parentContainer.GetHeader();
-        if (!header)
-            return null;
-
-        Widget headerWidget = header.GetMainWidget();
-        if (!headerWidget)
-            return null;
-
-        Widget panelWidget = headerWidget.FindAnyWidget("PanelWidget");
-        if (panelWidget)
-            return panelWidget;
-
-        return headerWidget;
-    }
-
-    protected Widget TransferZ_CreateControlsRoot()
-    {
-        int flags = WidgetFlags.VISIBLE | WidgetFlags.EXACTPOS | WidgetFlags.EXACTSIZE | WidgetFlags.RENDER_ALWAYS;
-        Widget root = GetGame().GetWorkspace().CreateWidget(FrameWidgetTypeID, 0, 0, 132, 22, flags, 0, 5000, null);
-        if (!root)
-            return null;
-
-        root.SetName("TransferZ_ControlsRoot");
-        root.Show(false);
-        return root;
-    }
-
-    protected ButtonWidget TransferZ_CreateButton(Widget parent, string name, string text, float x)
-    {
-        int flags = WidgetFlags.VISIBLE | WidgetFlags.EXACTPOS | WidgetFlags.EXACTSIZE | WidgetFlags.SOURCEALPHA | WidgetFlags.BLEND | WidgetFlags.RENDER_ALWAYS;
-        Widget raw = GetGame().GetWorkspace().CreateWidget(ButtonWidgetTypeID, x, 0, 24, 22, flags, ARGB(235, 35, 35, 35), 5001, parent);
-        ButtonWidget button = ButtonWidget.Cast(raw);
-        if (!button)
-            return null;
-
-        button.SetName(name);
-        button.SetText(text);
-        button.SetTextColor(ARGB(255, 245, 245, 245));
-        button.SetTextProportion(0.7);
-        return button;
-    }
-
-    protected void TransferZ_RegisterButton(ButtonWidget button, string functionName)
-    {
-        if (button)
-            WidgetEventHandler.GetInstance().RegisterOnClick(button, this, functionName);
-    }
-
-    protected void TransferZ_InitControls()
-    {
-        if (m_TransferZDestinationButton)
+        if (!parent)
             return;
 
-        Widget headerWidget = TransferZ_GetControlHost();
-        if (!headerWidget)
+        m_Root = GetGame().GetWorkspace().CreateWidgets("TransferZ/GUI/layouts/transferz_header_controls.layout", parent);
+        if (!m_Root)
         {
-            if (!m_TransferZLoggedHostFailure)
-            {
-                Print("[TransferZ] TransferZ_InitControls: no visible header host");
-                m_TransferZLoggedHostFailure = true;
-            }
+            Print("[TransferZ] Header controls layout creation failed");
             return;
         }
 
-        m_TransferZControlHost = headerWidget;
-        Print("[TransferZ] TransferZ_InitControls: screen host=" + headerWidget.GetName() + " type=" + headerWidget.GetTypeName());
+        m_DestinationButton = ButtonWidget.Cast(m_Root.FindAnyWidget("TransferZ_Destination"));
+        m_TransferButton = ButtonWidget.Cast(m_Root.FindAnyWidget("TransferZ_Transfer"));
+        m_UnpackButton = ButtonWidget.Cast(m_Root.FindAnyWidget("TransferZ_Unpack"));
+        m_LinkButton = ButtonWidget.Cast(m_Root.FindAnyWidget("TransferZ_Link"));
+        m_PreferredButton = ButtonWidget.Cast(m_Root.FindAnyWidget("TransferZ_Preferred"));
 
-        m_TransferZControlsRoot = TransferZ_CreateControlsRoot();
-        if (!m_TransferZControlsRoot)
-        {
-            Print("[TransferZ] TransferZ_InitControls: workspace controls root creation failed");
-            return;
-        }
+        WidgetEventHandler.GetInstance().RegisterOnClick(m_DestinationButton, this, "OnDestination");
+        WidgetEventHandler.GetInstance().RegisterOnClick(m_TransferButton, this, "OnTransfer");
+        WidgetEventHandler.GetInstance().RegisterOnClick(m_UnpackButton, this, "OnUnpack");
+        WidgetEventHandler.GetInstance().RegisterOnClick(m_LinkButton, this, "OnLink");
+        WidgetEventHandler.GetInstance().RegisterOnClick(m_PreferredButton, this, "OnPreferred");
 
-        m_TransferZDestinationButton = TransferZ_CreateButton(m_TransferZControlsRoot, "TransferZ_Destination", "D", 0);
-        m_TransferZTransferButton = TransferZ_CreateButton(m_TransferZControlsRoot, "TransferZ_Transfer", "T", 27);
-        m_TransferZUnpackButton = TransferZ_CreateButton(m_TransferZControlsRoot, "TransferZ_Unpack", "U", 54);
-        m_TransferZLinkButton = TransferZ_CreateButton(m_TransferZControlsRoot, "TransferZ_Link", "L", 81);
-        m_TransferZPreferredButton = TransferZ_CreateButton(m_TransferZControlsRoot, "TransferZ_Preferred", "P", 108);
-
-        TransferZ_RegisterButton(m_TransferZDestinationButton, "TransferZ_OnDestination");
-        TransferZ_RegisterButton(m_TransferZTransferButton, "TransferZ_OnTransfer");
-        TransferZ_RegisterButton(m_TransferZUnpackButton, "TransferZ_OnUnpack");
-        TransferZ_RegisterButton(m_TransferZLinkButton, "TransferZ_OnLink");
-        TransferZ_RegisterButton(m_TransferZPreferredButton, "TransferZ_OnPreferred");
-
-        Print("[TransferZ] TransferZ workspace controls created");
+        m_Root.Show(false);
+        Print("[TransferZ] Header controls attached to " + parent.GetName());
     }
 
-    protected void TransferZ_LayoutControls()
+    void SetEntity(EntityAI entity)
     {
-        if (!m_TransferZControlHost || !m_TransferZControlsRoot || !m_TransferZDestinationButton)
+        m_Entity = entity;
+
+        if (!m_Root)
             return;
 
-        bool hostVisible = m_TransferZControlHost.IsVisibleHierarchy();
-        if (!hostVisible)
-        {
-            m_TransferZControlsRoot.Show(false);
-            return;
-        }
-
-        float hostX;
-        float hostY;
-        float hostW;
-        float hostH;
-        m_TransferZControlHost.GetScreenPos(hostX, hostY);
-        m_TransferZControlHost.GetScreenSize(hostW, hostH);
-
-        float controlsW = 132.0;
-        float controlsH = 22.0;
-        float rightReserve = 32.0;
-
-        if (hostW < controlsW + rightReserve || hostH <= 0)
-        {
-            m_TransferZControlsRoot.Show(false);
-            return;
-        }
-
-        float startX = hostX + hostW - rightReserve - controlsW;
-        float startY = hostY + ((hostH - controlsH) * 0.5);
-
-        m_TransferZControlsRoot.SetScreenPos(startX, startY, false);
-        m_TransferZControlsRoot.SetScreenSize(controlsW, controlsH, true);
-        m_TransferZControlsRoot.Show(true);
-
-        if (!m_TransferZLoggedLayout)
-        {
-            if (m_Entity)
-                Print("[TransferZ] Workspace controls visible for " + m_Entity.GetType() + " hostPos=" + hostX.ToString() + "," + hostY.ToString() + " hostSize=" + hostW.ToString() + "x" + hostH.ToString());
-            else
-                Print("[TransferZ] Workspace controls visible");
-            m_TransferZLoggedLayout = true;
-        }
+        bool show = m_Entity && m_Entity.GetInventory().GetCargo();
+        m_Root.Show(show);
+        if (show)
+            UpdateControls();
     }
 
-    protected bool TransferZ_CanBePreferred()
+    protected bool CanBePreferred()
     {
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
         if (!player || !m_Entity || !m_Entity.GetInventory().GetCargo())
@@ -222,74 +77,142 @@ modded class CargoContainer
         return current == player && depth > 0;
     }
 
-    protected void TransferZ_UpdateControls()
+    void UpdateControls()
     {
-        if (!m_TransferZDestinationButton || !m_Entity)
+        if (!m_Root || !m_Entity || !m_Entity.GetInventory().GetCargo())
             return;
 
         TransferZClientState state = TransferZClientState.Get();
 
-        if (state.IsDestination(m_Entity))
-            m_TransferZDestinationButton.SetText("D*");
-        else
-            m_TransferZDestinationButton.SetText("D");
+        if (m_DestinationButton)
+        {
+            if (state.IsDestination(m_Entity))
+                m_DestinationButton.SetText("D*");
+            else
+                m_DestinationButton.SetText("D");
+        }
 
-        if (m_TransferZLinkButton)
+        if (m_LinkButton)
         {
             if (state.IsLinked(m_Entity))
-                m_TransferZLinkButton.SetText("L*");
+                m_LinkButton.SetText("L*");
             else if (state.IsLinkAnchor(m_Entity))
-                m_TransferZLinkButton.SetText("L+");
+                m_LinkButton.SetText("L+");
             else
-                m_TransferZLinkButton.SetText("L");
+                m_LinkButton.SetText("L");
         }
 
-        if (m_TransferZPreferredButton)
+        if (m_PreferredButton)
         {
-            bool canPrefer = TransferZ_CanBePreferred();
-            m_TransferZPreferredButton.Show(canPrefer);
+            bool canPrefer = CanBePreferred();
+            m_PreferredButton.Show(canPrefer);
             if (canPrefer && state.IsPreferred(m_Entity))
-                m_TransferZPreferredButton.SetText("P*");
+                m_PreferredButton.SetText("P*");
             else
-                m_TransferZPreferredButton.SetText("P");
+                m_PreferredButton.SetText("P");
         }
     }
 
-    void TransferZ_OnDestination(Widget w, int x, int y, int button)
+    void OnDestination(Widget w, int x, int y, int button)
     {
         if (button != MouseState.LEFT || !m_Entity)
             return;
+
         TransferZClientState.Get().SetDestination(m_Entity);
-        TransferZ_UpdateControls();
+        UpdateControls();
     }
 
-    void TransferZ_OnTransfer(Widget w, int x, int y, int button)
+    void OnTransfer(Widget w, int x, int y, int button)
     {
         if (button != MouseState.LEFT || !m_Entity)
             return;
+
         TransferZClientState.Get().RequestTransfer(m_Entity);
     }
 
-    void TransferZ_OnUnpack(Widget w, int x, int y, int button)
+    void OnUnpack(Widget w, int x, int y, int button)
     {
         if (button != MouseState.LEFT || !m_Entity)
             return;
+
         TransferZClientState.Get().RequestUnpack(m_Entity);
     }
 
-    void TransferZ_OnLink(Widget w, int x, int y, int button)
+    void OnLink(Widget w, int x, int y, int button)
     {
         if (button != MouseState.LEFT || !m_Entity)
             return;
+
         TransferZClientState.Get().ToggleLink(m_Entity);
-        TransferZ_UpdateControls();
+        UpdateControls();
     }
 
-    void TransferZ_OnPreferred(Widget w, int x, int y, int button)
+    void OnPreferred(Widget w, int x, int y, int button)
     {
         if (button != MouseState.LEFT || !m_Entity)
             return;
+
         TransferZClientState.Get().SetPreferred(m_Entity);
-        TransferZ_UpdateControls();
+        UpdateControls();
+    }
+}
+
+modded class Header
+{
+    protected ref TransferZHeaderControls m_TransferZHeaderControls;
+
+    override void SetItemPreview(EntityAI entity_ai)
+    {
+        super.SetItemPreview(entity_ai);
+
+        if (m_TransferZHeaderControls)
+            m_TransferZHeaderControls.SetEntity(entity_ai);
+    }
+}
+
+modded class ClosableHeader
+{
+    void ClosableHeader(LayoutHolder parent, string function_name)
+    {
+        m_TransferZHeaderControls = new TransferZHeaderControls(m_PanelWidget);
+    }
+
+    override void UpdateInterval()
+    {
+        super.UpdateInterval();
+
+        if (m_TransferZHeaderControls)
+            m_TransferZHeaderControls.UpdateControls();
+    }
+}
+
+modded class CargoContainer
+{
+    protected ref TransferZHeaderControls m_TransferZAttachmentHeaderControls;
+
+    void CargoContainer(LayoutHolder parent, bool is_attachment = false)
+    {
+        if (m_IsAttachment && m_CargoHeader)
+        {
+            Widget attachmentHeader = m_CargoHeader.FindAnyWidget("grid_container_header");
+            if (attachmentHeader)
+                m_TransferZAttachmentHeaderControls = new TransferZHeaderControls(attachmentHeader);
+        }
+    }
+
+    override void SetEntity(EntityAI item, int cargo_index = 0, bool immedUpdate = true)
+    {
+        super.SetEntity(item, cargo_index, immedUpdate);
+
+        if (m_TransferZAttachmentHeaderControls)
+            m_TransferZAttachmentHeaderControls.SetEntity(item);
+    }
+
+    override void UpdateInterval()
+    {
+        super.UpdateInterval();
+
+        if (m_TransferZAttachmentHeaderControls)
+            m_TransferZAttachmentHeaderControls.UpdateControls();
     }
 }
