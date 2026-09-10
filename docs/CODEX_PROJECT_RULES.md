@@ -8,19 +8,38 @@ TransferZ makes inventory routing explicit and deterministic.
 
 A cargo-bearing entity may be selected as the active destination. Exact-destination operations target that entity's own cargo only. They must not silently fall back to arbitrary inventory space.
 
+The selected destination is transient. Clear it when the entity no longer exists, no longer has cargo, moves into another player's inventory, or is no longer within normal inventory-manipulation reach.
+
 ### Transfer
 
 Transfer snapshots the source container's direct cargo children and attempts to move them in source order. Cargo-bearing child containers move intact when DayZ permits the move. Failed items remain in place.
 
+The `T` control may also be dragged from a source onto another cargo header to perform a one-off direct transfer to that destination without changing the selected `D` destination. Preserve normal mouse-wheel inventory scrolling while an operation control is being dragged.
+
 ### Unpack
 
-Unpack recursively traverses cargo. Cargo-bearing nodes remain where they are; non-container leaf items are collected and moved to the destination. Loose direct items therefore move as well. Attachments are outside the initial traversal scope.
+Unpack traverses cargo. Cargo-bearing nodes remain where they are; non-container leaf items are collected and moved to the destination. Loose direct items therefore move as well. Attachments are outside the initial traversal scope.
 
 A destination nested inside the source is rejected. Moving contents from a nested source upward to an ancestor destination is allowed.
 
+The `U` control may also be dragged from a source onto another cargo header to perform a one-off direct unpack without changing the selected `D` destination.
+
+### Vicinity batch actions
+
+The `VICINITY` header exposes `T` and `U` controls.
+
+- Vicinity `T` moves currently shown loose, takeable vicinity items except cargo-bearing containers into the destination.
+- Vicinity `U` unpacks currently shown vicinity cargo-bearing containers into the destination while leaving the containers themselves in place.
+- If the destination is itself in vicinity, skip it as a source and allow it to receive the other items.
+- Vicinity `T` and `U` may also be dragged onto a cargo header for a one-off direct batch action.
+
 ### Links
 
-Links are temporary client-session state. Pairing A and B gives deterministic A-to-B and B-to-A double-click routing for cargo icons. When no TransferZ route exists, vanilla double-click behavior must remain unchanged.
+Links are temporary client-session state. Pairing A and B gives deterministic A-to-B and B-to-A double-click routing for cargo icons. TransferZ keeps one active pair at a time.
+
+Clicking `L` on either participant removes the pair. Clicking `L` on a different container while a pair exists removes the old pair and makes the clicked container the new pending anchor. A pending anchor is cancelled by clicking `L` on it again.
+
+Clear a pending anchor or active pair when a participant no longer exists, no longer has cargo, moves into another player's inventory, or is no longer within normal inventory-manipulation reach. When no TransferZ route exists, vanilla double-click behavior must remain unchanged.
 
 ### Preferred personal destination
 
@@ -43,10 +62,12 @@ Do not delete and recreate items to simulate transfer.
 Cargo headers use compact controls:
 
 - `D` selects the destination.
-- `T` transfers direct contents.
-- `U` recursively unpacks leaf items.
-- `L` starts, completes, or removes a temporary link.
+- `T` transfers direct contents and is also a draggable direct-transfer handle.
+- `U` unpacks nested leaf items and is also a draggable direct-unpack handle.
+- `L` starts, completes, or removes the single temporary link pair.
 - `P` stores the attached cargo container's attachment-slot path as the preferred personal target.
+
+Hover tooltips must stay compact, use a dark semi-transparent background, remain close to the hovered control, and describe the currently relevant action or destination.
 
 The controls extend the vanilla inventory rather than replacing it.
 
