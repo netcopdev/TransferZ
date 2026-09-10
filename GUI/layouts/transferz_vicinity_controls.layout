@@ -1,0 +1,43 @@
+PanelWidgetClass TransferZVicinityControls {
+ ignorepointer 1
+ position 48 0
+ size 40 29
+ halign right_ref
+ valign center_ref
+ hexactpos 1
+ vexactpos 1
+ hexactsize 1
+ vexactsize 1
+ priority 600
+ style blank
+ {
+  ButtonWidgetClass TransferZ_VicinityTransfer {
+   ignorepointer 0
+   position 0 3
+   size 19 23
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 601
+   style Empty
+   text "T"
+   text_proportion 0.65
+   font "gui/fonts/sdf_MetronBook24"
+  }
+  ButtonWidgetClass TransferZ_VicinityUnpack {
+   ignorepointer 0
+   position 21 3
+   size 19 23
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 601
+   style Empty
+   text "U"
+   text_proportion 0.65
+   font "gui/fonts/sdf_MetronBook24"
+  }
+ }
+}
