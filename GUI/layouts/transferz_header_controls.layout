@@ -1,0 +1,85 @@
+PanelWidgetClass TransferZHeaderControls {
+ ignorepointer 1
+ position 75 0
+ size 123 29
+ halign right_ref
+ valign center_ref
+ hexactpos 1
+ vexactpos 1
+ hexactsize 1
+ vexactsize 1
+ priority 600
+ style blank
+ {
+  ButtonWidgetClass TransferZ_Destination {
+   ignorepointer 0
+   position 0 3
+   size 23 23
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 601
+   style EmptyHighlight
+   text "D"
+   text_proportion 0.65
+   font "gui/fonts/sdf_MetronBook24"
+  }
+  ButtonWidgetClass TransferZ_Transfer {
+   ignorepointer 0
+   position 25 3
+   size 23 23
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 601
+   style EmptyHighlight
+   text "T"
+   text_proportion 0.65
+   font "gui/fonts/sdf_MetronBook24"
+  }
+  ButtonWidgetClass TransferZ_Unpack {
+   ignorepointer 0
+   position 50 3
+   size 23 23
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 601
+   style EmptyHighlight
+   text "U"
+   text_proportion 0.65
+   font "gui/fonts/sdf_MetronBook24"
+  }
+  ButtonWidgetClass TransferZ_Link {
+   ignorepointer 0
+   position 75 3
+   size 23 23
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 601
+   style EmptyHighlight
+   text "L"
+   text_proportion 0.65
+   font "gui/fonts/sdf_MetronBook24"
+  }
+  ButtonWidgetClass TransferZ_Preferred {
+   ignorepointer 0
+   position 100 3
+   size 23 23
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 601
+   style EmptyHighlight
+   text "P"
+   text_proportion 0.65
+   font "gui/fonts/sdf_MetronBook24"
+  }
+ }
+}
