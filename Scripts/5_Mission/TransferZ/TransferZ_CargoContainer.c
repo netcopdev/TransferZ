@@ -2,6 +2,11 @@ class TransferZHeaderControls
 {
     protected EntityAI m_Entity;
     protected Widget m_Root;
+    protected Widget m_HeaderLabel;
+    protected float m_HeaderLabelX;
+    protected float m_HeaderLabelY;
+    protected float m_HeaderLabelW;
+    protected float m_HeaderLabelH;
     protected ButtonWidget m_DestinationButton;
     protected ButtonWidget m_TransferButton;
     protected ButtonWidget m_UnpackButton;
@@ -12,6 +17,13 @@ class TransferZHeaderControls
     {
         if (!parent)
             return;
+
+        m_HeaderLabel = parent.FindAnyWidget("TextWidget0");
+        if (m_HeaderLabel)
+        {
+            m_HeaderLabel.GetPos(m_HeaderLabelX, m_HeaderLabelY);
+            m_HeaderLabel.GetSize(m_HeaderLabelW, m_HeaderLabelH);
+        }
 
         m_Root = GetGame().GetWorkspace().CreateWidgets("TransferZ/GUI/layouts/transferz_header_controls.layout", parent);
         if (!m_Root)
@@ -33,7 +45,36 @@ class TransferZHeaderControls
         WidgetEventHandler.GetInstance().RegisterOnClick(m_PreferredButton, this, "OnPreferred");
 
         m_Root.Show(false);
-        Print("[TransferZ] Header controls attached to " + parent.GetName());
+    }
+
+    protected void RestoreHeaderText()
+    {
+        if (!m_HeaderLabel)
+            return;
+
+        m_HeaderLabel.SetPos(m_HeaderLabelX, m_HeaderLabelY, false);
+        m_HeaderLabel.SetSize(m_HeaderLabelW, m_HeaderLabelH, true);
+    }
+
+    protected void ReserveHeaderText(bool preferredVisible)
+    {
+        if (!m_HeaderLabel)
+            return;
+
+        float targetWidth = m_HeaderLabelW - 0.17;
+        float shift = 38.0;
+
+        if (preferredVisible)
+        {
+            targetWidth = m_HeaderLabelW - 0.22;
+            shift = 48.0;
+        }
+
+        if (targetWidth < 0.55)
+            targetWidth = 0.55;
+
+        m_HeaderLabel.SetPos(m_HeaderLabelX - shift, m_HeaderLabelY, false);
+        m_HeaderLabel.SetSize(targetWidth, m_HeaderLabelH, true);
     }
 
     void SetEntity(EntityAI entity)
@@ -45,8 +86,11 @@ class TransferZHeaderControls
 
         bool show = m_Entity && m_Entity.GetInventory().GetCargo();
         m_Root.Show(show);
+
         if (show)
             UpdateControls();
+        else
+            RestoreHeaderText();
     }
 
     protected bool CanBePreferred()
@@ -102,15 +146,22 @@ class TransferZHeaderControls
                 m_LinkButton.SetText("L");
         }
 
+        bool canPrefer = CanBePreferred();
         if (m_PreferredButton)
         {
-            bool canPrefer = CanBePreferred();
             m_PreferredButton.Show(canPrefer);
             if (canPrefer && state.IsPreferred(m_Entity))
                 m_PreferredButton.SetText("P*");
             else
                 m_PreferredButton.SetText("P");
         }
+
+        if (canPrefer)
+            m_Root.SetSize(103, 29, true);
+        else
+            m_Root.SetSize(82, 29, true);
+
+        ReserveHeaderText(canPrefer);
     }
 
     void OnDestination(Widget w, int x, int y, int button)
@@ -183,6 +234,31 @@ modded class ClosableHeader
 
         if (m_TransferZHeaderControls)
             m_TransferZHeaderControls.UpdateControls();
+    }
+}
+
+modded class HandsHeader
+{
+    void HandsHeader(LayoutHolder parent, string function_name)
+    {
+        m_TransferZHeaderControls = new TransferZHeaderControls(m_ItemHeader);
+    }
+
+    override void UpdateInterval()
+    {
+        super.UpdateInterval();
+
+        if (!m_TransferZHeaderControls)
+            return;
+
+        PlayerBase player = PlayerBase.Cast(g_Game.GetPlayer());
+        if (!player)
+        {
+            m_TransferZHeaderControls.SetEntity(null);
+            return;
+        }
+
+        m_TransferZHeaderControls.SetEntity(player.GetEntityInHands());
     }
 }
 
