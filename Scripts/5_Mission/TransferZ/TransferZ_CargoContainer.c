@@ -1,5 +1,7 @@
 class TransferZHeaderControls
 {
+    protected static ref array<TransferZHeaderControls> s_Instances;
+
     protected EntityAI m_Entity;
     protected Widget m_Root;
     protected Widget m_HeaderLabel;
@@ -20,6 +22,10 @@ class TransferZHeaderControls
         if (!parent)
             return;
 
+        if (!s_Instances)
+            s_Instances = new array<TransferZHeaderControls>();
+        s_Instances.Insert(this);
+
         m_HeaderLabel = parent.FindAnyWidget("TextWidget0");
         if (m_HeaderLabel)
         {
@@ -34,10 +40,11 @@ class TransferZHeaderControls
             return;
         }
 
-        m_TooltipRoot = GetGame().GetWorkspace().CreateWidgets("TransferZ/GUI/layouts/transferz_header_tooltip.layout", parent);
+        m_TooltipRoot = GetGame().GetWorkspace().CreateWidgets("TransferZ/GUI/layouts/transferz_header_tooltip.layout");
         if (m_TooltipRoot)
         {
             m_TooltipText = TextWidget.Cast(m_TooltipRoot.FindAnyWidget("TransferZ_TooltipText"));
+            m_TooltipRoot.SetSort(10000);
             m_TooltipRoot.Show(false);
         }
 
@@ -54,6 +61,40 @@ class TransferZHeaderControls
         RegisterButton(m_PreferredButton, "OnPreferred");
 
         m_Root.Show(false);
+    }
+
+    void ~TransferZHeaderControls()
+    {
+        if (s_Instances)
+        {
+            int index = s_Instances.Find(this);
+            if (index >= 0)
+                s_Instances.Remove(index);
+        }
+
+        if (m_TooltipRoot)
+        {
+            m_TooltipRoot.Unlink();
+            m_TooltipRoot = null;
+        }
+    }
+
+    static void RefreshAll()
+    {
+        if (!s_Instances)
+            return;
+
+        for (int i = s_Instances.Count() - 1; i >= 0; i--)
+        {
+            TransferZHeaderControls controls = s_Instances.Get(i);
+            if (!controls)
+            {
+                s_Instances.Remove(i);
+                continue;
+            }
+
+            controls.UpdateControls();
+        }
     }
 
     protected void RegisterButton(ButtonWidget button, string clickFunction)
@@ -204,6 +245,32 @@ class TransferZHeaderControls
         return "";
     }
 
+    protected void PositionTooltip(Widget source)
+    {
+        if (!m_TooltipRoot || !source)
+            return;
+
+        float sourceX;
+        float sourceY;
+        float sourceW;
+        float sourceH;
+        source.GetScreenPos(sourceX, sourceY);
+        source.GetScreenSize(sourceW, sourceH);
+
+        float tooltipW = 340.0;
+        float tooltipH = 32.0;
+        float tooltipX = sourceX + sourceW - tooltipW;
+        float tooltipY = sourceY - tooltipH - 4.0;
+
+        if (tooltipX < 4.0)
+            tooltipX = 4.0;
+        if (tooltipY < 4.0)
+            tooltipY = sourceY + sourceH + 4.0;
+
+        m_TooltipRoot.SetScreenSize(tooltipW, tooltipH, false);
+        m_TooltipRoot.SetScreenPos(tooltipX, tooltipY, false);
+    }
+
     protected void ShowTooltip(Widget source)
     {
         if (!m_TooltipRoot || !m_TooltipText)
@@ -221,6 +288,7 @@ class TransferZHeaderControls
             itemManager.HideTooltip();
 
         m_TooltipText.SetText(text);
+        PositionTooltip(source);
         m_TooltipRoot.Show(true);
     }
 
@@ -291,7 +359,7 @@ class TransferZHeaderControls
             return;
 
         TransferZClientState.Get().SetDestination(m_Entity);
-        UpdateControls();
+        RefreshAll();
         ShowTooltip(w);
     }
 
@@ -319,7 +387,7 @@ class TransferZHeaderControls
             return;
 
         TransferZClientState.Get().ToggleLink(m_Entity);
-        UpdateControls();
+        RefreshAll();
         ShowTooltip(w);
     }
 
@@ -329,7 +397,7 @@ class TransferZHeaderControls
             return;
 
         TransferZClientState.Get().SetPreferred(m_Entity);
-        UpdateControls();
+        RefreshAll();
         ShowTooltip(w);
     }
 }
