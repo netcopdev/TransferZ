@@ -202,7 +202,10 @@ class TransferZServerService
             return false;
 
         bool moved = TryMoveToExactCargo(player, item, destination);
-        Print("[TransferZ] MoveItem result item=" + item.GetType() + " destination=" + destination.GetType() + " moved=" + moved.ToString());
+        string movedText = "false";
+        if (moved)
+            movedText = "true";
+        Print("[TransferZ] MoveItem result item=" + item.GetType() + " destination=" + destination.GetType() + " moved=" + movedText);
         return moved;
     }
 
