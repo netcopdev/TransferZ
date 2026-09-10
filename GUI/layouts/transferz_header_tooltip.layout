@@ -3,22 +3,20 @@ PanelWidgetClass TransferZHeaderTooltip {
  clipchildren 0
  ignorepointer 1
  color 0 0 0 0.88
- position 152 0
- size 300 29
- halign right_ref
- valign center_ref
+ position 0 0
+ size 340 32
  hexactpos 1
  vexactpos 1
  hexactsize 1
  vexactsize 1
- priority 620
+ priority 10000
  style blank
  {
   TextWidgetClass TransferZ_TooltipText {
    ignorepointer 1
    color 0.92 0.92 0.92 1
    position 8 0
-   size 284 29
+   size 324 32
    hexactpos 1
    vexactpos 1
    hexactsize 1
@@ -30,7 +28,7 @@ PanelWidgetClass TransferZHeaderTooltip {
    "exact text size" 15
    "size to text h" 0
    "size to text v" 0
-   "text halign" right
+   "text halign" left
    "text valign" center
   }
  }
