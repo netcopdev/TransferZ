@@ -15,7 +15,11 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 function Resolve-RequiredFile {
-    param([string]$ExplicitPath, [string[]]$Candidates, [string]$Description)
+    param(
+        [string]$ExplicitPath,
+        [string[]]$Candidates,
+        [string]$Description
+    )
 
     if ($ExplicitPath) {
         if (-not (Test-Path -LiteralPath $ExplicitPath -PathType Leaf)) {
@@ -34,7 +38,10 @@ function Resolve-RequiredFile {
 }
 
 function Get-ConfigString {
-    param([hashtable]$Config, [string]$Name)
+    param(
+        [hashtable]$Config,
+        [string]$Name
+    )
 
     if ($Config.ContainsKey($Name) -and $null -ne $Config[$Name]) {
         $value = [string]$Config[$Name]
@@ -42,23 +49,34 @@ function Get-ConfigString {
             return $value
         }
     }
+
     return $null
 }
 
 function Assert-PboContents {
-    param([Parameter(Mandatory = $true)][string]$PboPath, [Parameter(Mandatory = $true)][string]$BankRevPath)
+    param(
+        [Parameter(Mandatory = $true)][string]$PboPath,
+        [Parameter(Mandatory = $true)][string]$BankRevPath
+    )
 
     $listing = @(& $BankRevPath -l $PboPath)
     if ($LASTEXITCODE -ne 0) {
         throw "BankRev failed while auditing '$PboPath' with exit code $LASTEXITCODE."
     }
 
-    $forbiddenExtensions = @('.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tga', '.py', '.pyc', '.ps1', '.psm1', '.md', '.ttf', '.otf', '.zip', '.7z')
+    $forbiddenExtensions = @(
+        '.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tga',
+        '.py', '.pyc', '.pyo', '.ps1', '.psm1', '.psd', '.xcf', '.svg',
+        '.md', '.ttf', '.otf', '.zip', '.7z'
+    )
+
     $forbidden = @($listing | Where-Object {
         $line = $_.Trim()
         if (-not $line) { return $false }
-        return $forbiddenExtensions -contains [System.IO.Path]::GetExtension($line).ToLowerInvariant()
+        $extension = [System.IO.Path]::GetExtension($line).ToLowerInvariant()
+        return $forbiddenExtensions -contains $extension
     })
+
     if ($forbidden.Count -gt 0) {
         throw "Release PBO contains development assets:`n  $($forbidden -join "`n  ")"
     }
@@ -86,7 +104,11 @@ $buildConfigPath = [System.IO.Path]::GetFullPath($buildConfigPath)
 
 $localConfig = @{}
 if (Test-Path -LiteralPath $buildConfigPath -PathType Leaf) {
-    $localConfig = Import-PowerShellDataFile -LiteralPath $buildConfigPath
+    $loadedConfig = Import-PowerShellDataFile -LiteralPath $buildConfigPath
+    if ($null -eq $loadedConfig) {
+        throw "TransferZ build config '$buildConfigPath' did not contain a PowerShell data table."
+    }
+    $localConfig = $loadedConfig
 }
 
 if (-not $PrivateKey) { $PrivateKey = Get-ConfigString $localConfig 'PrivateKey' }
@@ -99,7 +121,13 @@ if (-not $PrivateKey -or -not $PublicKey) {
     throw "TransferZ signing paths are not configured. Create '$buildConfigPath' from tools\build-config.example.psd1, or pass -PrivateKey and -PublicKey explicitly."
 }
 
-$steamRoots = @("C:\Program Files (x86)\Steam\steamapps\common", "C:\Program Files\Steam\steamapps\common", "D:\SteamLibrary\steamapps\common", "E:\SteamLibrary\steamapps\common")
+$steamRoots = @(
+    "C:\Program Files (x86)\Steam\steamapps\common",
+    "C:\Program Files\Steam\steamapps\common",
+    "D:\SteamLibrary\steamapps\common",
+    "E:\SteamLibrary\steamapps\common"
+)
+
 $addonBuilderCandidates = $steamRoots | ForEach-Object { Join-Path $_ "DayZ Tools\Bin\AddonBuilder\AddonBuilder.exe" }
 $dsSignCandidates = $steamRoots | ForEach-Object { Join-Path $_ "DayZ Tools\Bin\DsUtils\DSSignFile.exe" }
 $bankRevCandidates = $steamRoots | ForEach-Object { Join-Path $_ "DayZ Tools\Bin\PboUtils\BankRev.exe" }
@@ -110,10 +138,21 @@ $bankRevExe = Resolve-RequiredFile $BankRev $bankRevCandidates "BankRev.exe"
 $privateKeyPath = Resolve-RequiredFile $PrivateKey @() "TransferZ private signing key"
 $publicKeyPath = Resolve-RequiredFile $PublicKey @() "TransferZ public signing key"
 
+$pboBuildScript = Join-Path $PSScriptRoot "build-pbo.ps1"
+if (-not (Test-Path -LiteralPath $pboBuildScript -PathType Leaf)) {
+    throw "PBO build helper was not found at '$pboBuildScript'."
+}
+
 New-Item -ItemType Directory -Force -Path $outputDirFull | Out-Null
 New-Item -ItemType Directory -Force -Path $releaseRootFull | Out-Null
 
-$pboBuildScript = Join-Path $PSScriptRoot "build-pbo.ps1"
+Write-Host "TransferZ release build"
+Write-Host "  Project      : $projectRootFull"
+Write-Host "  Build config : $buildConfigPath"
+Write-Host "  Output       : $outputDirFull"
+Write-Host "  Release      : $releaseRootFull"
+Write-Host ""
+
 & $pboBuildScript -AddonBuilder $addonBuilderExe -ProjectRoot $projectRootFull -OutputDir $outputDirFull
 if (-not $?) {
     throw "TransferZ PBO build failed."
@@ -125,14 +164,21 @@ if (-not (Test-Path -LiteralPath $pboPath -PathType Leaf)) {
 }
 
 Assert-PboContents -PboPath $pboPath -BankRevPath $bankRevExe
+$pboInfo = Get-Item -LiteralPath $pboPath
+Write-Host ("PBO size       : {0:N2} MB" -f ($pboInfo.Length / 1MB))
+
 Get-ChildItem -LiteralPath $outputDirFull -Filter "TransferZ.pbo*.bisign" -File -ErrorAction SilentlyContinue | Remove-Item -Force
 
+Write-Host ""
+Write-Host "Signing $pboPath ..."
 & $dsSignFileExe $privateKeyPath $pboPath
 if ($LASTEXITCODE -ne 0) {
     throw "DSSignFile failed with exit code $LASTEXITCODE."
 }
 
-$signature = Get-ChildItem -LiteralPath $outputDirFull -Filter "TransferZ.pbo*.bisign" -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+$signature = Get-ChildItem -LiteralPath $outputDirFull -Filter "TransferZ.pbo*.bisign" -File -ErrorAction SilentlyContinue |
+    Sort-Object LastWriteTimeUtc -Descending |
+    Select-Object -First 1
 if (-not $signature) {
     throw "DSSignFile returned success but no TransferZ .bisign file was created."
 }
@@ -140,6 +186,7 @@ if (-not $signature) {
 $releaseModRoot = Join-Path $releaseRootFull "@TransferZ"
 $releaseAddons = Join-Path $releaseModRoot "addons"
 $releaseKeys = Join-Path $releaseModRoot "keys"
+
 if (Test-Path -LiteralPath $releaseModRoot) {
     Remove-Item -LiteralPath $releaseModRoot -Recurse -Force
 }
@@ -155,9 +202,28 @@ if (Test-Path -LiteralPath $modCpp -PathType Leaf) {
     Copy-Item -LiteralPath $modCpp -Destination (Join-Path $releaseModRoot 'mod.cpp') -Force
 }
 
+$releasePbo = Join-Path $releaseAddons "TransferZ.pbo"
+$releaseBisign = Join-Path $releaseAddons $signature.Name
+$releaseBikey = Join-Path $releaseKeys ([System.IO.Path]::GetFileName($publicKeyPath))
+if (-not (Test-Path -LiteralPath $releasePbo -PathType Leaf) -or -not (Test-Path -LiteralPath $releaseBisign -PathType Leaf) -or -not (Test-Path -LiteralPath $releaseBikey -PathType Leaf)) {
+    throw "Release package verification failed."
+}
+
+$releaseFiles = Get-ChildItem -LiteralPath $releaseModRoot -Recurse -File
+$releaseBytes = ($releaseFiles | Measure-Object Length -Sum).Sum
+
 Write-Host ""
 Write-Host "Release package ready:"
 Write-Host "  $releaseModRoot"
+Write-Host ("  Total size   : {0:N2} MB" -f ($releaseBytes / 1MB))
+Write-Host ""
+Write-Host "Contents:"
+Write-Host "  addons\TransferZ.pbo"
+Write-Host "  addons\$($signature.Name)"
+Write-Host "  keys\$([System.IO.Path]::GetFileName($publicKeyPath))"
+if (Test-Path -LiteralPath (Join-Path $releaseModRoot 'mod.cpp') -PathType Leaf) {
+    Write-Host "  mod.cpp"
+}
 Write-Host ""
 Write-Host "Deploy @TransferZ to both server and client."
 Write-Host "The server must also have the public .bikey in its root keys directory."

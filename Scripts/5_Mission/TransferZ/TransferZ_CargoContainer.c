@@ -28,6 +28,12 @@ modded class CargoContainer
         return button;
     }
 
+    protected void TransferZ_RegisterButton(ButtonWidget button, string functionName)
+    {
+        if (button)
+            WidgetEventHandler.GetInstance().RegisterOnClick(button, this, functionName);
+    }
+
     protected void TransferZ_InitControls()
     {
         if (m_TransferZDestinationButton)
@@ -51,11 +57,11 @@ modded class CargoContainer
         m_TransferZLinkButton = TransferZ_CreateButton(headerWidget, "TransferZ_Link", "L", 0.850);
         m_TransferZPreferredButton = TransferZ_CreateButton(headerWidget, "TransferZ_Preferred", "P", 0.925);
 
-        WidgetEventHandler.GetInstance().RegisterOnClick(m_TransferZDestinationButton, this, "TransferZ_OnDestination");
-        WidgetEventHandler.GetInstance().RegisterOnClick(m_TransferZTransferButton, this, "TransferZ_OnTransfer");
-        WidgetEventHandler.GetInstance().RegisterOnClick(m_TransferZUnpackButton, this, "TransferZ_OnUnpack");
-        WidgetEventHandler.GetInstance().RegisterOnClick(m_TransferZLinkButton, this, "TransferZ_OnLink");
-        WidgetEventHandler.GetInstance().RegisterOnClick(m_TransferZPreferredButton, this, "TransferZ_OnPreferred");
+        TransferZ_RegisterButton(m_TransferZDestinationButton, "TransferZ_OnDestination");
+        TransferZ_RegisterButton(m_TransferZTransferButton, "TransferZ_OnTransfer");
+        TransferZ_RegisterButton(m_TransferZUnpackButton, "TransferZ_OnUnpack");
+        TransferZ_RegisterButton(m_TransferZLinkButton, "TransferZ_OnLink");
+        TransferZ_RegisterButton(m_TransferZPreferredButton, "TransferZ_OnPreferred");
     }
 
     protected bool TransferZ_CanBePreferred()
@@ -77,24 +83,31 @@ modded class CargoContainer
             return;
 
         TransferZClientState state = TransferZClientState.Get();
+
         if (state.IsDestination(m_Entity))
             m_TransferZDestinationButton.SetText("D*");
         else
             m_TransferZDestinationButton.SetText("D");
 
-        if (state.IsLinked(m_Entity))
-            m_TransferZLinkButton.SetText("L*");
-        else if (state.IsLinkAnchor(m_Entity))
-            m_TransferZLinkButton.SetText("L+");
-        else
-            m_TransferZLinkButton.SetText("L");
+        if (m_TransferZLinkButton)
+        {
+            if (state.IsLinked(m_Entity))
+                m_TransferZLinkButton.SetText("L*");
+            else if (state.IsLinkAnchor(m_Entity))
+                m_TransferZLinkButton.SetText("L+");
+            else
+                m_TransferZLinkButton.SetText("L");
+        }
 
-        bool canPrefer = TransferZ_CanBePreferred();
-        m_TransferZPreferredButton.Show(canPrefer);
-        if (canPrefer && state.IsPreferred(m_Entity))
-            m_TransferZPreferredButton.SetText("P*");
-        else
-            m_TransferZPreferredButton.SetText("P");
+        if (m_TransferZPreferredButton)
+        {
+            bool canPrefer = TransferZ_CanBePreferred();
+            m_TransferZPreferredButton.Show(canPrefer);
+            if (canPrefer && state.IsPreferred(m_Entity))
+                m_TransferZPreferredButton.SetText("P*");
+            else
+                m_TransferZPreferredButton.SetText("P");
+        }
     }
 
     void TransferZ_OnDestination(Widget w, int x, int y, int button)

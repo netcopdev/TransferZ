@@ -1,7 +1,5 @@
 class TransferZServerService
 {
-    static const float MAX_WORLD_DISTANCE_SQ = 4.0;
-
     static EntityAI ResolveEntity(int low, int high)
     {
         Object obj = GetGame().GetObjectByNetworkId(low, high);
@@ -38,7 +36,7 @@ class TransferZServerService
         if (root.IsMan())
             return false;
 
-        return vector.DistanceSq(player.GetPosition(), root.GetPosition()) <= MAX_WORLD_DISTANCE_SQ;
+        return GameInventory.CheckManipulatedObjectsDistances(entity, player, GameInventory.c_MaxItemDistanceRadius);
     }
 
     static bool TryMoveToExactCargo(PlayerBase player, EntityAI item, EntityAI destination)
@@ -72,6 +70,9 @@ class TransferZServerService
             return false;
 
         if (!dst.IsValid() || dst.GetType() != InventoryLocationType.CARGO || dst.GetParent() != destination)
+            return false;
+
+        if (!GameInventory.CheckMoveToDstRequest(player, src, dst, GameInventory.c_MaxItemDistanceRadius))
             return false;
 
         if (!GameInventory.LocationCanMoveEntity(src, dst))
