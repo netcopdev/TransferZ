@@ -13,12 +13,19 @@ class TransferZClientState
 {
     static const string PROFILE_DIR = "$profile:TransferZ";
     static const string PREFERENCES_PATH = "$profile:TransferZ/preferences.json";
+    static const int REQUEST_DEBOUNCE_MS = 150;
 
     protected static ref TransferZClientState s_Instance;
     protected EntityAI m_Destination;
     protected EntityAI m_LinkAnchor;
     protected ref map<EntityAI, EntityAI> m_Links;
     protected ref TransferZPreferences m_Preferences;
+
+    protected int m_LastRequestTime = -1000;
+    protected int m_LastRequestOperation = -1;
+    protected EntityAI m_LastRequestSource;
+    protected EntityAI m_LastRequestDestination;
+    protected EntityAI m_LastRequestItem;
 
     static TransferZClientState Get()
     {
@@ -232,6 +239,21 @@ class TransferZClientState
         return entity && GetPreferredDestination() == entity;
     }
 
+    protected bool IsDuplicateRequest(int operation, EntityAI source, EntityAI destination, EntityAI item)
+    {
+        int now = GetGame().GetTime();
+        bool sameRequest = operation == m_LastRequestOperation && source == m_LastRequestSource && destination == m_LastRequestDestination && item == m_LastRequestItem;
+        if (sameRequest && now - m_LastRequestTime >= 0 && now - m_LastRequestTime < REQUEST_DEBOUNCE_MS)
+            return true;
+
+        m_LastRequestTime = now;
+        m_LastRequestOperation = operation;
+        m_LastRequestSource = source;
+        m_LastRequestDestination = destination;
+        m_LastRequestItem = item;
+        return false;
+    }
+
     protected void ExecuteOfflineRequest(int operation, PlayerBase player, EntityAI source, EntityAI destination, EntityAI item)
     {
         if (operation == TransferZOperation.TRANSFER)
@@ -240,12 +262,17 @@ class TransferZClientState
             TransferZServerService.Unpack(player, source, destination);
         else if (operation == TransferZOperation.MOVE_ITEM)
             TransferZServerService.MoveItem(player, item, destination);
+
+        player.UpdateInventoryMenu();
     }
 
     protected void SendRequest(int operation, EntityAI source, EntityAI destination, EntityAI item)
     {
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
         if (!player || !destination)
+            return;
+
+        if (IsDuplicateRequest(operation, source, destination, item))
             return;
 
         if (!GetGame().IsMultiplayer())
