@@ -359,23 +359,46 @@ class TransferZClientState
         return true;
     }
 
+    protected bool IsLooseVicinityTransferCandidate(EntityAI item, EntityAI destination)
+    {
+        if (!item || item == destination)
+            return false;
+        if (item.GetInventory().GetCargo())
+            return false;
+
+        ItemBase itemBase = ItemBase.Cast(item);
+        return itemBase && itemBase.IsTakeable() && item.GetInventory().CanRemoveEntity();
+    }
+
     bool RequestVicinityTransferTo(notnull array<EntityAI> items, EntityAI destination)
     {
         if (!IsParticipantAvailable(destination))
             return false;
 
         bool requested = false;
+        PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
+        if (!player)
+            return false;
+
+        if (!GetGame().IsMultiplayer())
+        {
+            foreach (EntityAI offlineItem : items)
+            {
+                if (!IsLooseVicinityTransferCandidate(offlineItem, destination))
+                    continue;
+                if (TransferZServerService.MoveItem(player, offlineItem, destination))
+                    requested = true;
+            }
+
+            if (requested)
+                player.UpdateInventoryMenu();
+            return requested;
+        }
+
         foreach (EntityAI item : items)
         {
-            if (!item || item == destination)
+            if (!IsLooseVicinityTransferCandidate(item, destination))
                 continue;
-            if (item.GetInventory().GetCargo())
-                continue;
-
-            ItemBase itemBase = ItemBase.Cast(item);
-            if (!itemBase || !itemBase.IsTakeable() || !item.GetInventory().CanRemoveEntity())
-                continue;
-
             if (RequestMoveItem(item, destination))
                 requested = true;
         }
@@ -393,13 +416,29 @@ class TransferZClientState
             return false;
 
         bool requested = false;
+        PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
+        if (!player)
+            return false;
+
+        if (!GetGame().IsMultiplayer())
+        {
+            foreach (EntityAI offlineContainer : items)
+            {
+                if (!offlineContainer || offlineContainer == destination || !offlineContainer.GetInventory().GetCargo())
+                    continue;
+                if (TransferZServerService.Unpack(player, offlineContainer, destination) > 0)
+                    requested = true;
+            }
+
+            if (requested)
+                player.UpdateInventoryMenu();
+            return requested;
+        }
+
         foreach (EntityAI container : items)
         {
-            if (!container || container == destination)
+            if (!container || container == destination || !container.GetInventory().GetCargo())
                 continue;
-            if (!container.GetInventory().GetCargo())
-                continue;
-
             if (RequestUnpackTo(container, destination))
                 requested = true;
         }
