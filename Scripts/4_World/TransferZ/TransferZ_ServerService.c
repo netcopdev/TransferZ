@@ -94,7 +94,11 @@ class TransferZServerService
         if (!GameInventory.LocationCanMoveEntity(src, dst))
             return MoveFailure("native location move validation failed", item, destination);
 
-        if (!player.GetInventory().TakeToDst(InventoryMode.SERVER, src, dst))
+        InventoryMode moveMode = InventoryMode.SERVER;
+        if (!GetGame().IsMultiplayer())
+            moveMode = InventoryMode.LOCAL;
+
+        if (!player.GetInventory().TakeToDst(moveMode, src, dst))
             return MoveFailure("TakeToDst failed", item, destination);
 
         return true;
