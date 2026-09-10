@@ -174,6 +174,37 @@ class TransferZClientState
         return entity && m_LinkAnchor == entity;
     }
 
+    bool ValidateTransientState()
+    {
+        bool changed = false;
+
+        if (m_Destination && !IsParticipantAvailable(m_Destination))
+        {
+            m_Destination = null;
+            changed = true;
+        }
+
+        if (m_LinkAnchor && !IsParticipantAvailable(m_LinkAnchor))
+        {
+            m_LinkAnchor = null;
+            changed = true;
+        }
+
+        if (m_Links && m_Links.Count() > 0)
+        {
+            EntityAI first = m_Links.GetKey(0);
+            EntityAI second = m_Links.GetElement(0);
+            if (!IsParticipantAvailable(first) || !IsParticipantAvailable(second))
+            {
+                ClearAllLinks();
+                m_LinkAnchor = null;
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
     bool SetPreferred(EntityAI container)
     {
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
