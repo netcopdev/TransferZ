@@ -5,6 +5,7 @@ modded class CargoContainer
     protected ButtonWidget m_TransferZUnpackButton;
     protected ButtonWidget m_TransferZLinkButton;
     protected ButtonWidget m_TransferZPreferredButton;
+    protected Widget m_TransferZControlHost;
 
     override void SetEntity(EntityAI item, int cargo_index = 0, bool immedUpdate = true)
     {
@@ -20,18 +21,14 @@ modded class CargoContainer
         if (!m_TransferZDestinationButton)
             TransferZ_InitControls();
 
+        TransferZ_LayoutControls();
         TransferZ_UpdateControls();
     }
 
     protected Widget TransferZ_GetControlHost()
     {
         if (m_IsAttachment && m_CargoHeader)
-        {
-            Widget attachmentHeader = m_CargoHeader.FindAnyWidget("grid_container_header");
-            if (attachmentHeader)
-                return attachmentHeader;
             return m_CargoHeader;
-        }
 
         Container parentContainer = Container.Cast(GetParent());
         if (!parentContainer)
@@ -41,30 +38,21 @@ modded class CargoContainer
         if (!header)
             return null;
 
-        Widget headerWidget = header.GetMainWidget();
-        if (!headerWidget)
-            return null;
-
-        Widget panelWidget = headerWidget.FindAnyWidget("PanelWidget");
-        if (panelWidget)
-            return panelWidget;
-
-        return headerWidget;
+        return header.GetRootWidget();
     }
 
-    protected ButtonWidget TransferZ_CreateButton(Widget parent, string name, string text, float x)
+    protected ButtonWidget TransferZ_CreateButton(Widget parent, string name, string text)
     {
-        Widget raw = GetGame().GetWorkspace().CreateWidget(ButtonWidgetTypeID, 0, 0, 1, 1, WidgetFlags.VISIBLE | WidgetFlags.SOURCEALPHA | WidgetFlags.BLEND, ARGB(220, 35, 35, 35), 1000, parent);
+        int flags = WidgetFlags.VISIBLE | WidgetFlags.EXACTPOS | WidgetFlags.EXACTSIZE | WidgetFlags.SOURCEALPHA | WidgetFlags.BLEND;
+        Widget raw = GetGame().GetWorkspace().CreateWidget(ButtonWidgetTypeID, 0, 0, 24, 20, flags, ARGB(235, 25, 25, 25), 1000, parent);
         ButtonWidget button = ButtonWidget.Cast(raw);
         if (!button)
             return null;
 
         button.SetName(name);
-        button.SetPos(x, 0.08);
-        button.SetSize(0.05, 0.84);
         button.SetText(text);
-        button.SetTextColor(ARGB(255, 230, 230, 230));
-        button.SetTextProportion(0.7);
+        button.SetTextColor(ARGB(255, 235, 235, 235));
+        button.SetTextProportion(0.72);
         return button;
     }
 
@@ -79,21 +67,57 @@ modded class CargoContainer
         if (m_TransferZDestinationButton)
             return;
 
-        Widget headerWidget = TransferZ_GetControlHost();
-        if (!headerWidget)
+        m_TransferZControlHost = TransferZ_GetControlHost();
+        if (!m_TransferZControlHost)
             return;
 
-        m_TransferZDestinationButton = TransferZ_CreateButton(headerWidget, "TransferZ_Destination", "D", 0.650);
-        m_TransferZTransferButton = TransferZ_CreateButton(headerWidget, "TransferZ_Transfer", "T", 0.705);
-        m_TransferZUnpackButton = TransferZ_CreateButton(headerWidget, "TransferZ_Unpack", "U", 0.760);
-        m_TransferZLinkButton = TransferZ_CreateButton(headerWidget, "TransferZ_Link", "L", 0.815);
-        m_TransferZPreferredButton = TransferZ_CreateButton(headerWidget, "TransferZ_Preferred", "P", 0.870);
+        m_TransferZDestinationButton = TransferZ_CreateButton(m_TransferZControlHost, "TransferZ_Destination", "D");
+        m_TransferZTransferButton = TransferZ_CreateButton(m_TransferZControlHost, "TransferZ_Transfer", "T");
+        m_TransferZUnpackButton = TransferZ_CreateButton(m_TransferZControlHost, "TransferZ_Unpack", "U");
+        m_TransferZLinkButton = TransferZ_CreateButton(m_TransferZControlHost, "TransferZ_Link", "L");
+        m_TransferZPreferredButton = TransferZ_CreateButton(m_TransferZControlHost, "TransferZ_Preferred", "P");
 
         TransferZ_RegisterButton(m_TransferZDestinationButton, "TransferZ_OnDestination");
         TransferZ_RegisterButton(m_TransferZTransferButton, "TransferZ_OnTransfer");
         TransferZ_RegisterButton(m_TransferZUnpackButton, "TransferZ_OnUnpack");
         TransferZ_RegisterButton(m_TransferZLinkButton, "TransferZ_OnLink");
         TransferZ_RegisterButton(m_TransferZPreferredButton, "TransferZ_OnPreferred");
+
+        TransferZ_LayoutControls();
+
+        if (m_Entity)
+            Print("[TransferZ] cargo controls attached: " + m_Entity.GetType() + " host=" + m_TransferZControlHost.GetName());
+    }
+
+    protected void TransferZ_LayoutControls()
+    {
+        if (!m_TransferZControlHost || !m_TransferZDestinationButton)
+            return;
+
+        float hostWidth;
+        float hostHeight;
+        m_TransferZControlHost.GetScreenSize(hostWidth, hostHeight);
+        if (hostWidth <= 0 || hostHeight <= 0)
+            return;
+
+        float buttonWidth = 24.0;
+        float buttonHeight = 20.0;
+        float gap = 2.0;
+        float rightMargin = 32.0;
+        float totalWidth = buttonWidth * 5.0 + gap * 4.0;
+        float startX = hostWidth - rightMargin - totalWidth;
+        float y = (hostHeight - buttonHeight) * 0.5;
+
+        if (startX < 0)
+            startX = 0;
+        if (y < 0)
+            y = 0;
+
+        m_TransferZDestinationButton.SetPos(startX, y);
+        m_TransferZTransferButton.SetPos(startX + buttonWidth + gap, y);
+        m_TransferZUnpackButton.SetPos(startX + (buttonWidth + gap) * 2.0, y);
+        m_TransferZLinkButton.SetPos(startX + (buttonWidth + gap) * 3.0, y);
+        m_TransferZPreferredButton.SetPos(startX + (buttonWidth + gap) * 4.0, y);
     }
 
     protected bool TransferZ_CanBePreferred()
