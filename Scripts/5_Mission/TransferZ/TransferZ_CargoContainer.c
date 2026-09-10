@@ -10,6 +10,15 @@ modded class CargoContainer
     protected bool m_TransferZLoggedHostFailure;
     protected bool m_TransferZLoggedLayout;
 
+    void ~CargoContainer()
+    {
+        if (m_TransferZControlsRoot)
+        {
+            m_TransferZControlsRoot.Unlink();
+            m_TransferZControlsRoot = null;
+        }
+    }
+
     override void SetEntity(EntityAI item, int cargo_index = 0, bool immedUpdate = true)
     {
         Print("[TransferZ] CargoContainer.SetEntity ENTER");
@@ -65,10 +74,10 @@ modded class CargoContainer
         return headerWidget;
     }
 
-    protected Widget TransferZ_CreateControlsRoot(Widget parent)
+    protected Widget TransferZ_CreateControlsRoot()
     {
-        int flags = WidgetFlags.VISIBLE | WidgetFlags.EXACTPOS | WidgetFlags.EXACTSIZE;
-        Widget root = GetGame().GetWorkspace().CreateWidget(FrameWidgetTypeID, 0, 0, 132, 22, flags, 0, 1000, parent);
+        int flags = WidgetFlags.VISIBLE | WidgetFlags.EXACTPOS | WidgetFlags.EXACTSIZE | WidgetFlags.RENDER_ALWAYS;
+        Widget root = GetGame().GetWorkspace().CreateWidget(FrameWidgetTypeID, 0, 0, 132, 22, flags, 0, 5000, null);
         if (!root)
             return null;
 
@@ -79,15 +88,15 @@ modded class CargoContainer
 
     protected ButtonWidget TransferZ_CreateButton(Widget parent, string name, string text, float x)
     {
-        int flags = WidgetFlags.VISIBLE | WidgetFlags.EXACTPOS | WidgetFlags.EXACTSIZE | WidgetFlags.SOURCEALPHA | WidgetFlags.BLEND;
-        Widget raw = GetGame().GetWorkspace().CreateWidget(ButtonWidgetTypeID, x, 0, 24, 22, flags, ARGB(220, 35, 35, 35), 1001, parent);
+        int flags = WidgetFlags.VISIBLE | WidgetFlags.EXACTPOS | WidgetFlags.EXACTSIZE | WidgetFlags.SOURCEALPHA | WidgetFlags.BLEND | WidgetFlags.RENDER_ALWAYS;
+        Widget raw = GetGame().GetWorkspace().CreateWidget(ButtonWidgetTypeID, x, 0, 24, 22, flags, ARGB(235, 35, 35, 35), 5001, parent);
         ButtonWidget button = ButtonWidget.Cast(raw);
         if (!button)
             return null;
 
         button.SetName(name);
         button.SetText(text);
-        button.SetTextColor(ARGB(255, 230, 230, 230));
+        button.SetTextColor(ARGB(255, 245, 245, 245));
         button.SetTextProportion(0.7);
         return button;
     }
@@ -115,12 +124,12 @@ modded class CargoContainer
         }
 
         m_TransferZControlHost = headerWidget;
-        Print("[TransferZ] TransferZ_InitControls: host=" + headerWidget.GetName() + " type=" + headerWidget.GetTypeName());
+        Print("[TransferZ] TransferZ_InitControls: screen host=" + headerWidget.GetName() + " type=" + headerWidget.GetTypeName());
 
-        m_TransferZControlsRoot = TransferZ_CreateControlsRoot(headerWidget);
+        m_TransferZControlsRoot = TransferZ_CreateControlsRoot();
         if (!m_TransferZControlsRoot)
         {
-            Print("[TransferZ] TransferZ_InitControls: controls root creation failed");
+            Print("[TransferZ] TransferZ_InitControls: workspace controls root creation failed");
             return;
         }
 
@@ -136,7 +145,7 @@ modded class CargoContainer
         TransferZ_RegisterButton(m_TransferZLinkButton, "TransferZ_OnLink");
         TransferZ_RegisterButton(m_TransferZPreferredButton, "TransferZ_OnPreferred");
 
-        Print("[TransferZ] TransferZ controls created");
+        Print("[TransferZ] TransferZ workspace controls created");
     }
 
     protected void TransferZ_LayoutControls()
@@ -144,12 +153,19 @@ modded class CargoContainer
         if (!m_TransferZControlHost || !m_TransferZControlsRoot || !m_TransferZDestinationButton)
             return;
 
+        bool hostVisible = m_TransferZControlHost.IsVisibleHierarchy();
+        if (!hostVisible)
+        {
+            m_TransferZControlsRoot.Show(false);
+            return;
+        }
+
+        float hostX;
+        float hostY;
         float hostW;
         float hostH;
-        float ignoredX;
-        float ignoredY;
+        m_TransferZControlHost.GetScreenPos(hostX, hostY);
         m_TransferZControlHost.GetScreenSize(hostW, hostH);
-        m_TransferZControlHost.GetScreenPos(ignoredX, ignoredY);
 
         float controlsW = 132.0;
         float controlsH = 22.0;
@@ -161,23 +177,19 @@ modded class CargoContainer
             return;
         }
 
-        float startX = hostW - rightReserve - controlsW;
-        float startY = (hostH - controlsH) * 0.5;
-        if (startX < 0)
-            startX = 0;
-        if (startY < 0)
-            startY = 0;
+        float startX = hostX + hostW - rightReserve - controlsW;
+        float startY = hostY + ((hostH - controlsH) * 0.5);
 
-        m_TransferZControlsRoot.SetPos(startX, startY, false);
-        m_TransferZControlsRoot.SetSize(controlsW, controlsH, true);
+        m_TransferZControlsRoot.SetScreenPos(startX, startY, false);
+        m_TransferZControlsRoot.SetScreenSize(controlsW, controlsH, true);
         m_TransferZControlsRoot.Show(true);
 
         if (!m_TransferZLoggedLayout)
         {
             if (m_Entity)
-                Print("[TransferZ] TransferZ controls laid out for " + m_Entity.GetType());
+                Print("[TransferZ] Workspace controls visible for " + m_Entity.GetType() + " hostPos=" + hostX.ToString() + "," + hostY.ToString() + " hostSize=" + hostW.ToString() + "x" + hostH.ToString());
             else
-                Print("[TransferZ] TransferZ controls laid out");
+                Print("[TransferZ] Workspace controls visible");
             m_TransferZLoggedLayout = true;
         }
     }
