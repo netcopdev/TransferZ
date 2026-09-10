@@ -28,14 +28,19 @@ function Copy-RuntimeTree {
     param(
         [Parameter(Mandatory = $true)][string]$SourceRoot,
         [Parameter(Mandatory = $true)][string]$RelativeDestination,
-        [Parameter(Mandatory = $true)][string]$StageRoot
+        [Parameter(Mandatory = $true)][string]$StageRoot,
+        [Parameter(Mandatory = $true)][string[]]$Extensions
     )
 
     if (-not (Test-Path -LiteralPath $SourceRoot -PathType Container)) {
         throw "Required runtime directory was not found: '$SourceRoot'."
     }
 
-    foreach ($file in Get-ChildItem -LiteralPath $SourceRoot -Recurse -File -Filter '*.c') {
+    foreach ($file in Get-ChildItem -LiteralPath $SourceRoot -Recurse -File) {
+        if ($Extensions -notcontains $file.Extension.ToLowerInvariant()) {
+            continue
+        }
+
         $relative = $file.FullName.Substring($SourceRoot.Length).TrimStart('\', '/')
         Copy-RuntimeFile -Source $file.FullName -RelativeDestination (Join-Path $RelativeDestination $relative) -StageRoot $StageRoot
     }
@@ -71,9 +76,11 @@ New-Item -ItemType Directory -Force -Path $stagedProjectRoot | Out-Null
 
 try {
     Copy-RuntimeFile -Source (Join-Path $projectRootFull 'config.cpp') -RelativeDestination 'config.cpp' -StageRoot $stagedProjectRoot
-    Copy-RuntimeTree -SourceRoot (Join-Path $projectRootFull 'Scripts') -RelativeDestination 'Scripts' -StageRoot $stagedProjectRoot
+    Copy-RuntimeTree -SourceRoot (Join-Path $projectRootFull 'Scripts') -RelativeDestination 'Scripts' -StageRoot $stagedProjectRoot -Extensions @('.c')
+    Copy-RuntimeTree -SourceRoot (Join-Path $projectRootFull 'GUI') -RelativeDestination 'GUI' -StageRoot $stagedProjectRoot -Extensions @('.layout')
 
-    $unexpected = @(Get-ChildItem -LiteralPath $stagedProjectRoot -Recurse -File | Where-Object { @('.cpp', '.c') -notcontains $_.Extension.ToLowerInvariant() })
+    $allowedExtensions = @('.cpp', '.c', '.layout')
+    $unexpected = @(Get-ChildItem -LiteralPath $stagedProjectRoot -Recurse -File | Where-Object { $allowedExtensions -notcontains $_.Extension.ToLowerInvariant() })
     if ($unexpected.Count -gt 0) {
         throw "TransferZ runtime staging contains unexpected development files."
     }
