@@ -6,7 +6,7 @@ TransferZ is a DayZ inventory-routing mod focused on deterministic, low-friction
 
 Current development target: **0.1 prototype** on `feature/core-transfer-routing`.
 
-The first implementation adds exact destination selection, direct bulk transfer, recursive unpacking, temporary container links, linked-container double-click routing, and a persistent preferred personal destination.
+The prototype currently includes exact destination selection, direct bulk transfer, nested-content unpacking, draggable transfer/unpack handles, temporary container links, linked-container double-click routing, a persistent preferred personal destination, and vicinity-wide transfer/unpack actions.
 
 ## Core behavior
 
@@ -15,6 +15,8 @@ The first implementation adds exact destination selection, direct bulk transfer,
 Every supported cargo header gets compact TransferZ controls. Press `D` on a cargo-bearing item or world container to select that exact entity as the active destination.
 
 TransferZ intentionally targets the selected entity's own cargo. It does not fall back to arbitrary player inventory or to cargo nested inside the selected destination.
+
+The active destination is transient. If it stops being an available/reachable cargo participant, TransferZ clears it instead of retaining a stale target.
 
 ### Transfer
 
@@ -35,21 +37,35 @@ Backpack
 
 `Transfer -> Barrel` attempts to move `Ammo Box`, `Medical Pouch`, and `Knife`.
 
+For a one-off direct transfer, drag the source header's `T` handle onto the destination header. This does not replace or change the currently selected `D` destination. Destination headers are the drag drop targets so normal inventory scrolling can remain available while the operation handle is being dragged.
+
 ### Unpack
 
-Press `U` on a source container to recursively collect non-container leaf items and move them into the selected destination.
+Press `U` on a source container to collect non-container leaf items from its cargo tree and move them into the selected destination.
 
 In the example above, `Unpack -> Barrel` attempts to move `ammo`, `bandage`, and `Knife`. The Ammo Box and Medical Pouch remain where they are.
 
 Empty nested containers are not moved automatically. Attachments are not traversed by Unpack in 0.1.
 
+For a one-off direct unpack, drag the source header's `U` handle onto the destination header.
+
+### Vicinity batch actions
+
+The `VICINITY` header exposes `T` and `U` controls.
+
+- `T` moves the currently shown loose, takeable vicinity items that are **not cargo containers** into the selected destination.
+- `U` unpacks the contents of the currently shown vicinity cargo containers into the selected destination while leaving the containers themselves in place.
+- If the selected destination is itself a vicinity container, TransferZ skips it as a source and allows it to receive the other items.
+
+The vicinity `T` and `U` handles can also be dragged directly onto a destination header for a one-off batch operation without changing the selected `D` destination.
+
 ### Link two containers
 
-Press `L` on the first container, then `L` on the second. The pair is held only for the current client session.
+Press `L` on the first container, then `L` on the second. TransferZ keeps a single temporary pair for the current client session.
 
-While linked, double-clicking an item in one container requests an exact move to the other container. Clicking `L` on an already linked container removes that pair. A pending first link click can be cancelled by clicking `L` on the same container again.
+While linked, double-clicking an item in one container requests an exact move to the other container. Clicking `L` on either participant removes that pair. If a pair already exists and `L` is clicked on another container, the old pair is dropped and that container becomes the new pending `L+` anchor. A pending first link click can be cancelled by clicking `L` on the same container again.
 
-If TransferZ has no linked route for a cargo icon, vanilla double-click behavior is left unchanged.
+If either link participant stops being available/reachable, the link is cleared. If TransferZ has no linked route for a cargo icon, vanilla double-click behavior is left unchanged.
 
 ### Preferred personal destination
 
@@ -81,12 +97,12 @@ Older profiles containing only the original single `preferred_slot` value remain
 | Control | Meaning |
 | --- | --- |
 | `D` | Select exact destination |
-| `T` | Transfer direct contents to selected destination |
-| `U` | Recursively unpack leaf items to selected destination |
-| `L` | Start/complete/remove a temporary container link |
+| `T` | Transfer direct contents to selected destination; drag to another header for a direct one-off transfer |
+| `U` | Unpack nested leaf items to selected destination; drag to another header for a direct one-off unpack |
+| `L` | Start/complete/remove the temporary container link |
 | `P` | Set this attached cargo container's slot path as preferred personal destination |
 
-`D*`, `L*`, `L+`, and `P*` indicate state on a header that has refreshed since the corresponding action.
+`D*`, `L*`, `L+`, and `P*` indicate the current state. Hovering a control shows a compact action tooltip.
 
 ## Inventory safety
 
