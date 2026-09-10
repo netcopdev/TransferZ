@@ -20,7 +20,7 @@ PanelWidgetClass TransferZHeaderControls {
    hexactsize 1
    vexactsize 1
    priority 601
-   style EmptyHighlight
+   style Empty
    text "D"
    text_proportion 0.65
    font "gui/fonts/sdf_MetronBook24"
@@ -34,7 +34,7 @@ PanelWidgetClass TransferZHeaderControls {
    hexactsize 1
    vexactsize 1
    priority 601
-   style EmptyHighlight
+   style Empty
    text "T"
    text_proportion 0.65
    font "gui/fonts/sdf_MetronBook24"
@@ -48,7 +48,7 @@ PanelWidgetClass TransferZHeaderControls {
    hexactsize 1
    vexactsize 1
    priority 601
-   style EmptyHighlight
+   style Empty
    text "U"
    text_proportion 0.65
    font "gui/fonts/sdf_MetronBook24"
@@ -62,7 +62,7 @@ PanelWidgetClass TransferZHeaderControls {
    hexactsize 1
    vexactsize 1
    priority 601
-   style EmptyHighlight
+   style Empty
    text "L"
    text_proportion 0.65
    font "gui/fonts/sdf_MetronBook24"
@@ -76,7 +76,7 @@ PanelWidgetClass TransferZHeaderControls {
    hexactsize 1
    vexactsize 1
    priority 601
-   style EmptyHighlight
+   style Empty
    text "P"
    text_proportion 0.65
    font "gui/fonts/sdf_MetronBook24"
