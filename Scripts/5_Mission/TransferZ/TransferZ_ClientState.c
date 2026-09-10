@@ -64,17 +64,37 @@ class TransferZClientState
         JsonFileLoader<TransferZPreferences>.SaveFile(PREFERENCES_PATH, m_Preferences, errorMessage);
     }
 
+    protected bool IsParticipantAvailable(EntityAI entity)
+    {
+        PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
+        if (!player || !entity || !entity.GetInventory().GetCargo())
+            return false;
+
+        EntityAI root = entity.GetHierarchyRoot();
+        if (!root)
+            root = entity;
+
+        if (root == player)
+            return true;
+
+        if (root.IsMan())
+            return false;
+
+        return GameInventory.CheckManipulatedObjectsDistances(entity, player, GameInventory.c_MaxItemDistanceRadius);
+    }
+
     EntityAI GetDestination()
     {
-        if (m_Destination && m_Destination.GetInventory().GetCargo())
+        if (IsParticipantAvailable(m_Destination))
             return m_Destination;
+
         m_Destination = null;
         return null;
     }
 
     void SetDestination(EntityAI destination)
     {
-        if (destination && destination.GetInventory().GetCargo())
+        if (IsParticipantAvailable(destination))
             m_Destination = destination;
     }
 
@@ -83,48 +103,47 @@ class TransferZClientState
         return entity && GetDestination() == entity;
     }
 
-    protected void RemoveExistingLink(EntityAI entity)
+    protected void ClearAllLinks()
     {
-        if (!entity || !m_Links.Contains(entity))
-            return;
-
-        EntityAI other = m_Links.Get(entity);
-        m_Links.Remove(entity);
-        if (other)
-            m_Links.Remove(other);
+        if (m_Links)
+            m_Links.Clear();
     }
 
     void ToggleLink(EntityAI container)
     {
-        if (!container || !container.GetInventory().GetCargo())
+        if (!IsParticipantAvailable(container))
             return;
+
+        if (m_LinkAnchor && !IsParticipantAvailable(m_LinkAnchor))
+            m_LinkAnchor = null;
 
         if (m_Links.Contains(container))
         {
-            RemoveExistingLink(container);
-            if (m_LinkAnchor == container)
-                m_LinkAnchor = null;
-            return;
-        }
-
-        if (!m_LinkAnchor)
-        {
-            m_LinkAnchor = container;
-            return;
-        }
-
-        if (m_LinkAnchor == container)
-        {
+            ClearAllLinks();
             m_LinkAnchor = null;
             return;
         }
 
-        EntityAI first = m_LinkAnchor;
-        m_LinkAnchor = null;
-        RemoveExistingLink(first);
-        RemoveExistingLink(container);
-        m_Links.Set(first, container);
-        m_Links.Set(container, first);
+        if (m_LinkAnchor)
+        {
+            if (m_LinkAnchor == container)
+            {
+                m_LinkAnchor = null;
+                return;
+            }
+
+            EntityAI first = m_LinkAnchor;
+            m_LinkAnchor = null;
+            ClearAllLinks();
+            m_Links.Set(first, container);
+            m_Links.Set(container, first);
+            return;
+        }
+
+        if (m_Links.Count() > 0)
+            ClearAllLinks();
+
+        m_LinkAnchor = container;
     }
 
     EntityAI GetLinkedDestination(EntityAI source)
@@ -133,11 +152,13 @@ class TransferZClientState
             return null;
 
         EntityAI destination = m_Links.Get(source);
-        if (!destination || !destination.GetInventory().GetCargo())
+        if (!IsParticipantAvailable(source) || !IsParticipantAvailable(destination))
         {
-            RemoveExistingLink(source);
+            ClearAllLinks();
+            m_LinkAnchor = null;
             return null;
         }
+
         return destination;
     }
 
@@ -148,6 +169,8 @@ class TransferZClientState
 
     bool IsLinkAnchor(EntityAI entity)
     {
+        if (m_LinkAnchor && !IsParticipantAvailable(m_LinkAnchor))
+            m_LinkAnchor = null;
         return entity && m_LinkAnchor == entity;
     }
 
@@ -269,7 +292,7 @@ class TransferZClientState
     protected void SendRequest(int operation, EntityAI source, EntityAI destination, EntityAI item)
     {
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
-        if (!player || !destination)
+        if (!player || !IsParticipantAvailable(destination))
             return;
 
         if (IsDuplicateRequest(operation, source, destination, item))
@@ -302,30 +325,90 @@ class TransferZClientState
         rpc.Send(player, TransferZRPC.REQUEST, true, player.GetIdentity());
     }
 
-    bool RequestTransfer(EntityAI source)
+    bool RequestTransferTo(EntityAI source, EntityAI destination)
     {
-        EntityAI destination = GetDestination();
-        if (!source || !destination || source == destination)
+        if (!source || !IsParticipantAvailable(destination) || source == destination)
             return false;
         SendRequest(TransferZOperation.TRANSFER, source, destination, null);
         return true;
     }
 
-    bool RequestUnpack(EntityAI source)
+    bool RequestTransfer(EntityAI source)
     {
-        EntityAI destination = GetDestination();
-        if (!source || !destination || source == destination)
+        return RequestTransferTo(source, GetDestination());
+    }
+
+    bool RequestUnpackTo(EntityAI source, EntityAI destination)
+    {
+        if (!source || !IsParticipantAvailable(destination) || source == destination)
             return false;
         SendRequest(TransferZOperation.UNPACK, source, destination, null);
         return true;
     }
 
+    bool RequestUnpack(EntityAI source)
+    {
+        return RequestUnpackTo(source, GetDestination());
+    }
+
     bool RequestMoveItem(EntityAI item, EntityAI destination)
     {
-        if (!item || !destination || item == destination)
+        if (!item || !IsParticipantAvailable(destination) || item == destination)
             return false;
         SendRequest(TransferZOperation.MOVE_ITEM, null, destination, item);
         return true;
+    }
+
+    bool RequestVicinityTransferTo(notnull array<EntityAI> items, EntityAI destination)
+    {
+        if (!IsParticipantAvailable(destination))
+            return false;
+
+        bool requested = false;
+        foreach (EntityAI item : items)
+        {
+            if (!item || item == destination)
+                continue;
+            if (item.GetInventory().GetCargo())
+                continue;
+
+            ItemBase itemBase = ItemBase.Cast(item);
+            if (!itemBase || !itemBase.IsTakeable() || !item.GetInventory().CanRemoveEntity())
+                continue;
+
+            if (RequestMoveItem(item, destination))
+                requested = true;
+        }
+        return requested;
+    }
+
+    bool RequestVicinityTransfer(notnull array<EntityAI> items)
+    {
+        return RequestVicinityTransferTo(items, GetDestination());
+    }
+
+    bool RequestVicinityUnpackTo(notnull array<EntityAI> items, EntityAI destination)
+    {
+        if (!IsParticipantAvailable(destination))
+            return false;
+
+        bool requested = false;
+        foreach (EntityAI container : items)
+        {
+            if (!container || container == destination)
+                continue;
+            if (!container.GetInventory().GetCargo())
+                continue;
+
+            if (RequestUnpackTo(container, destination))
+                requested = true;
+        }
+        return requested;
+    }
+
+    bool RequestVicinityUnpack(notnull array<EntityAI> items)
+    {
+        return RequestVicinityUnpackTo(items, GetDestination());
     }
 
     bool TryRouteCargoDoubleClick(EntityAI source, EntityAI item)
