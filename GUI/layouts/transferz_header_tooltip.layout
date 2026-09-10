@@ -2,9 +2,9 @@ PanelWidgetClass TransferZHeaderTooltip {
  visible 0
  clipchildren 0
  ignorepointer 1
- color 0 0 0 0.88
+ color 0 0 0 0.82
  position 0 0
- size 340 32
+ size 270 30
  hexactpos 1
  vexactpos 1
  hexactsize 1
@@ -14,9 +14,9 @@ PanelWidgetClass TransferZHeaderTooltip {
  {
   TextWidgetClass TransferZ_TooltipText {
    ignorepointer 1
-   color 0.92 0.92 0.92 1
+   color 0.94 0.94 0.94 1
    position 8 0
-   size 324 32
+   size 254 30
    hexactpos 1
    vexactpos 1
    hexactsize 1
