@@ -24,7 +24,13 @@ Links are temporary client-session state. Pairing A and B gives deterministic A-
 
 ### Preferred personal destination
 
-Store the preferred personal target by the player's attachment slot, not by item classname. Replacement gear in the same slot should inherit the preference if it has cargo.
+Store the preferred personal target as the ordered attachment-slot path from the player to the cargo-bearing destination, never by item classname.
+
+Direct worn containers are one-hop paths such as `Back`. Nested attachment containers are multi-hop paths such as `Belt > DumpPouch` or `Vest > Pouch`. Replacing gear should preserve the preference when the currently equipped attachment hierarchy exposes the same slot path and the final entity has cargo.
+
+If any path element cannot be resolved, or the final entity no longer has cargo, do not guess a replacement destination; leave vanilla routing in control.
+
+Continue reading the legacy single `preferred_slot` preference as a compatibility fallback. Cargo-nested containers are not persistent preferred personal destinations in 0.1.
 
 ## Move validation
 
@@ -40,7 +46,7 @@ Cargo headers use compact controls:
 - `T` transfers direct contents.
 - `U` recursively unpacks leaf items.
 - `L` starts, completes, or removes a temporary link.
-- `P` stores a worn cargo container's attachment slot as the preferred personal target.
+- `P` stores the attached cargo container's attachment-slot path as the preferred personal target.
 
 The controls extend the vanilla inventory rather than replacing it.
 
@@ -50,5 +56,6 @@ The controls extend the vanilla inventory rather than replacing it.
 - No persistent world-container links.
 - No TransferZ-owned partial stack splitting or merging.
 - No automatic relocation of empty nested containers after Unpack.
+- No persistent preferred personal targets for containers nested in cargo rather than attached through slots.
 - No class allowlists for container support.
 - No custom replacement inventory screen.
