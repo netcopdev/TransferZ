@@ -53,15 +53,28 @@ If TransferZ has no linked route for a cargo icon, vanilla double-click behavior
 
 ### Preferred personal destination
 
-Press `P` on a cargo-bearing item worn directly in a player attachment slot, such as a backpack or vest. TransferZ stores the **slot name**, not the item's classname.
+Press `P` on a cargo-bearing item attached anywhere in the player's attachment hierarchy. This includes direct worn storage such as a backpack or vest and nested cargo-bearing attachments such as a dump pouch hanging from a belt.
 
-When a loose vicinity item is double-clicked, TransferZ routes it to the currently equipped cargo-bearing item in that preferred slot. If there is no usable preferred destination, vanilla behavior is used.
+TransferZ stores the **ordered attachment-slot path from the player to the destination**, not item classnames. Examples:
+
+```text
+Back
+Belt > DumpPouch
+Vest > Pouch
+Back > AttachedPouch
+```
+
+At runtime TransferZ walks that slot path through the currently equipped attachment tree. Replacing gear with another item that exposes the same attachment path therefore keeps the preference valid. If any path element is missing or the final attachment has no cargo, TransferZ does not guess another destination and vanilla behavior is used.
+
+Loose vicinity items that are double-clicked are routed to the resolved preferred destination.
 
 The preference is stored in:
 
 ```text
 $profile:TransferZ/preferences.json
 ```
+
+Older profiles containing only the original single `preferred_slot` value remain readable as a compatibility fallback.
 
 ## Header controls
 
@@ -71,7 +84,7 @@ $profile:TransferZ/preferences.json
 | `T` | Transfer direct contents to selected destination |
 | `U` | Recursively unpack leaf items to selected destination |
 | `L` | Start/complete/remove a temporary container link |
-| `P` | Set this worn container's attachment slot as preferred personal destination |
+| `P` | Set this attached cargo container's slot path as preferred personal destination |
 
 `D*`, `L*`, `L+`, and `P*` indicate state on a header that has refreshed since the corresponding action.
 
@@ -89,6 +102,7 @@ Items that no longer qualify or do not fit remain where they are.
 - No partial stack splitting or TransferZ-owned stack merging.
 - Links are not persistent.
 - Unpack traverses cargo only, not attachments.
+- Preferred personal destinations follow attachment-slot paths only; cargo-nested containers are not persisted as personal destinations.
 - UI controls are intentionally minimal while interaction behavior is being validated.
 - The current scripts still require a real DayZ/DayZ Tools compile and in-game validation before the prototype should be treated as release-ready.
 
