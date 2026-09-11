@@ -25,6 +25,18 @@ PanelWidgetClass TransferZHeaderControls {
    text_proportion 0.65
    font "gui/fonts/sdf_MetronBook24"
   }
+  ImageWidgetClass TransferZ_TransferStatus {
+   visible 0
+   ignorepointer 1
+   position 21 3
+   size 19 23
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 600
+   mode blend
+  }
   ButtonWidgetClass TransferZ_Transfer {
    ignorepointer 0
    position 21 3
@@ -38,6 +50,18 @@ PanelWidgetClass TransferZHeaderControls {
    text "T"
    text_proportion 0.65
    font "gui/fonts/sdf_MetronBook24"
+  }
+  ImageWidgetClass TransferZ_UnpackStatus {
+   visible 0
+   ignorepointer 1
+   position 42 3
+   size 19 23
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 600
+   mode blend
   }
   ButtonWidgetClass TransferZ_Unpack {
    ignorepointer 0
