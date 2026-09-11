@@ -55,15 +55,16 @@ When `VICINITY` is the destination, Unpack moves leaf items from the source carg
 
 ### Modifier item drags
 
-Unmodified item drag remains vanilla DayZ behavior. TransferZ adds three left-button modifier gestures for items that are direct cargo children of a container. The modifier is latched when the drag starts, so it may be released while moving or scrolling toward the destination.
+Unmodified item drag remains vanilla DayZ behavior. TransferZ adds two left-button modifier gestures. The operation is chosen when the drag starts, so the modifier may be released while moving or scrolling toward the destination.
 
-- `Ctrl + Drag` performs an exact-class bulk move. TransferZ snapshots the item's immediate source cargo and attempts to move every direct child whose `GetType()` exactly matches the dragged representative item.
-- `Shift + Drag` performs the same operation as dragging the source container's `T` handle: transfer all direct cargo children from that immediate source container.
-- `Alt + Drag` performs the same operation as dragging the source container's `U` handle: unpack that immediate source container into the drop destination.
+- `Shift + Drag` performs the same operation as dragging the source zone's `T` handle.
+- `Alt + Drag` performs the same operation as dragging the source zone's `U` handle.
 
-For example, `Ctrl + Drag` on one 5.56 ammo pile moves the other piles of that exact DayZ class from the same source. It does **not** move all ammunition categories and it does not recurse into nested cargo for the class match. Failed or non-fitting matches remain in place.
+For an item inside a cargo container, the source zone is that item's immediate cargo owner. Shift therefore transfers all direct cargo children from that container, while Alt unpacks that container.
 
-TransferZ no longer assigns a bulk-drag operation to the right mouse button. If more than one Ctrl/Shift/Alt modifier is held when a drag starts, TransferZ leaves the drag to vanilla behavior rather than guessing which bulk operation was intended.
+For an item shown in `VICINITY`, the source zone is the current vicinity list. Shift therefore behaves like vicinity `T`, and Alt behaves like vicinity `U`. These modifier operations can be dragged **from vicinity to a container, from a container to vicinity, and between normal container targets**. Shift from vicinity back to vicinity is intentionally a no-op because those loose items are already there; Alt from vicinity to vicinity unpacks shown vicinity containers onto the ground.
+
+`Ctrl + Drag` is deliberately not assigned by TransferZ because stock DayZ owns Ctrl+click as an immediate drop-to-ground interaction. Right-button drag also has no TransferZ bulk behavior.
 
 ### Vicinity batch actions
 
@@ -147,7 +148,7 @@ Items that no longer qualify or do not fit remain where they are.
 
 ## Deliberate 0.1 limitations
 
-- No arbitrary item-category filtering yet; exact-class bulk matching is `GetType()` equality only.
+- No arbitrary item-category filtering yet; exact-class batch matching remains available through double-right-click routing rather than Ctrl-drag.
 - No partial stack splitting or TransferZ-owned stack merging.
 - Links are not persistent.
 - Unpack traverses cargo only, not attachments.
