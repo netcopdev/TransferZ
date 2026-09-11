@@ -316,6 +316,8 @@ class TransferZClientState
             TransferZServerService.Unpack(player, source, destination);
         else if (operation == TransferZOperation.MOVE_ITEM)
             TransferZServerService.MoveItem(player, item, destination);
+        else if (operation == TransferZOperation.TRANSFER_CLASS)
+            TransferZServerService.TransferClass(player, source, destination, item);
 
         player.UpdateInventoryMenu();
     }
@@ -367,6 +369,21 @@ class TransferZClientState
     bool RequestTransfer(EntityAI source)
     {
         return RequestTransferTo(source, GetDestination());
+    }
+
+    bool RequestClassTransferTo(EntityAI source, EntityAI destination, EntityAI representative)
+    {
+        if (!source || !representative || !IsParticipantAvailable(destination) || source == destination)
+            return false;
+
+        InventoryLocation representativeLocation = new InventoryLocation();
+        if (!representative.GetInventory().GetCurrentInventoryLocation(representativeLocation))
+            return false;
+        if (representativeLocation.GetType() != InventoryLocationType.CARGO || representativeLocation.GetParent() != source)
+            return false;
+
+        SendRequest(TransferZOperation.TRANSFER_CLASS, source, destination, representative);
+        return true;
     }
 
     bool RequestUnpackTo(EntityAI source, EntityAI destination)
