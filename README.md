@@ -6,7 +6,7 @@ TransferZ is a DayZ inventory-routing mod focused on deterministic, low-friction
 
 Current development target: **0.1 prototype** on `feature/core-transfer-routing`.
 
-The prototype currently includes exact destination selection, direct bulk transfer, nested-content unpacking, draggable transfer/unpack handles, temporary container links, linked-container double-click routing, a persistent preferred personal destination, and vicinity-wide transfer/unpack actions.
+The prototype currently includes exact destination selection, direct bulk transfer, nested-content unpacking, draggable transfer/unpack handles, exact-class right-drag transfer, temporary container links, linked-container double-click routing, a persistent preferred personal destination, and vicinity-wide transfer/unpack actions.
 
 ## Core behavior
 
@@ -38,6 +38,8 @@ Backpack
 `Transfer -> Barrel` attempts to move `Ammo Box`, `Medical Pouch`, and `Knife`.
 
 For a one-off direct transfer, drag the source header's `T` handle onto the destination header. This does not replace or change the currently selected `D` destination. Destination headers are the drag drop targets so normal inventory scrolling can remain available while the operation handle is being dragged.
+
+Right-dragging an item from a cargo container onto a destination header performs an **exact-class bulk transfer** from that item's immediate source cargo. TransferZ snapshots the source container's direct cargo children and attempts to move every item whose `GetType()` exactly matches the dragged item. It does not recurse into nested containers and does not broaden the match to related ammo, subclasses, or categories. Items that do not fit remain in the source.
 
 ### Unpack
 
@@ -109,6 +111,8 @@ Older profiles containing only the original single `preferred_slot` value remain
 TransferZ does not delete and recreate items. Requests are resolved and executed on the server using DayZ inventory locations and normal move validation.
 
 For every move, the server re-resolves the entities, checks reachability, rejects other-player inventory roots, checks cargo release/receive conditions, requires free space in the exact selected cargo owner, validates the source/destination locations, and only then performs a server inventory move.
+
+The exact-class right-drag request sends the source container, destination container, and representative dragged item. The server re-validates that the representative is still a direct cargo child of the source and derives the exact class from the server-side item before taking the source snapshot.
 
 Items that no longer qualify or do not fit remain where they are.
 
