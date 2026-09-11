@@ -56,6 +56,43 @@ modded class TransferZHeaderControls
         return null;
     }
 
+    protected float TransferZVisibleWidgetRight(Widget widget)
+    {
+        if (!widget || !widget.IsVisibleHierarchy())
+            return 0.0;
+
+        float x;
+        float y;
+        float w;
+        float h;
+        widget.GetScreenPos(x, y);
+        widget.GetScreenSize(w, h);
+        return x + w;
+    }
+
+    protected float TransferZNativeHandleRight()
+    {
+        if (!m_HeaderHost)
+            return 0.0;
+
+        float right = 0.0;
+        float candidate;
+
+        candidate = TransferZVisibleWidgetRight(m_HeaderHost.FindAnyWidget("opened"));
+        if (candidate > right)
+            right = candidate;
+
+        candidate = TransferZVisibleWidgetRight(m_HeaderHost.FindAnyWidget("closed"));
+        if (candidate > right)
+            right = candidate;
+
+        // Some header variants expose only the parent collapse widget.
+        if (right <= 0.0)
+            right = TransferZVisibleWidgetRight(m_HeaderHost.FindAnyWidget("collapse_button"));
+
+        return right;
+    }
+
     protected void TransferZPlaceControlsBeforeTitle(bool preferredVisible)
     {
         if (!m_Root || !m_HeaderLabel)
@@ -65,34 +102,39 @@ modded class TransferZHeaderControls
         if (preferredVisible)
             blockWidth = 107.0;
 
-        m_Root.SetPos(m_HeaderLabelX, 0, false);
-        m_Root.SetSize(blockWidth, 29, true);
+        // Start each layout pass from the native text geometry so repeated refreshes
+        // cannot accumulate offsets.
+        RestoreHeaderText();
+
+        float labelX;
+        float labelY;
+        float labelW;
+        float labelH;
+        m_HeaderLabel.GetScreenPos(labelX, labelY);
+        m_HeaderLabel.GetScreenSize(labelW, labelH);
+
+        float blockX = labelX;
+        float nativeRight = TransferZNativeHandleRight();
+        const float nativeGap = 4.0;
+        if (nativeRight > 0.0 && nativeRight + nativeGap > blockX)
+            blockX = nativeRight + nativeGap;
+
+        float blockY = labelY + (labelH - 29.0) * 0.5;
+        m_Root.SetScreenPos(blockX, blockY, false);
+        m_Root.SetScreenSize(blockWidth, 29.0, false);
 
         if (m_TransferZBlockBackground)
             m_TransferZBlockBackground.SetSize(blockWidth, 27, false);
 
-        float gap = 5.0;
-        float targetWidth = m_HeaderLabelW;
-        float hostW;
-        float hostH;
-        if (m_HeaderHost)
-            m_HeaderHost.GetScreenSize(hostW, hostH);
+        const float titleGap = 5.0;
+        float titleX = blockX + blockWidth + titleGap;
+        float originalRight = labelX + labelW;
+        float targetWidth = originalRight - titleX;
+        if (targetWidth < 20.0)
+            targetWidth = 20.0;
 
-        if (m_HeaderLabelW <= 2.0 && hostW > 0.0)
-        {
-            targetWidth -= (blockWidth + gap) / hostW;
-            if (targetWidth < 0.20)
-                targetWidth = 0.20;
-        }
-        else
-        {
-            targetWidth -= blockWidth + gap;
-            if (targetWidth < 40.0)
-                targetWidth = 40.0;
-        }
-
-        m_HeaderLabel.SetPos(m_HeaderLabelX + blockWidth + gap, m_HeaderLabelY, false);
-        m_HeaderLabel.SetSize(targetWidth, m_HeaderLabelH, true);
+        m_HeaderLabel.SetScreenPos(titleX, labelY, false);
+        m_HeaderLabel.SetScreenSize(targetWidth, labelH, false);
     }
 
     override bool OnButtonMouseEnter(Widget w, int x, int y)
@@ -198,41 +240,84 @@ modded class TransferZVicinityHeaderControls
         return null;
     }
 
+    protected float TransferZVicinityVisibleWidgetRight(Widget widget)
+    {
+        if (!widget || !widget.IsVisibleHierarchy())
+            return 0.0;
+
+        float x;
+        float y;
+        float w;
+        float h;
+        widget.GetScreenPos(x, y);
+        widget.GetScreenSize(w, h);
+        return x + w;
+    }
+
+    protected float TransferZVicinityNativeHandleRight(Widget host)
+    {
+        if (!host)
+            return 0.0;
+
+        float right = 0.0;
+        float candidate;
+
+        candidate = TransferZVicinityVisibleWidgetRight(host.FindAnyWidget("opened"));
+        if (candidate > right)
+            right = candidate;
+
+        candidate = TransferZVicinityVisibleWidgetRight(host.FindAnyWidget("closed"));
+        if (candidate > right)
+            right = candidate;
+
+        if (right <= 0.0)
+            right = TransferZVicinityVisibleWidgetRight(host.FindAnyWidget("collapse_button"));
+
+        return right;
+    }
+
     protected void TransferZPlaceVicinityControlsBeforeTitle()
     {
         if (!m_Root || !m_TransferZHeaderLabel)
             return;
 
         const float blockWidth = 65.0;
-        const float gap = 5.0;
-        m_Root.SetPos(m_TransferZHeaderLabelX, 0, false);
-        m_Root.SetSize(blockWidth, 29, true);
+        const float nativeGap = 4.0;
+        const float titleGap = 5.0;
+
+        // Restore the original native title geometry before deriving screen-space
+        // positions, otherwise repeated refreshes would progressively shift it.
+        m_TransferZHeaderLabel.SetPos(m_TransferZHeaderLabelX, m_TransferZHeaderLabelY, false);
+        m_TransferZHeaderLabel.SetSize(m_TransferZHeaderLabelW, m_TransferZHeaderLabelH, true);
+
+        float labelX;
+        float labelY;
+        float labelW;
+        float labelH;
+        m_TransferZHeaderLabel.GetScreenPos(labelX, labelY);
+        m_TransferZHeaderLabel.GetScreenSize(labelW, labelH);
+
+        Widget host = m_Root.GetParent();
+        float blockX = labelX;
+        float nativeRight = TransferZVicinityNativeHandleRight(host);
+        if (nativeRight > 0.0 && nativeRight + nativeGap > blockX)
+            blockX = nativeRight + nativeGap;
+
+        float blockY = labelY + (labelH - 29.0) * 0.5;
+        m_Root.SetScreenPos(blockX, blockY, false);
+        m_Root.SetScreenSize(blockWidth, 29.0, false);
 
         if (m_TransferZBlockBackground)
             m_TransferZBlockBackground.SetSize(blockWidth, 27, false);
 
-        float targetWidth = m_TransferZHeaderLabelW;
-        float hostW;
-        float hostH;
-        Widget host = m_Root.GetParent();
-        if (host)
-            host.GetScreenSize(hostW, hostH);
+        float titleX = blockX + blockWidth + titleGap;
+        float originalRight = labelX + labelW;
+        float targetWidth = originalRight - titleX;
+        if (targetWidth < 20.0)
+            targetWidth = 20.0;
 
-        if (m_TransferZHeaderLabelW <= 2.0 && hostW > 0.0)
-        {
-            targetWidth -= (blockWidth + gap) / hostW;
-            if (targetWidth < 0.20)
-                targetWidth = 0.20;
-        }
-        else
-        {
-            targetWidth -= blockWidth + gap;
-            if (targetWidth < 40.0)
-                targetWidth = 40.0;
-        }
-
-        m_TransferZHeaderLabel.SetPos(m_TransferZHeaderLabelX + blockWidth + gap, m_TransferZHeaderLabelY, false);
-        m_TransferZHeaderLabel.SetSize(targetWidth, m_TransferZHeaderLabelH, true);
+        m_TransferZHeaderLabel.SetScreenPos(titleX, labelY, false);
+        m_TransferZHeaderLabel.SetScreenSize(targetWidth, labelH, false);
     }
 
     override bool OnButtonMouseEnter(Widget w, int x, int y)
