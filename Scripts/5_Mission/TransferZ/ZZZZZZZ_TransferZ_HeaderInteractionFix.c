@@ -36,16 +36,15 @@ modded class TransferZHeaderControls
         return x + w;
     }
 
-    override protected float TransferZNativeHandleRight()
+    protected float TransferZNativeReservedRight()
     {
         float right = 0.0;
         float candidate;
         Widget widget;
 
         // ClosableHeader keeps its reorder arrows in MovePanel. The panel is
-        // normally hidden until header hover, so reserve its geometry even while
-        // hidden; otherwise TransferZ occupies the same pixels and the controls
-        // collide as soon as the native arrows appear.
+        // normally hidden until header hover, so reserve its geometry even when
+        // hidden. This is the important difference from IsVisibleHierarchy().
         widget = TransferZFindNativeHeaderWidget("MovePanel");
         candidate = TransferZReservedWidgetRight(widget);
         if (candidate > right)
@@ -61,9 +60,6 @@ modded class TransferZHeaderControls
         if (candidate > right)
             right = candidate;
 
-        // Other header variants expose their expand/collapse controls under
-        // these names. Reserve them whether currently visible or not so the
-        // TransferZ block does not jump when native state changes.
         widget = TransferZFindNativeHeaderWidget("opened");
         candidate = TransferZReservedWidgetRight(widget);
         if (candidate > right)
@@ -80,6 +76,60 @@ modded class TransferZHeaderControls
             right = candidate;
 
         return right;
+    }
+
+    protected void TransferZApplyNativeSafePlacement(bool preferredVisible)
+    {
+        if (!m_Root || !m_HeaderLabel)
+            return;
+
+        float blockWidth = 86.0;
+        if (preferredVisible)
+            blockWidth = 107.0;
+
+        // Always start from the geometry captured before TransferZ changed the
+        // title. This makes D/L/P refreshes idempotent.
+        RestoreHeaderText();
+
+        float labelX;
+        float labelY;
+        float labelW;
+        float labelH;
+        m_HeaderLabel.GetScreenPos(labelX, labelY);
+        m_HeaderLabel.GetScreenSize(labelW, labelH);
+
+        float blockX = labelX;
+        float nativeRight = TransferZNativeReservedRight();
+        const float nativeGap = 4.0;
+        if (nativeRight > 0.0 && nativeRight + nativeGap > blockX)
+            blockX = nativeRight + nativeGap;
+
+        float blockY = labelY + (labelH - 29.0) * 0.5;
+        m_Root.SetScreenPos(blockX, blockY, false);
+        m_Root.SetScreenSize(blockWidth, 29.0, false);
+
+        const float titleGap = 5.0;
+        float titleX = blockX + blockWidth + titleGap;
+        float originalRight = labelX + labelW;
+        float targetWidth = originalRight - titleX;
+        if (targetWidth < 20.0)
+            targetWidth = 20.0;
+
+        m_HeaderLabel.SetScreenPos(titleX, labelY, false);
+        m_HeaderLabel.SetScreenSize(targetWidth, labelH, false);
+    }
+
+    override void UpdateControls()
+    {
+        // Run the existing behavior/styling first, then make one final placement
+        // pass that reserves hidden native controls. UpdateControls exists on the
+        // original TransferZHeaderControls class, so this is a real override.
+        super.UpdateControls();
+
+        if (!m_Root || !m_Entity || !m_Entity.GetInventory().GetCargo())
+            return;
+
+        TransferZApplyNativeSafePlacement(CanBePreferred());
     }
 
     bool TransferZOwnsWidget(Widget widget)
@@ -103,8 +153,7 @@ modded class ClosableHeader
         // The native ClosableHeader itself is draggable. D/L/P are ordinary
         // buttons, so a small mouse movement while clicking them can otherwise
         // start the native header drag, which hides m_PanelWidget and makes the
-        // title and TransferZ controls appear to vanish. T/U have their own drag
-        // behavior and are covered by the same guard.
+        // title and TransferZ controls appear to vanish.
         Widget hovered = GetWidgetUnderCursor();
         if (m_TransferZHeaderControls && m_TransferZHeaderControls.TransferZOwnsWidget(hovered))
             return;
