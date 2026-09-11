@@ -75,10 +75,8 @@ class TransferZClientState
         EntityAI root = entity.GetHierarchyRoot();
         if (!root)
             root = entity;
-
         if (root == player)
             return true;
-
         if (root.IsMan())
             return false;
 
@@ -89,7 +87,6 @@ class TransferZClientState
     {
         if (!IsParticipantReachable(entity))
             return false;
-
         return TransferZHeaderControls.IsEntityOpenOrInHands(entity);
     }
 
@@ -103,10 +100,8 @@ class TransferZClientState
     {
         if (m_DestinationVicinity)
             return null;
-
         if (IsTransientParticipantAvailable(m_Destination))
             return m_Destination;
-
         m_Destination = null;
         return null;
     }
@@ -115,10 +110,8 @@ class TransferZClientState
     {
         if (!m_DestinationVicinity)
             return false;
-
         if (TransferZVicinityHeaderControls.IsVicinityOpen())
             return true;
-
         m_DestinationVicinity = false;
         return false;
     }
@@ -134,7 +127,6 @@ class TransferZClientState
     {
         if (!IsTransientParticipantAvailable(destination))
             return;
-
         m_Destination = destination;
         m_DestinationVicinity = false;
     }
@@ -143,7 +135,6 @@ class TransferZClientState
     {
         if (!TransferZVicinityHeaderControls.IsVicinityOpen())
             return;
-
         m_Destination = null;
         m_DestinationVicinity = true;
     }
@@ -151,6 +142,28 @@ class TransferZClientState
     bool IsDestination(EntityAI entity)
     {
         return entity && !m_DestinationVicinity && GetDestination() == entity;
+    }
+
+    void ToggleDestinationSelection(EntityAI destination)
+    {
+        if (!destination)
+            return;
+        if (IsDestination(destination))
+        {
+            ClearDestination();
+            return;
+        }
+        SetDestination(destination);
+    }
+
+    void ToggleVicinityDestinationSelection()
+    {
+        if (IsDestinationVicinity())
+        {
+            ClearDestination();
+            return;
+        }
+        SetVicinityDestination();
     }
 
     protected void ClearAllLinks()
@@ -192,7 +205,6 @@ class TransferZClientState
 
         if (m_Links.Count() > 0)
             ClearAllLinks();
-
         m_LinkAnchor = container;
     }
 
@@ -208,7 +220,6 @@ class TransferZClientState
             m_LinkAnchor = null;
             return null;
         }
-
         return destination;
     }
 
@@ -230,33 +241,28 @@ class TransferZClientState
             return false;
 
         bool changed = false;
-
         if (m_Destination == container)
         {
             ClearDestination();
             changed = true;
         }
-
         if (m_LinkAnchor == container)
         {
             m_LinkAnchor = null;
             changed = true;
         }
-
         if (m_Links && m_Links.Contains(container))
         {
             ClearAllLinks();
             m_LinkAnchor = null;
             changed = true;
         }
-
         return changed;
     }
 
     bool ValidateTransientState()
     {
         bool changed = false;
-
         if (m_DestinationVicinity)
         {
             if (!TransferZVicinityHeaderControls.IsVicinityOpen())
@@ -288,7 +294,6 @@ class TransferZClientState
                 changed = true;
             }
         }
-
         return changed;
     }
 
@@ -301,13 +306,10 @@ class TransferZClientState
         ref array<string> reversePath = new array<string>();
         EntityAI current = container;
         int depth = 0;
-
         while (current && current != player && depth < 16)
         {
             InventoryLocation location = new InventoryLocation();
-            if (!current.GetInventory().GetCurrentInventoryLocation(location))
-                return false;
-            if (location.GetType() != InventoryLocationType.ATTACHMENT)
+            if (!current.GetInventory().GetCurrentInventoryLocation(location) || location.GetType() != InventoryLocationType.ATTACHMENT)
                 return false;
 
             EntityAI parent = location.GetParent();
@@ -329,16 +331,37 @@ class TransferZClientState
         if (!m_Preferences.preferred_path)
             m_Preferences.preferred_path = new array<string>();
         m_Preferences.preferred_path.Clear();
-
         for (int i = reversePath.Count() - 1; i >= 0; i--)
             m_Preferences.preferred_path.Insert(reversePath.Get(i));
 
         m_Preferences.preferred_slot = "";
         if (m_Preferences.preferred_path.Count() == 1)
             m_Preferences.preferred_slot = m_Preferences.preferred_path.Get(0);
-
         SavePreferences();
         return true;
+    }
+
+    bool ClearPreferred()
+    {
+        if (!m_Preferences)
+            m_Preferences = new TransferZPreferences();
+        if (!m_Preferences.preferred_path)
+            m_Preferences.preferred_path = new array<string>();
+
+        bool changed = m_Preferences.preferred_path.Count() > 0 || m_Preferences.preferred_slot != "";
+        m_Preferences.preferred_path.Clear();
+        m_Preferences.preferred_slot = "";
+        SavePreferences();
+        return changed;
+    }
+
+    bool TogglePreferred(EntityAI container)
+    {
+        if (!container)
+            return false;
+        if (IsPreferred(container))
+            return ClearPreferred();
+        return SetPreferred(container);
     }
 
     EntityAI GetPreferredDestination()
@@ -355,12 +378,10 @@ class TransferZClientState
                 string slotName = m_Preferences.preferred_path.Get(i);
                 if (slotName == "")
                     return null;
-
                 current = current.FindAttachmentBySlotName(slotName);
                 if (!current)
                     return null;
             }
-
             if (current.GetInventory().GetCargo())
                 return current;
             return null;
@@ -368,7 +389,6 @@ class TransferZClientState
 
         if (m_Preferences.preferred_slot == "")
             return null;
-
         EntityAI legacyDestination = player.FindAttachmentBySlotName(m_Preferences.preferred_slot);
         if (!legacyDestination || !legacyDestination.GetInventory().GetCargo())
             return null;
@@ -378,6 +398,25 @@ class TransferZClientState
     bool IsPreferred(EntityAI entity)
     {
         return entity && GetPreferredDestination() == entity;
+    }
+
+    bool CanPreferredAcceptItem(EntityAI item, EntityAI destination = null)
+    {
+        if (!item)
+            return false;
+        if (!destination)
+            destination = GetPreferredDestination();
+        if (!destination || item == destination)
+            return false;
+
+        CargoBase cargo = destination.GetInventory().GetCargo();
+        if (!cargo || !destination.CanReceiveItemIntoCargo(item))
+            return false;
+
+        InventoryLocation dst = new InventoryLocation();
+        if (!destination.GetInventory().FindFreeLocationFor(item, FindInventoryLocationType.CARGO, dst))
+            return false;
+        return dst.IsValid() && dst.GetType() == InventoryLocationType.CARGO && dst.GetParent() == destination;
     }
 
     protected bool IsDuplicateRequest(int operation, EntityAI source, EntityAI destination, EntityAI item, bool destinationIsVicinity)
@@ -420,7 +459,6 @@ class TransferZClientState
             else if (operation == TransferZOperation.TRANSFER_CLASS)
                 TransferZServerService.TransferClass(player, source, destination, item);
         }
-
         player.UpdateInventoryMenu();
     }
 
@@ -429,10 +467,8 @@ class TransferZClientState
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
         if (!player)
             return;
-
         if (!destinationIsVicinity && !IsParticipantReachable(destination))
             return;
-
         if (IsDuplicateRequest(operation, source, destination, item, destinationIsVicinity))
             return;
 
@@ -462,6 +498,42 @@ class TransferZClientState
         rpc.Write(itemHigh);
         rpc.Write(destinationIsVicinity);
         rpc.Send(player, TransferZRPC.REQUEST, true, player.GetIdentity());
+    }
+
+    protected void SendNestedUnpackRequest(EntityAI source, EntityAI destination, bool destinationIsVicinity)
+    {
+        PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
+        if (!player || !source || !source.GetInventory().GetCargo())
+            return;
+        if (!destinationIsVicinity && !IsParticipantReachable(destination))
+            return;
+        if (IsDuplicateRequest(TransferZNestedUnpackRPC.CLIENT_OPERATION, source, destination, null, destinationIsVicinity))
+            return;
+
+        if (!GetGame().IsMultiplayer())
+        {
+            if (destinationIsVicinity)
+                TransferZNestedUnpackService.UnpackToVicinity(player, source);
+            else
+                TransferZNestedUnpackService.Unpack(player, source, destination);
+            player.UpdateInventoryMenu();
+            return;
+        }
+
+        int sourceLow;
+        int sourceHigh;
+        int destinationLow;
+        int destinationHigh;
+        TransferZNet.GetEntityNetworkId(source, sourceLow, sourceHigh);
+        TransferZNet.GetEntityNetworkId(destination, destinationLow, destinationHigh);
+
+        ScriptRPC rpc = new ScriptRPC();
+        rpc.Write(sourceLow);
+        rpc.Write(sourceHigh);
+        rpc.Write(destinationLow);
+        rpc.Write(destinationHigh);
+        rpc.Write(destinationIsVicinity);
+        rpc.Send(player, TransferZNestedUnpackRPC.REQUEST, true, player.GetIdentity());
     }
 
     bool RequestTransferTo(EntityAI source, EntityAI destination)
@@ -540,6 +612,29 @@ class TransferZClientState
         return RequestUnpackTo(source, GetDestination());
     }
 
+    bool RequestNestedUnpackTo(EntityAI source, EntityAI destination)
+    {
+        if (!source || !source.GetInventory().GetCargo() || !IsParticipantReachable(destination))
+            return false;
+        SendNestedUnpackRequest(source, destination, false);
+        return true;
+    }
+
+    bool RequestNestedUnpackToVicinity(EntityAI source)
+    {
+        if (!source || !source.GetInventory().GetCargo())
+            return false;
+        SendNestedUnpackRequest(source, null, true);
+        return true;
+    }
+
+    bool RequestNestedUnpack(EntityAI source)
+    {
+        if (IsDestinationVicinity())
+            return RequestNestedUnpackToVicinity(source);
+        return RequestNestedUnpackTo(source, GetDestination());
+    }
+
     bool RequestMoveItem(EntityAI item, EntityAI destination)
     {
         if (!item || !IsParticipantReachable(destination) || item == destination)
@@ -556,13 +651,57 @@ class TransferZClientState
         return true;
     }
 
+    protected bool TransferZItemAlreadyInCargo(EntityAI item, EntityAI destination)
+    {
+        if (!item || !destination)
+            return false;
+        InventoryLocation location = new InventoryLocation();
+        if (!item.GetInventory().GetCurrentInventoryLocation(location))
+            return false;
+        return location.GetType() == InventoryLocationType.CARGO && location.GetParent() == destination;
+    }
+
+    protected bool TransferZItemAlreadyInVicinity(EntityAI item)
+    {
+        if (!item)
+            return false;
+        InventoryLocation location = new InventoryLocation();
+        if (!item.GetInventory().GetCurrentInventoryLocation(location))
+            return false;
+        return location.GetType() == InventoryLocationType.GROUND;
+    }
+
+    bool RequestItemToDestination(EntityAI item)
+    {
+        if (!item)
+            return false;
+        if (IsDestinationVicinity())
+        {
+            if (TransferZItemAlreadyInVicinity(item))
+                return false;
+            return RequestMoveItemToVicinity(item);
+        }
+
+        EntityAI destination = GetDestination();
+        if (!destination || item == destination || TransferZItemAlreadyInCargo(item, destination))
+            return false;
+        return RequestMoveItem(item, destination);
+    }
+
+    bool RequestItemToPreferred(EntityAI item)
+    {
+        if (!item)
+            return false;
+        EntityAI destination = GetPreferredDestination();
+        if (!destination || item == destination || TransferZItemAlreadyInCargo(item, destination))
+            return false;
+        return RequestMoveItem(item, destination);
+    }
+
     protected bool IsLooseVicinityTransferCandidate(EntityAI item, EntityAI destination)
     {
-        if (!item || item == destination)
+        if (!item || item == destination || item.GetInventory().GetCargo())
             return false;
-        if (item.GetInventory().GetCargo())
-            return false;
-
         ItemBase itemBase = ItemBase.Cast(item);
         return itemBase && itemBase.IsTakeable() && item.GetInventory().CanRemoveEntity();
     }
@@ -586,7 +725,6 @@ class TransferZClientState
                 if (TransferZServerService.MoveItem(player, offlineItem, destination))
                     requested = true;
             }
-
             if (requested)
                 player.UpdateInventoryMenu();
             return requested;
@@ -604,7 +742,6 @@ class TransferZClientState
 
     bool RequestVicinityTransfer(notnull array<EntityAI> items)
     {
-        // Loose vicinity items are already at a VICINITY destination.
         if (IsDestinationVicinity())
             return false;
         return RequestVicinityTransferTo(items, GetDestination());
@@ -629,7 +766,6 @@ class TransferZClientState
                 if (TransferZServerService.Unpack(player, offlineContainer, destination) > 0)
                     requested = true;
             }
-
             if (requested)
                 player.UpdateInventoryMenu();
             return requested;
@@ -661,7 +797,6 @@ class TransferZClientState
                 if (TransferZServerService.UnpackToVicinity(player, offlineContainer) > 0)
                     requested = true;
             }
-
             if (requested)
                 player.UpdateInventoryMenu();
             return requested;
@@ -695,7 +830,7 @@ class TransferZClientState
     bool TryRouteVicinityDoubleClick(EntityAI item)
     {
         EntityAI destination = GetPreferredDestination();
-        if (!destination)
+        if (!destination || !CanPreferredAcceptItem(item, destination))
             return false;
         return RequestMoveItem(item, destination);
     }
