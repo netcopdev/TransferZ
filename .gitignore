@@ -1,0 +1,8 @@
+dist/
+*.pbo
+*.bisign
+*.biprivatekey
+*.bikey
+*.log
+.vscode/
+.idea/
