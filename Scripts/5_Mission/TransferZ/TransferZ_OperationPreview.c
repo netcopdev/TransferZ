@@ -87,23 +87,19 @@ class TransferZOperationPreview
         if (!source)
             return;
 
-        if (source != destination)
-        {
-            CollectUnpackLeaves(source, destination, leaves);
-            return;
-        }
-
         CargoBase cargo = source.GetInventory().GetCargo();
         if (!cargo)
             return;
 
-        // Self-unpack means flatten nested cargo into the source itself. Direct
-        // loose items are already at the requested destination and are skipped.
+        // Container U ignores loose direct cargo. Only leaf items found inside
+        // cargo-bearing child containers are candidates for extraction.
         for (int i = 0; i < cargo.GetItemCount(); i++)
         {
             EntityAI child = cargo.GetItem(i);
-            if (child && child.GetInventory().GetCargo())
-                CollectUnpackLeaves(child, source, leaves);
+            if (!child || child == destination || !child.GetInventory().GetCargo())
+                continue;
+
+            CollectUnpackLeaves(child, destination, leaves);
         }
     }
 
