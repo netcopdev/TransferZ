@@ -12,9 +12,9 @@ modded class TransferZHeaderControls
         return false;
     }
 
-    static bool TransferZCompleteClassDropAtWidget(Widget widget)
+    static bool TransferZCompleteRightDragAtWidget(Widget widget)
     {
-        if (!widget || !TransferZOperationDrag.IsClassTransfer())
+        if (!widget || !TransferZOperationDrag.IsActive())
             return false;
 
         if (s_Instances)
@@ -35,7 +35,7 @@ modded class TransferZHeaderControls
             }
         }
 
-        if (TransferZVicinityHeaderControls.TransferZCompleteClassDropAtWidget(widget))
+        if (TransferZVicinityHeaderControls.TransferZCompleteRightDragAtWidget(widget))
         {
             SetOperationDropTargetsVisible(false);
             RefreshAll();
@@ -48,7 +48,7 @@ modded class TransferZHeaderControls
 
 modded class TransferZVicinityHeaderControls
 {
-    static bool TransferZCompleteClassDropAtWidget(Widget widget)
+    static bool TransferZCompleteRightDragAtWidget(Widget widget)
     {
         if (!widget || !s_Instance || !s_Instance.m_DropTarget || !s_Instance.m_DropTarget.IsVisibleHierarchy())
             return false;
@@ -151,7 +151,7 @@ modded class Icon
         if (m_TransferZRightDragStarted)
         {
             Widget hovered = GetWidgetUnderCursor();
-            if (!TransferZHeaderControls.TransferZCompleteClassDropAtWidget(hovered))
+            if (!TransferZHeaderControls.TransferZCompleteRightDragAtWidget(hovered))
                 TransferZHeaderControls.CancelOperationDrag();
         }
 
@@ -166,5 +166,154 @@ modded class Icon
             TransferZStartRightDragTracking();
         else if (button == MouseState.LEFT)
             TransferZResetRightDragTracking();
+    }
+}
+
+modded class VicinitySlotsContainer
+{
+    protected bool m_TransferZVicinityRightDragTracking;
+    protected bool m_TransferZVicinityRightDragStarted;
+    protected int m_TransferZVicinityRightDragStartX;
+    protected int m_TransferZVicinityRightDragStartY;
+    protected EntityAI m_TransferZVicinityRightDragRepresentative;
+
+    protected void TransferZResetVicinityRightDrag()
+    {
+        m_TransferZVicinityRightDragTracking = false;
+        m_TransferZVicinityRightDragStarted = false;
+        m_TransferZVicinityRightDragRepresentative = null;
+    }
+
+    protected EntityAI TransferZResolveVicinityItemFromWidget(Widget w)
+    {
+        if (!w)
+            return null;
+
+        string name = w.GetName();
+        name.Replace("PanelWidget", "Render");
+
+        ItemPreviewWidget preview = ItemPreviewWidget.Cast(w.FindAnyWidget(name));
+        if (!preview)
+            preview = ItemPreviewWidget.Cast(w.FindAnyWidget("Render"));
+        if (!preview)
+            preview = ItemPreviewWidget.Cast(w);
+
+        if (!preview)
+            return null;
+
+        return preview.GetItem();
+    }
+
+    protected bool TransferZBuildVicinityClassItems(EntityAI representative, notnull array<EntityAI> matches)
+    {
+        matches.Clear();
+        if (!representative)
+            return false;
+
+        string className = representative.GetType();
+        ref array<EntityAI> visible = new array<EntityAI>();
+        TransferZSnapshotVisibleItems(visible);
+
+        bool representativeStillVisible = false;
+        foreach (EntityAI item : visible)
+        {
+            if (!item)
+                continue;
+
+            if (item == representative)
+                representativeStillVisible = true;
+
+            if (item.GetType() == className)
+                matches.Insert(item);
+        }
+
+        return representativeStillVisible && matches.Count() > 0;
+    }
+
+    protected void TransferZStartVicinityRightDrag(Widget w)
+    {
+        TransferZResetVicinityRightDrag();
+
+        if (KeyState(KeyCode.KC_LCONTROL) || KeyState(KeyCode.KC_RCONTROL))
+            return;
+
+        EntityAI representative = TransferZResolveVicinityItemFromWidget(w);
+        if (!representative)
+            return;
+
+        m_TransferZVicinityRightDragRepresentative = representative;
+        GetMousePos(m_TransferZVicinityRightDragStartX, m_TransferZVicinityRightDragStartY);
+        m_TransferZVicinityRightDragTracking = true;
+        GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(this.TransferZPollVicinityRightDrag, 16, false);
+    }
+
+    protected void TransferZPollVicinityRightDrag()
+    {
+        if (!m_TransferZVicinityRightDragTracking)
+            return;
+
+        bool rightDown = (GetMouseState(MouseState.RIGHT) & 0x80000000) != 0;
+        int mouseX;
+        int mouseY;
+        GetMousePos(mouseX, mouseY);
+
+        if (rightDown)
+        {
+            if (!m_TransferZVicinityRightDragStarted)
+            {
+                int dx = mouseX - m_TransferZVicinityRightDragStartX;
+                int dy = mouseY - m_TransferZVicinityRightDragStartY;
+                if (dx > 5 || dx < -5 || dy > 5 || dy < -5)
+                {
+                    ref array<EntityAI> matches = new array<EntityAI>();
+                    if (!TransferZBuildVicinityClassItems(m_TransferZVicinityRightDragRepresentative, matches))
+                    {
+                        TransferZResetVicinityRightDrag();
+                        return;
+                    }
+
+                    // For vicinity the source is a filtered snapshot rather than a
+                    // cargo container: only loose visible items whose exact GetType()
+                    // matches the representative are handed to the existing vicinity
+                    // transfer path.
+                    TransferZOperationDrag.BeginVicinity(TransferZOperation.TRANSFER, matches);
+                    TransferZHeaderControls.SetOperationDropTargetsVisible(true);
+                    m_TransferZVicinityRightDragStarted = true;
+                }
+            }
+
+            GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(this.TransferZPollVicinityRightDrag, 16, false);
+            return;
+        }
+
+        if (m_TransferZVicinityRightDragStarted)
+        {
+            Widget hovered = GetWidgetUnderCursor();
+            if (!TransferZHeaderControls.TransferZCompleteRightDragAtWidget(hovered))
+                TransferZHeaderControls.CancelOperationDrag();
+        }
+
+        TransferZResetVicinityRightDrag();
+    }
+
+    override void MouseButtonDown(Widget w, int x, int y, int button)
+    {
+        super.MouseButtonDown(w, x, y, button);
+
+        if (button == MouseState.RIGHT)
+            TransferZStartVicinityRightDrag(w);
+        else if (button == MouseState.LEFT)
+            TransferZResetVicinityRightDrag();
+    }
+
+    override void MouseClick(Widget w, int x, int y, int button)
+    {
+        // Once RMB movement crossed the drag threshold, do not also execute
+        // DayZ's normal RMB-up action. The polling callback completes the
+        // TransferZ drop on the next GUI tick.
+        if (button == MouseState.RIGHT && m_TransferZVicinityRightDragStarted)
+            return;
+
+        super.MouseClick(w, x, y, button);
     }
 }
