@@ -1,7 +1,7 @@
 PanelWidgetClass TransferZVicinityControls {
  ignorepointer 1
  position 48 0
- size 40 29
+ size 61 29
  halign right_ref
  valign center_ref
  hexactpos 1
@@ -11,9 +11,35 @@ PanelWidgetClass TransferZVicinityControls {
  priority 600
  style blank
  {
-  ButtonWidgetClass TransferZ_VicinityTransfer {
+  ButtonWidgetClass TransferZ_VicinityDestination {
    ignorepointer 0
    position 0 3
+   size 19 23
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 601
+   style Empty
+   text "D"
+   text_proportion 0.65
+   font "gui/fonts/sdf_MetronBook24"
+  }
+  ImageWidgetClass TransferZ_VicinityTransferStatus {
+   visible 0
+   ignorepointer 1
+   position 21 3
+   size 19 23
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 600
+   mode blend
+  }
+  ButtonWidgetClass TransferZ_VicinityTransfer {
+   ignorepointer 0
+   position 21 3
    size 19 23
    hexactpos 1
    vexactpos 1
@@ -25,9 +51,21 @@ PanelWidgetClass TransferZVicinityControls {
    text_proportion 0.65
    font "gui/fonts/sdf_MetronBook24"
   }
+  ImageWidgetClass TransferZ_VicinityUnpackStatus {
+   visible 0
+   ignorepointer 1
+   position 42 3
+   size 19 23
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 600
+   mode blend
+  }
   ButtonWidgetClass TransferZ_VicinityUnpack {
    ignorepointer 0
-   position 21 3
+   position 42 3
    size 19 23
    hexactpos 1
    vexactpos 1
