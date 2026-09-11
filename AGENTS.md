@@ -36,6 +36,15 @@ Before modifying this repository, read this file and `docs/CODEX_PROJECT_RULES.m
 - Avoid per-frame inventory scans and unnecessary RPC traffic.
 - Use dynamic inventory/cargo capability checks rather than allowlists of container classnames.
 - Do not introduce mandatory third-party dependencies without explicit approval.
+- Header positioning must reserve DayZ's native left-side controls, including hover-only move/reorder handles.
+- DayZ can finalize header geometry after TransferZ's first setup call. Use bounded deferred GUI-layout correction when needed; never solve this with a permanent polling loop.
+
+## Source organization
+
+- Use descriptive source names. Do not use `Z`, `ZZ`, `ZZZZ`, or similar alphabetical load-order hacks.
+- If multiple UI extension layers genuinely require deterministic order, use the documented `TransferZ_Widget_<stage>_<purpose>.c` staging pattern. Keep stages sparse and preserve their intended order when inserting new layers.
+- Prefer consolidating behavior into the owning subsystem when practical instead of adding another late extension layer.
+- Do not call helper methods across separate `modded class` layers when ordinary virtual/override flow can do the job; Enforce may not resolve those helpers as expected.
 
 ## Enforce Script safety
 
@@ -55,3 +64,4 @@ Before handing work over:
 2. Verify the documented semantics still match the implementation.
 3. Run available static/build checks.
 4. If DayZ Tools or a DayZ server compile is unavailable, say so rather than claiming compile validation.
+5. Remove temporary compatibility/fix filenames and development-only load-order hacks before integrating to `main`.
