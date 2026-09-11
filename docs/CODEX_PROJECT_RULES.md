@@ -16,7 +16,7 @@ A selected container destination is transient. It is valid only while the corres
 
 Transfer snapshots the source container's direct cargo children and attempts to move them in source order. Cargo-bearing child containers move intact when DayZ permits the move. Failed items remain in place.
 
-The `T` control may also be dragged from a source onto another visible cargo container field to perform a one-off direct transfer to that destination without changing the selected `D` destination. Preserve normal mouse-wheel inventory scrolling while an operation control is being dragged.
+The `T` control may also be dragged from a source onto another visible cargo container field to perform a one-off direct transfer without changing the selected `D` destination. Preserve normal mouse-wheel inventory scrolling while an operation control is being dragged.
 
 When vicinity is the destination, Transfer drops those direct source children through DayZ's normal inventory drop path.
 
@@ -110,7 +110,7 @@ Vicinity/ground destinations use DayZ's standard inventory drop path. Do not inv
 
 Do not delete and recreate items to simulate transfer.
 
-## Initial UI
+## UI contract
 
 Cargo headers use compact controls:
 
@@ -122,21 +122,37 @@ Cargo headers use compact controls:
 
 Vicinity exposes `D`, `T`, and `U`.
 
+The TransferZ button block sits on the left side of the header **after DayZ's native left-side preview/move controls and before the title**. The native hover-only move/reorder panel must have reserved space even while hidden. Do not let TransferZ controls overlap native handles.
+
+DayZ may finish sizing header previews and cargo widgets after TransferZ's first setup call. Initial placement therefore uses bounded deferred GUI-layout correction after the immediate pass. Keep this initialization-only; do not introduce per-frame layout polling.
+
 T/U drag targets cover the visible destination container field rather than only the header. The temporary drag overlay must forward mouse-wheel scrolling to the appropriate native inventory scroller.
 
 Hover tooltips must stay close to the hovered control, use a dark mostly-opaque background, and wrap onto additional lines instead of clipping longer messages. If state changes while a control remains hovered, rebuild both tooltip text and calculated geometry immediately rather than requiring mouse-out/mouse-in. Do not use the word `recursive` in player-facing tooltip text.
 
-While `T` or `U` is hovered, preview the immediate expected result with a subdued translucent background:
+The button block has a subdued common background with individual hover highlights. While `T` or `U` is hovered, preview the immediate expected result with a subdued translucent background:
 
 - green: expected normal/full execution;
 - yellow: likely partial execution, such as insufficient destination capacity or only some currently eligible items;
 - red: currently impossible.
 
-The status colors should remain subdued, but sufficiently saturated and opaque to read clearly behind the button text.
-
 The preview is advisory only. It must never replace authoritative server-side move validation.
 
-The controls extend the vanilla inventory rather than replacing it.
+TransferZ extends the vanilla inventory rather than replacing it. Native header dragging/reordering must remain available outside the TransferZ button rectangle; clicking `D`, `L`, or `P` must not accidentally initiate native header dragging.
+
+## Source layout and extension staging
+
+Use descriptive filenames. Do not add `Z`, `ZZ`, `ZZZZ`, or similar alphabetical load-order prefixes.
+
+The existing late mission-UI extension layers use the explicit pattern:
+
+```text
+TransferZ_Widget_<stage>_<purpose>.c
+```
+
+The numeric stages document intentional extension order after the base TransferZ UI hooks. Keep the numbering sparse and preserve established order when a new stage is truly required. Prefer moving behavior into the owning subsystem over adding new stages.
+
+Avoid direct helper calls across separate `modded class` layers when normal override flow can perform the work. This previously caused Enforce compile failures even when filename ordering appeared correct.
 
 ## Scope boundaries for 0.1
 
