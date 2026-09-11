@@ -2,9 +2,8 @@ PanelWidgetClass TransferZHeaderTooltip {
  visible 0
  clipchildren 0
  ignorepointer 1
- color 0 0 0 0.82
  position 0 0
- size 270 30
+ size 260 34
  hexactpos 1
  vexactpos 1
  hexactsize 1
@@ -12,15 +11,27 @@ PanelWidgetClass TransferZHeaderTooltip {
  priority 10000
  style blank
  {
-  TextWidgetClass TransferZ_TooltipText {
+  ImageWidgetClass TransferZ_TooltipBackground {
    ignorepointer 1
-   color 0.94 0.94 0.94 1
-   position 8 0
-   size 254 30
+   position 0 0
+   size 260 34
    hexactpos 1
    vexactpos 1
    hexactsize 1
    vexactsize 1
+   priority 10000
+   mode blend
+  }
+  TextWidgetClass TransferZ_TooltipText {
+   ignorepointer 1
+   color 0.94 0.94 0.94 1
+   position 8 5
+   size 244 24
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 10001
    style Normal
    text ""
    font "gui/fonts/sdf_MetronBook24"
@@ -29,7 +40,7 @@ PanelWidgetClass TransferZHeaderTooltip {
    "size to text h" 0
    "size to text v" 0
    "text halign" left
-   "text valign" center
+   "text valign" top
   }
  }
 }
