@@ -8,7 +8,6 @@ modded class TransferZHeaderControls
         if (!m_Root || !m_HeaderLabel || !m_Entity || !m_Entity.GetInventory().GetCargo())
             return;
 
-        RestoreHeaderText();
         if (m_HeaderHost)
             m_HeaderHost.Update();
         m_HeaderLabel.Update();
