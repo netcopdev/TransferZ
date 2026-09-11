@@ -119,9 +119,9 @@ class TransferZOperationDrag
             }
             else if (s_Operation == TransferZOperation.UNPACK)
             {
-                // U may be dropped back onto its own source to flatten nested
-                // cargo into that source container.
-                handled = state.RequestUnpackTo(s_Source, destination);
+                // U may be dropped back onto its own source to flatten cargo
+                // from nested child containers into that source container.
+                handled = state.RequestNestedUnpackTo(s_Source, destination);
             }
         }
 
@@ -154,7 +154,7 @@ class TransferZOperationDrag
             if (s_Operation == TransferZOperation.TRANSFER)
                 handled = state.RequestTransferToVicinity(s_Source);
             else if (s_Operation == TransferZOperation.UNPACK)
-                handled = state.RequestUnpackToVicinity(s_Source);
+                handled = state.RequestNestedUnpackToVicinity(s_Source);
         }
 
         Clear();
