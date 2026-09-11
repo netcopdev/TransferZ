@@ -56,9 +56,9 @@ modded class TransferZHeaderControls
         return null;
     }
 
-    protected float TransferZVisibleWidgetRight(Widget widget)
+    protected float TransferZWidgetRight(Widget widget)
     {
-        if (!widget || !widget.IsVisibleHierarchy())
+        if (!widget)
             return 0.0;
 
         float x;
@@ -67,10 +67,13 @@ modded class TransferZHeaderControls
         float h;
         widget.GetScreenPos(x, y);
         widget.GetScreenSize(w, h);
+        if (w <= 0.0 || h <= 0.0)
+            return 0.0;
+
         return x + w;
     }
 
-    protected float TransferZNativeHandleRight()
+    protected float TransferZNativeLeftReservedRight()
     {
         if (!m_HeaderHost)
             return 0.0;
@@ -78,17 +81,25 @@ modded class TransferZHeaderControls
         float right = 0.0;
         float candidate;
 
-        candidate = TransferZVisibleWidgetRight(m_HeaderHost.FindAnyWidget("opened"));
+        // The native closable header uses a square LeftSpacer containing the
+        // item preview (Render) and the hover-only MovePanel arrows. Cargo
+        // attachment headers also expose a left-side Render preview. These are
+        // the controls TransferZ must sit after. Do not consider collapse/open
+        // controls here: those are right-side controls and must never influence
+        // the left button block position.
+        candidate = TransferZWidgetRight(m_HeaderHost.FindAnyWidget("LeftSpacer"));
         if (candidate > right)
             right = candidate;
 
-        candidate = TransferZVisibleWidgetRight(m_HeaderHost.FindAnyWidget("closed"));
+        candidate = TransferZWidgetRight(m_HeaderHost.FindAnyWidget("Render"));
         if (candidate > right)
             right = candidate;
 
-        // Some header variants expose only the parent collapse widget.
-        if (right <= 0.0)
-            right = TransferZVisibleWidgetRight(m_HeaderHost.FindAnyWidget("collapse_button"));
+        // MovePanel is normally hidden until header hover. Its geometry still
+        // occupies the same left square, so reserve it even when hidden.
+        candidate = TransferZWidgetRight(m_HeaderHost.FindAnyWidget("MovePanel"));
+        if (candidate > right)
+            right = candidate;
 
         return right;
     }
@@ -102,8 +113,9 @@ modded class TransferZHeaderControls
         if (preferredVisible)
             blockWidth = 107.0;
 
-        // Start each layout pass from the native text geometry so repeated refreshes
-        // cannot accumulate offsets.
+        // Reset to the native geometry captured when this header was created.
+        // Every refresh starts from the same baseline, so D/L/P state changes
+        // cannot accumulate offsets or push the controls out of the header.
         RestoreHeaderText();
 
         float labelX;
@@ -114,7 +126,7 @@ modded class TransferZHeaderControls
         m_HeaderLabel.GetScreenSize(labelW, labelH);
 
         float blockX = labelX;
-        float nativeRight = TransferZNativeHandleRight();
+        float nativeRight = TransferZNativeLeftReservedRight();
         const float nativeGap = 4.0;
         if (nativeRight > 0.0 && nativeRight + nativeGap > blockX)
             blockX = nativeRight + nativeGap;
@@ -240,53 +252,17 @@ modded class TransferZVicinityHeaderControls
         return null;
     }
 
-    protected float TransferZVicinityVisibleWidgetRight(Widget widget)
-    {
-        if (!widget || !widget.IsVisibleHierarchy())
-            return 0.0;
-
-        float x;
-        float y;
-        float w;
-        float h;
-        widget.GetScreenPos(x, y);
-        widget.GetScreenSize(w, h);
-        return x + w;
-    }
-
-    protected float TransferZVicinityNativeHandleRight(Widget host)
-    {
-        if (!host)
-            return 0.0;
-
-        float right = 0.0;
-        float candidate;
-
-        candidate = TransferZVicinityVisibleWidgetRight(host.FindAnyWidget("opened"));
-        if (candidate > right)
-            right = candidate;
-
-        candidate = TransferZVicinityVisibleWidgetRight(host.FindAnyWidget("closed"));
-        if (candidate > right)
-            right = candidate;
-
-        if (right <= 0.0)
-            right = TransferZVicinityVisibleWidgetRight(host.FindAnyWidget("collapse_button"));
-
-        return right;
-    }
-
     protected void TransferZPlaceVicinityControlsBeforeTitle()
     {
         if (!m_Root || !m_TransferZHeaderLabel)
             return;
 
         const float blockWidth = 65.0;
-        const float nativeGap = 4.0;
         const float titleGap = 5.0;
 
-        // Restore the original native title geometry before deriving screen-space
-        // positions, otherwise repeated refreshes would progressively shift it.
+        // Vicinity has its native collapse control on the right. It does not
+        // compete with this left-side block, so no native-control reservation is
+        // needed here.
         m_TransferZHeaderLabel.SetPos(m_TransferZHeaderLabelX, m_TransferZHeaderLabelY, false);
         m_TransferZHeaderLabel.SetSize(m_TransferZHeaderLabelW, m_TransferZHeaderLabelH, true);
 
@@ -297,12 +273,7 @@ modded class TransferZVicinityHeaderControls
         m_TransferZHeaderLabel.GetScreenPos(labelX, labelY);
         m_TransferZHeaderLabel.GetScreenSize(labelW, labelH);
 
-        Widget host = m_Root.GetParent();
         float blockX = labelX;
-        float nativeRight = TransferZVicinityNativeHandleRight(host);
-        if (nativeRight > 0.0 && nativeRight + nativeGap > blockX)
-            blockX = nativeRight + nativeGap;
-
         float blockY = labelY + (labelH - 29.0) * 0.5;
         m_Root.SetScreenPos(blockX, blockY, false);
         m_Root.SetScreenSize(blockWidth, 29.0, false);
