@@ -121,6 +121,19 @@ modded class TransferZClientState
 
 modded class TransferZHeaderControls
 {
+    override protected string TooltipFor(Widget w)
+    {
+        if (w == m_UnpackButton)
+        {
+            string destinationName = DestinationName();
+            if (destinationName != "")
+                return "Unpack nested contents -> " + destinationName;
+            return "Unpack nested contents: select destination";
+        }
+
+        return super.TooltipFor(w);
+    }
+
     override void OnUnpack(Widget w, int x, int y, int button)
     {
         if (button != MouseState.LEFT || !m_Entity)
