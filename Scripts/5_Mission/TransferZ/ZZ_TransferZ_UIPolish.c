@@ -11,6 +11,44 @@ modded class TransferZHeaderControls
         return ARGB(170, 142, 46, 43);
     }
 
+    override protected void PositionTooltip(Widget source, float tooltipH)
+    {
+        if (!m_TooltipRoot || !source)
+            return;
+
+        float sourceX;
+        float sourceY;
+        float sourceW;
+        float sourceH;
+        source.GetScreenPos(sourceX, sourceY);
+        source.GetScreenSize(sourceW, sourceH);
+
+        int screenW;
+        int screenH;
+        GetScreenSize(screenW, screenH);
+
+        float tooltipW = 260.0;
+        float tooltipX = sourceX + sourceW * 0.5 - tooltipW * 0.5;
+        float tooltipY = sourceY - tooltipH - 2.0;
+
+        if (tooltipX < 4.0)
+            tooltipX = 4.0;
+        if (tooltipX + tooltipW > screenW - 4.0)
+            tooltipX = screenW - tooltipW - 4.0;
+        if (tooltipY < 4.0)
+            tooltipY = sourceY + sourceH + 2.0;
+
+        // Use immediate geometry updates. Without this, changed wrapped text can
+        // repaint while the old root height survives until the next hover cycle.
+        m_TooltipRoot.SetScreenSize(tooltipW, tooltipH, true);
+        if (m_TooltipBackground)
+            m_TooltipBackground.SetSize(tooltipW, tooltipH, true);
+        if (m_TooltipText)
+            m_TooltipText.SetSize(tooltipW - 16.0, tooltipH - 10.0, true);
+        m_TooltipRoot.SetScreenPos(tooltipX, tooltipY, true);
+        m_TooltipRoot.Update();
+    }
+
     override protected void ShowTooltip(Widget source)
     {
         m_TransferZHoveredTooltipButton = source;
@@ -44,8 +82,7 @@ modded class TransferZHeaderControls
         super.UpdateControls();
 
         // State text can change while the pointer remains over the same control
-        // (for example L -> L+ -> L*). Rebuild the wrapped tooltip immediately
-        // so both its text and calculated height follow that state change.
+        // (for example L -> L+ -> L*). Rebuild wrapped text and geometry now.
         if (m_TransferZHoveredTooltipButton)
             ShowTooltip(m_TransferZHoveredTooltipButton);
     }
@@ -62,6 +99,42 @@ modded class TransferZVicinityHeaderControls
         if (result == TransferZOperationPreviewResult.PARTIAL)
             return ARGB(170, 154, 118, 34);
         return ARGB(170, 142, 46, 43);
+    }
+
+    override protected void PositionTooltip(Widget source, float tooltipH)
+    {
+        if (!m_TooltipRoot || !source)
+            return;
+
+        float sourceX;
+        float sourceY;
+        float sourceW;
+        float sourceH;
+        source.GetScreenPos(sourceX, sourceY);
+        source.GetScreenSize(sourceW, sourceH);
+
+        int screenW;
+        int screenH;
+        GetScreenSize(screenW, screenH);
+
+        float tooltipW = 260.0;
+        float tooltipX = sourceX + sourceW * 0.5 - tooltipW * 0.5;
+        float tooltipY = sourceY - tooltipH - 2.0;
+
+        if (tooltipX < 4.0)
+            tooltipX = 4.0;
+        if (tooltipX + tooltipW > screenW - 4.0)
+            tooltipX = screenW - tooltipW - 4.0;
+        if (tooltipY < 4.0)
+            tooltipY = sourceY + sourceH + 2.0;
+
+        m_TooltipRoot.SetScreenSize(tooltipW, tooltipH, true);
+        if (m_TooltipBackground)
+            m_TooltipBackground.SetSize(tooltipW, tooltipH, true);
+        if (m_TooltipText)
+            m_TooltipText.SetSize(tooltipW - 16.0, tooltipH - 10.0, true);
+        m_TooltipRoot.SetScreenPos(tooltipX, tooltipY, true);
+        m_TooltipRoot.Update();
     }
 
     override protected void ShowTooltip(Widget source)
