@@ -105,6 +105,12 @@ modded class TransferZHeaderControls
         if (preferredVisible)
             blockWidth = 107.0;
 
+        // DayZ owns the title geometry. ClosableHeader centers TextWidget0 over
+        // most of the header, while HandsHeader puts TextWidget0 inside hih_cont's
+        // GridSpacer. Moving or shrinking either widget fights the native layout
+        // and causes the pushed-right and wrapped/squashed titles seen in game.
+        // Base TransferZ temporarily reserves title space, so restore that native
+        // geometry here and only overlay our control block in the free left area.
         RestoreHeaderText();
 
         float labelX;
@@ -126,16 +132,6 @@ modded class TransferZHeaderControls
 
         if (m_TransferZBlockBackground)
             m_TransferZBlockBackground.SetSize(blockWidth, 27, false);
-
-        const float titleGap = 5.0;
-        float titleX = blockX + blockWidth + titleGap;
-        float originalRight = labelX + labelW;
-        float targetWidth = originalRight - titleX;
-        if (targetWidth < 20.0)
-            targetWidth = 20.0;
-
-        m_HeaderLabel.SetScreenPos(titleX, labelY, false);
-        m_HeaderLabel.SetScreenSize(targetWidth, labelH, false);
     }
 
     override bool OnButtonMouseEnter(Widget w, int x, int y)
@@ -247,8 +243,9 @@ modded class TransferZVicinityHeaderControls
             return;
 
         const float blockWidth = 65.0;
-        const float titleGap = 5.0;
 
+        // Preserve the native centered title here as well. TransferZ is an
+        // overlay; it should not redefine the header's own text layout.
         m_TransferZHeaderLabel.SetPos(m_TransferZHeaderLabelX, m_TransferZHeaderLabelY, false);
         m_TransferZHeaderLabel.SetSize(m_TransferZHeaderLabelW, m_TransferZHeaderLabelH, true);
 
@@ -266,15 +263,6 @@ modded class TransferZVicinityHeaderControls
 
         if (m_TransferZBlockBackground)
             m_TransferZBlockBackground.SetSize(blockWidth, 27, false);
-
-        float titleX = blockX + blockWidth + titleGap;
-        float originalRight = labelX + labelW;
-        float targetWidth = originalRight - titleX;
-        if (targetWidth < 20.0)
-            targetWidth = 20.0;
-
-        m_TransferZHeaderLabel.SetScreenPos(titleX, labelY, false);
-        m_TransferZHeaderLabel.SetScreenSize(targetWidth, labelH, false);
     }
 
     override bool OnButtonMouseEnter(Widget w, int x, int y)
