@@ -6,7 +6,7 @@ TransferZ is a DayZ inventory-routing mod focused on deterministic, low-friction
 
 Current development target: **0.1 prototype** on `feature/core-transfer-routing`.
 
-The prototype currently includes exact destination selection, direct bulk transfer, nested-content unpacking, draggable transfer/unpack handles, exact-class right-drag transfer, temporary container links, linked-container double-click routing, a persistent preferred personal destination, and vicinity-wide transfer/unpack actions.
+The prototype currently includes exact destination selection, direct bulk transfer, nested-content unpacking, draggable transfer/unpack handles, modifier-based item drag operations, temporary container links, linked-container double-click routing, a persistent preferred personal destination, and vicinity-wide transfer/unpack actions.
 
 ## Core behavior
 
@@ -53,13 +53,17 @@ For a one-off direct unpack, drag the source header's `U` handle onto the destin
 
 When `VICINITY` is the destination, Unpack moves leaf items from the source cargo tree to the ground around the player.
 
-### Exact-class right-drag
+### Modifier item drags
 
-Normal left-button item drag remains vanilla DayZ behavior.
+Unmodified item drag remains vanilla DayZ behavior. TransferZ adds three left-button modifier gestures for items that are direct cargo children of a container. The modifier is latched when the drag starts, so it may be released while moving or scrolling toward the destination.
 
-Right-button dragging an item from cargo onto a TransferZ destination performs an exact-class bulk move. TransferZ snapshots the item's immediate source cargo and attempts to move every direct child whose `GetType()` exactly matches the dragged representative item.
+- `Ctrl + Drag` performs an exact-class bulk move. TransferZ snapshots the item's immediate source cargo and attempts to move every direct child whose `GetType()` exactly matches the dragged representative item.
+- `Shift + Drag` performs the same operation as dragging the source container's `T` handle: transfer all direct cargo children from that immediate source container.
+- `Alt + Drag` performs the same operation as dragging the source container's `U` handle: unpack that immediate source container into the drop destination.
 
-For example, right-dragging one 5.56 ammo pile moves the other piles of that exact DayZ class from the same source. It does **not** move all ammunition categories and it does not recurse into nested containers. Failed or non-fitting matches remain in place.
+For example, `Ctrl + Drag` on one 5.56 ammo pile moves the other piles of that exact DayZ class from the same source. It does **not** move all ammunition categories and it does not recurse into nested cargo for the class match. Failed or non-fitting matches remain in place.
+
+TransferZ no longer assigns a bulk-drag operation to the right mouse button. If more than one Ctrl/Shift/Alt modifier is held when a drag starts, TransferZ leaves the drag to vanilla behavior rather than guessing which bulk operation was intended.
 
 ### Vicinity batch actions
 
@@ -77,9 +81,16 @@ The vicinity `T` and `U` handles can also be dragged directly onto a destination
 
 Press `L` on the first container, then `L` on the second. TransferZ keeps a single temporary pair for the current client session.
 
-While linked, double-clicking an item in one container requests an exact move to the other container. Clicking `L` on either participant removes that pair. If a pair already exists and `L` is clicked on another container, the old pair is dropped and that container becomes the new pending `L+` anchor. A pending first link click can be cancelled by clicking `L` on the same container again.
+While linked, double-left-clicking an item in one container requests an exact move to the other container. Clicking `L` on either participant removes that pair. If a pair already exists and `L` is clicked on another container, the old pair is dropped and that container becomes the new pending `L+` anchor. A pending first link click can be cancelled by clicking `L` on the same container again.
 
-Link participants are transient and must remain open or in the player's hands. Closing, stowing, losing reach of, or otherwise invalidating either participant clears the link. If TransferZ has no linked route for a cargo icon, vanilla double-click behavior is left unchanged.
+Link participants are transient and must remain open or in the player's hands. Closing, stowing, losing reach of, or otherwise invalidating either participant clears the link.
+
+For normal double-left-click behavior, a link has first priority. Without a link:
+
+- items in external containers or containers held in hands route to the resolved `P*` preferred destination when available;
+- items in the player's worn/attached inventory are left to vanilla DayZ behavior, which takes or swaps the item into hands.
+
+Double-right-click keeps the exact-class batch version of the same TransferZ route: all direct source-cargo items with the representative item's exact `GetType()` are attempted against the link destination first, otherwise the preferred destination.
 
 ### Preferred personal destination
 
@@ -116,7 +127,7 @@ Older profiles containing only the original single `preferred_slot` value remain
 | `L` | Start, complete, replace, or remove the temporary container link |
 | `P` | Set this attached cargo container's slot path as preferred personal destination |
 
-`D*`, `L*`, `L+`, and `P*` indicate current state. Hovering a control shows a compact dark tooltip close to the button.
+`D*`, `L*`, `L+`, and `P*` indicate current state. Hovering a control shows a compact dark tooltip close to the button. Tooltip wrapping and height are recalculated immediately when live state changes alter the text.
 
 While hovering `T` or `U`, its background previews the immediate operation result using subdued translucent colors:
 
@@ -136,7 +147,7 @@ Items that no longer qualify or do not fit remain where they are.
 
 ## Deliberate 0.1 limitations
 
-- No arbitrary item-category filtering yet; right-drag bulk matching is exact class only.
+- No arbitrary item-category filtering yet; exact-class bulk matching is `GetType()` equality only.
 - No partial stack splitting or TransferZ-owned stack merging.
 - Links are not persistent.
 - Unpack traverses cargo only, not attachments.
