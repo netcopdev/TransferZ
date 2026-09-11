@@ -32,6 +32,20 @@ The `U` control may be dragged from a source onto another visible cargo containe
 
 When vicinity is the destination, Unpack drops leaf items through DayZ's normal inventory drop path.
 
+### Item double-click routing
+
+A normal left-button double-click on an item inside a cargo container follows this routing order:
+
+1. If that immediate source container has an active TransferZ link, route the item to the linked container.
+2. Otherwise, if a valid `P*` preferred personal destination exists and is different from the source container, route the item there.
+3. Otherwise leave vanilla double-click behavior in control.
+
+This applies to external cargo containers and cargo containers held in the player's hands; the same rule may also be used for other cargo sources where it is valid and unambiguous.
+
+A right-button double-click performs the same route, but as an exact-class batch operation: snapshot the immediate source zone and attempt to move every direct item whose `GetType()` exactly equals the double-clicked representative's `GetType()`. Do not recurse into nested cargo and do not broaden the match to inheritance or categories.
+
+For vicinity, left double-click routes the selected item to `P*`. Right double-click routes all currently shown vicinity items of that exact class to `P*`.
+
 ### Exact-class right-drag
 
 Normal left-button item drag remains vanilla behavior.
@@ -57,7 +71,7 @@ Links are temporary client-session state. Pairing A and B gives deterministic A-
 
 Clicking `L` on either participant removes the pair. Clicking `L` on a different container while a pair exists removes the old pair and makes the clicked container the new pending anchor. A pending anchor is cancelled by clicking `L` on it again.
 
-A pending anchor or linked participant must remain open or in the player's hands. Clear a pending anchor or active pair when a participant is closed, stowed from the hands, no longer exists, no longer has cargo, moves into another player's inventory, or is no longer within normal inventory-manipulation reach. When no TransferZ route exists, vanilla double-click behavior must remain unchanged.
+A pending anchor or linked participant must remain open or in the player's hands. Clear a pending anchor or active pair when a participant is closed, stowed from the hands, no longer exists, no longer has cargo, moves into another player's inventory, or is no longer within normal inventory-manipulation reach. When no TransferZ route exists, preferred double-click routing may apply; otherwise vanilla double-click behavior remains unchanged.
 
 ### Preferred personal destination
 
@@ -91,7 +105,7 @@ Vicinity exposes `D`, `T`, and `U`.
 
 T/U drag targets cover the visible destination container field rather than only the header. The temporary drag overlay must forward mouse-wheel scrolling to the appropriate native inventory scroller.
 
-Hover tooltips must stay close to the hovered control, use a dark semi-transparent background, and wrap onto additional lines instead of clipping longer messages. Do not use the word `recursive` in player-facing tooltip text.
+Hover tooltips must stay close to the hovered control, use a dark mostly-opaque background, and wrap onto additional lines instead of clipping longer messages. If state changes while a control remains hovered, rebuild both tooltip text and calculated height immediately rather than requiring mouse-out/mouse-in. Do not use the word `recursive` in player-facing tooltip text.
 
 While `T` or `U` is hovered, preview the immediate expected result with a subdued translucent background:
 
@@ -99,13 +113,15 @@ While `T` or `U` is hovered, preview the immediate expected result with a subdue
 - yellow: likely partial execution, such as insufficient destination capacity or only some currently eligible items;
 - red: currently impossible.
 
+The status colors should remain subdued, but sufficiently saturated and opaque to read clearly behind the button text.
+
 The preview is advisory only. It must never replace authoritative server-side move validation.
 
 The controls extend the vanilla inventory rather than replacing it.
 
 ## Scope boundaries for 0.1
 
-- No arbitrary item-category filtering; exact-class right-drag is the only bulk class filter.
+- No arbitrary item-category filtering; exact-class right-drag/right-double-click are the only bulk class filters.
 - No persistent world-container links.
 - No TransferZ-owned partial stack splitting or merging.
 - No automatic relocation of empty nested containers after Unpack.
