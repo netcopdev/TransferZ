@@ -19,7 +19,9 @@ Before modifying this repository, read this file and `docs/CODEX_PROJECT_RULES.m
 - Never trust client-supplied entity identifiers without resolving and revalidating them on the server.
 - Exact-destination operations must target the selected container's own cargo. Do not silently fall back to arbitrary player inventory or nested destination containers.
 - `Transfer` moves direct cargo children and preserves nested container structure.
-- `Unpack` recursively moves non-container leaf items and leaves nested cargo-bearing containers in place.
+- Container `Unpack` moves non-container leaf items found inside cargo-bearing child containers while leaving the source's direct loose cargo and the nested containers themselves in place.
+- Vicinity `Unpack` operates on the shown cargo-bearing vicinity containers and ignores loose vicinity items.
+- `Shift + Click` routes one cargo/vicinity item to the active `D*`; `Alt + Click` routes one cargo/vicinity item to the resolved `P*`. Modifier drags remain source-zone batch operations.
 - Container links are session-local unless a future specification explicitly makes them persistent.
 - Preferred personal destinations are stored by the ordered attachment-slot path from the player to the cargo-bearing target, not by item classname.
 - Nested attachment destinations such as `Belt > DumpPouch` are supported; direct worn containers are the one-hop form of the same model.
