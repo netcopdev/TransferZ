@@ -22,15 +22,17 @@ When vicinity is the destination, Transfer drops those direct source children th
 
 ### Unpack
 
-Unpack traverses cargo. Cargo-bearing nodes remain where they are; non-container leaf items are collected and moved to the destination. Loose direct items therefore move as well. Attachments are outside the initial traversal scope.
+Container Unpack traverses only through cargo-bearing direct children of the source. The source's direct loose cargo remains in place. Cargo-bearing child containers also remain in place, while non-container leaf items found inside those child containers are collected recursively and moved to the destination. Attachments are outside the initial traversal scope.
 
 A destination nested inside a different source is rejected. Moving contents from a nested source upward to an ancestor destination is allowed.
 
-The source itself is a valid Unpack destination. Self-unpack flattens nested cargo leaves into the source while leaving direct loose items, which are already at the destination, untouched.
+The source itself is a valid Unpack destination. Self-unpack flattens leaf cargo from nested child containers into the source while leaving the source's existing direct loose items untouched.
 
 The `U` control may be dragged from a source onto another visible cargo container field, or back onto the source itself, for a one-off direct unpack without changing the selected `D` destination.
 
-When vicinity is the destination, Unpack drops leaf items through DayZ's normal inventory drop path.
+When vicinity is the destination, a normal container Unpack drops only leaf items originating inside its nested cargo-bearing child containers through DayZ's normal inventory drop path.
+
+Vicinity `U` is intentionally zone-oriented rather than equivalent to applying normal container `U` to the vicinity list itself: it selects the shown cargo-bearing vicinity containers as sources, ignores loose vicinity items, and unpacks their contents into the destination.
 
 ### Modifier item drags
 
@@ -41,11 +43,22 @@ TransferZ owns two left-button modifier drags:
 - `Shift + Drag`: equivalent to dragging the source zone's `T` handle.
 - `Alt + Drag`: equivalent to dragging the source zone's `U` handle.
 
-For a direct cargo child, the source zone is its immediate cargo owner. Shift transfers that container's direct cargo children; Alt unpacks that container.
+For a direct cargo child, the source zone is its immediate cargo owner. Shift transfers that container's direct cargo children; Alt extracts only cargo contained inside that container's nested cargo-bearing children and leaves its direct loose cargo untouched.
 
 For an item shown in `VICINITY`, the source zone is the current vicinity list. Shift behaves like vicinity `T`; Alt behaves like vicinity `U`. These operations must work from vicinity to a container, from a container to vicinity, and between normal container targets. Shift from vicinity to vicinity is a no-op because loose vicinity items are already at that destination; Alt from vicinity to vicinity unpacks shown vicinity containers onto the ground.
 
 Do not assign `Ctrl + Drag` to TransferZ. Stock DayZ owns Ctrl+click as immediate drop-to-ground and TransferZ must not compete with or suppress that interaction. Right-button drag also remains outside TransferZ.
+
+### Modifier item clicks
+
+A modifier click is a single-item route, distinct from the source-zone batch behavior of the same modifier followed by an actual drag.
+
+- `Shift + Click`: move the clicked cargo/vicinity item to the active `D*` destination.
+- `Alt + Click`: move the clicked cargo/vicinity item to the resolved preferred `P*` destination.
+
+`D*` may be a cargo container or `VICINITY`. If the requested destination is missing, invalid, already owns the item in the requested location, or cannot accept it, the item stays where it is. `Alt + Click` does nothing when no valid `P*` resolves.
+
+`Ctrl + Click` remains vanilla DayZ behavior and must not be intercepted by TransferZ.
 
 ### Vicinity batch actions
 
@@ -103,7 +116,7 @@ Cargo headers use compact controls:
 
 - `D` selects the destination.
 - `T` transfers direct contents and is also a draggable direct-transfer handle.
-- `U` unpacks nested leaf items and is also a draggable direct-unpack handle.
+- `U` extracts leaf cargo from nested child containers while leaving direct loose cargo in place; it is also a draggable direct-unpack handle.
 - `L` starts, completes, replaces, or removes the single temporary link pair.
 - `P` stores the attached cargo container's attachment-slot path as the preferred personal target.
 
