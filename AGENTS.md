@@ -21,8 +21,8 @@ Before modifying this repository, read this file and `docs/CODEX_PROJECT_RULES.m
 - `Transfer` moves direct cargo children and preserves nested container structure.
 - Container `Unpack` moves non-container leaf items found inside cargo-bearing child containers while leaving the source's direct loose cargo and the nested containers themselves in place.
 - Vicinity `Unpack` operates on the shown cargo-bearing vicinity containers and ignores loose vicinity items.
-- `Shift + Click` routes one cargo/vicinity item to the active `D*`; `Alt + Click` routes one cargo/vicinity item to the resolved `P*`.
-- `Shift + Left Drag` and `Alt + Left Drag` remain source-zone batch operations for `T` and `U` respectively.
+- `Shift + Click` routes one cargo/vicinity item to the active destination; `Alt + Click` routes one cargo/vicinity item to the resolved preferred destination.
+- `Shift + Left Drag` and `Alt + Left Drag` remain source-zone batch operations for Transfer and Unpack respectively.
 - `Right Drag` is an exact-class batch move. From cargo, use the immediate cargo owner as the source and exact `GetType()` matches among its direct cargo children. From vicinity, use the currently shown loose vicinity items and filter by exact `GetType()`.
 - A cargo-source right drag may target another container or `VICINITY`. A vicinity-source right drag targets a container; vicinity-to-vicinity is a no-op.
 - Container links are session-local unless a future specification explicitly makes them persistent.
@@ -30,7 +30,15 @@ Before modifying this repository, read this file and `docs/CODEX_PROJECT_RULES.m
 - Nested attachment destinations such as `Belt > DumpPouch` are supported; direct worn containers are the one-hop form of the same model.
 - Keep compatibility with the legacy single `preferred_slot` preference unless a deliberate migration removes it.
 - Do not reinterpret cargo-nested containers as persistent preferred personal destinations unless that behavior is explicitly designed later.
+- Sort and Stack are server-authoritative container-maintenance operations. Sort may reposition only direct cargo children through native inventory moves. Stack may merge only items DayZ itself reports as combinable.
 - If a requested move is invalid, inaccessible, no longer current, or does not fit, fail safely and leave the item where it is.
+
+## CF dependency and RPC ownership
+
+- Community Framework (CF) is a required dependency of TransferZ.
+- Register TransferZ RPC handling through a CF module rather than inventing additional direct RPC dispatch hooks.
+- Keep the TransferZ RPC range contiguous and owned by the registered CF module.
+- RPC handlers must still validate sender identity, target player, reachability, current inventory location, and operation-specific constraints. CF routing does not replace server-side validation.
 
 ## Compatibility and performance
 
@@ -40,18 +48,17 @@ Before modifying this repository, read this file and `docs/CODEX_PROJECT_RULES.m
 - RMB exact-class drag must begin only after real pointer movement so a normal RMB click remains available.
 - Avoid per-frame inventory scans and unnecessary RPC traffic. Short-lived GUI polling used only while an RMB gesture is actively being resolved is acceptable; permanent inventory polling is not.
 - Use dynamic inventory/cargo capability checks rather than allowlists of container classnames.
-- Do not introduce mandatory third-party dependencies without explicit approval.
-- Header placement must preserve DayZ's native title geometry and native left/right controls. TransferZ overlays its compact control block without redefining the title layout.
+- Do not introduce any additional mandatory third-party dependency without explicit approval.
+- Header placement must preserve DayZ's native title geometry and native left/right controls. TransferZ overlays its transfer controls in the available left area and its Sort/Stack controls in the available right area without redefining the title layout.
 - DayZ can finalize header geometry after TransferZ's first setup call. Use bounded deferred GUI-layout correction when needed; never solve this with a permanent polling loop.
 
 ## Source organization and load order
 
-- Use descriptive filenames for new ordinary source files.
-- **Do not rename existing late UI extension files solely to make their names prettier.** The current `Z`-prefixed files encode a proven Enforce compilation/extension order and are part of the working implementation.
-- A previous cleanup that replaced those names with numeric `TransferZ_Widget_<stage>_<purpose>.c` filenames changed behavior and produced compile/runtime regressions even though the source bodies were effectively unchanged.
-- Any future staging cleanup must first prove equivalent Enforce visibility/override order with a real DayZ compile and runtime test. Treat filename order as behaviorally significant until that work is deliberately redesigned.
-- Prefer consolidating behavior into the owning subsystem when practical instead of adding another late extension layer.
-- Do not call helper methods across separate `modded class` layers when ordinary virtual/override flow can do the job; Enforce may not resolve those helpers as expected.
+- Use descriptive filenames for source files.
+- Keep behavior for the same vanilla/modded class consolidated in one owning TransferZ source file when practical. The earlier chain of `Z`-prefixed late-extension files existed only to force lexical composition order and has been removed after consolidation.
+- Do not reintroduce filename-prefix staging (`Z`, `ZZ`, numeric stage hacks, etc.) as a substitute for coherent ownership.
+- Avoid direct helper calls across separate `modded class` layers when ordinary virtual/override flow or one consolidated owner can do the job.
+- If a real ordering dependency is unavoidable, document it explicitly and validate it with a DayZ compile/runtime test rather than relying on filename aesthetics or assumptions.
 
 ## Enforce Script safety
 
@@ -71,4 +78,4 @@ Before handing work over:
 2. Verify the documented semantics still match the implementation.
 3. Run available static/build checks.
 4. If DayZ Tools or a DayZ server compile is unavailable, say so rather than claiming compile validation.
-5. Do not perform cosmetic source-file renames or staging cleanup during integration unless that exact load-order change has been explicitly designed and runtime-tested.
+5. Do not merge into `main` without explicit user approval.
