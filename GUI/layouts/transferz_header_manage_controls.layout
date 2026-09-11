@@ -1,0 +1,116 @@
+PanelWidgetClass TransferZHeaderManageControls {
+ ignorepointer 1
+ position 0 0
+ size 44 29
+ halign left_ref
+ valign center_ref
+ hexactpos 1
+ vexactpos 1
+ hexactsize 1
+ vexactsize 1
+ priority 600
+ style blank
+ {
+  ImageWidgetClass TransferZ_ManageBlockBackground {
+   ignorepointer 1
+   position 0 1
+   size 44 27
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 599
+   mode blend
+  }
+  ImageWidgetClass TransferZ_SortHover {
+   visible 0
+   ignorepointer 1
+   position 2 3
+   size 19 23
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 600
+   mode blend
+  }
+  ButtonWidgetClass TransferZ_Sort {
+   ignorepointer 0
+   position 2 3
+   size 19 23
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 603
+   style Empty
+  }
+  ImageWidgetClass TransferZ_SortIcon {
+   ignorepointer 1
+   position 4 7
+   size 15 15
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 604
+   mode blend
+  }
+  ImageWidgetClass TransferZ_StackHover {
+   visible 0
+   ignorepointer 1
+   position 23 3
+   size 19 23
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 600
+   mode blend
+  }
+  ButtonWidgetClass TransferZ_Stack {
+   ignorepointer 0
+   position 23 3
+   size 19 23
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 603
+   style Empty
+  }
+  ImageWidgetClass TransferZ_StackIconTop {
+   ignorepointer 1
+   position 27 8
+   size 11 3
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 604
+   mode blend
+  }
+  ImageWidgetClass TransferZ_StackIconMiddle {
+   ignorepointer 1
+   position 25 13
+   size 15 3
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 604
+   mode blend
+  }
+  ImageWidgetClass TransferZ_StackIconBottom {
+   ignorepointer 1
+   position 27 18
+   size 11 3
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 604
+   mode blend
+  }
+ }
+}
