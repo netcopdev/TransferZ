@@ -34,6 +34,18 @@ PanelWidgetClass TransferZHeaderControls {
    priority 600
    mode blend
   }
+  ImageWidgetClass TransferZ_DestinationState {
+   visible 0
+   ignorepointer 1
+   position 2 3
+   size 19 23
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 601
+   mode blend
+  }
   ButtonWidgetClass TransferZ_Destination {
    ignorepointer 0
    position 2 3
@@ -44,9 +56,39 @@ PanelWidgetClass TransferZHeaderControls {
    vexactsize 1
    priority 603
    style Empty
-   text "D"
-   text_proportion 0.65
-   font "gui/fonts/sdf_MetronBook24"
+  }
+  ImageWidgetClass TransferZ_DestinationIconOuter {
+   ignorepointer 1
+   position 4 7
+   size 15 15
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 604
+   mode blend
+  }
+  ImageWidgetClass TransferZ_DestinationIconInner {
+   ignorepointer 1
+   position 7 10
+   size 9 9
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 605
+   mode blend
+  }
+  ImageWidgetClass TransferZ_DestinationIconCenter {
+   ignorepointer 1
+   position 10 13
+   size 3 3
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 606
+   mode blend
   }
   ImageWidgetClass TransferZ_TransferHover {
    visible 0
@@ -82,9 +124,17 @@ PanelWidgetClass TransferZHeaderControls {
    vexactsize 1
    priority 603
    style Empty
-   text "T"
-   text_proportion 0.65
-   font "gui/fonts/sdf_MetronBook24"
+  }
+  ImageWidgetClass TransferZ_TransferIcon {
+   ignorepointer 1
+   position 25 7
+   size 15 15
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 604
+   mode blend
   }
   ImageWidgetClass TransferZ_UnpackHover {
    visible 0
@@ -120,9 +170,17 @@ PanelWidgetClass TransferZHeaderControls {
    vexactsize 1
    priority 603
    style Empty
-   text "U"
-   text_proportion 0.65
-   font "gui/fonts/sdf_MetronBook24"
+  }
+  ImageWidgetClass TransferZ_UnpackIcon {
+   ignorepointer 1
+   position 46 7
+   size 15 15
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 604
+   mode blend
   }
   ImageWidgetClass TransferZ_LinkHover {
    visible 0
@@ -136,6 +194,18 @@ PanelWidgetClass TransferZHeaderControls {
    priority 600
    mode blend
   }
+  ImageWidgetClass TransferZ_LinkState {
+   visible 0
+   ignorepointer 1
+   position 65 3
+   size 19 23
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 601
+   mode blend
+  }
   ButtonWidgetClass TransferZ_Link {
    ignorepointer 0
    position 65 3
@@ -146,9 +216,28 @@ PanelWidgetClass TransferZHeaderControls {
    vexactsize 1
    priority 603
    style Empty
-   text "L"
-   text_proportion 0.65
-   font "gui/fonts/sdf_MetronBook24"
+  }
+  ImageWidgetClass TransferZ_LinkIconA {
+   ignorepointer 1
+   position 68 9
+   size 9 9
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 604
+   mode blend
+  }
+  ImageWidgetClass TransferZ_LinkIconB {
+   ignorepointer 1
+   position 72 11
+   size 9 9
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 605
+   mode blend
   }
   ImageWidgetClass TransferZ_PreferredHover {
    visible 0
@@ -162,6 +251,18 @@ PanelWidgetClass TransferZHeaderControls {
    priority 600
    mode blend
   }
+  ImageWidgetClass TransferZ_PreferredState {
+   visible 0
+   ignorepointer 1
+   position 86 3
+   size 19 23
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 601
+   mode blend
+  }
   ButtonWidgetClass TransferZ_Preferred {
    ignorepointer 0
    position 86 3
@@ -172,9 +273,17 @@ PanelWidgetClass TransferZHeaderControls {
    vexactsize 1
    priority 603
    style Empty
-   text "P"
-   text_proportion 0.65
-   font "gui/fonts/sdf_MetronBook24"
+  }
+  ImageWidgetClass TransferZ_PreferredIcon {
+   ignorepointer 1
+   position 88 7
+   size 15 15
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 604
+   mode blend
   }
  }
 }
