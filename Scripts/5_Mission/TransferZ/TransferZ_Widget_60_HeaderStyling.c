@@ -7,7 +7,6 @@ modded class TransferZHeaderControls
     protected ImageWidget m_TransferZLinkHover;
     protected ImageWidget m_TransferZPreferredHover;
     protected bool m_TransferZStyleReady;
-    protected bool m_TransferZNativeHeaderGeometryCaptured;
 
     protected void TransferZPrepareStyleImage(ImageWidget image, int color, bool show)
     {
@@ -42,28 +41,6 @@ modded class TransferZHeaderControls
         m_TransferZStyleReady = true;
     }
 
-    protected bool TransferZCaptureNativeHeaderGeometry()
-    {
-        if (m_TransferZNativeHeaderGeometryCaptured)
-            return true;
-        if (!m_HeaderHost || !m_HeaderLabel || !m_HeaderHost.IsVisibleHierarchy())
-            return false;
-
-        m_HeaderHost.Update();
-        m_HeaderLabel.Update();
-
-        float screenW;
-        float screenH;
-        m_HeaderLabel.GetScreenSize(screenW, screenH);
-        if (screenW <= 20.0 || screenH <= 0.0)
-            return false;
-
-        m_HeaderLabel.GetPos(m_HeaderLabelX, m_HeaderLabelY);
-        m_HeaderLabel.GetSize(m_HeaderLabelW, m_HeaderLabelH);
-        m_TransferZNativeHeaderGeometryCaptured = true;
-        return true;
-    }
-
     protected ImageWidget TransferZHoverImageFor(Widget w)
     {
         if (w == m_DestinationButton)
@@ -96,19 +73,6 @@ modded class TransferZHeaderControls
         return x + w;
     }
 
-    protected bool TransferZUsesNativeMoveControls()
-    {
-        if (!m_OwnerContainer)
-            return false;
-
-        LayoutHolder parent = m_OwnerContainer.GetParent();
-        if (!parent)
-            return false;
-
-        parent = parent.GetParent();
-        return parent && parent.IsInherited(RightArea);
-    }
-
     protected float TransferZNativeLeftReservedRight()
     {
         if (!m_HeaderHost)
@@ -125,24 +89,9 @@ modded class TransferZHeaderControls
         if (candidate > right)
             right = candidate;
 
-        if (TransferZUsesNativeMoveControls())
-        {
-            float moveRight = 0.0;
-
-            candidate = TransferZWidgetRight(m_HeaderHost.FindAnyWidget("MoveUp"));
-            if (candidate > moveRight)
-                moveRight = candidate;
-
-            candidate = TransferZWidgetRight(m_HeaderHost.FindAnyWidget("MoveDown"));
-            if (candidate > moveRight)
-                moveRight = candidate;
-
-            if (moveRight <= 0.0)
-                moveRight = TransferZWidgetRight(m_HeaderHost.FindAnyWidget("MovePanel"));
-
-            if (moveRight > right)
-                right = moveRight;
-        }
+        candidate = TransferZWidgetRight(m_HeaderHost.FindAnyWidget("MovePanel"));
+        if (candidate > right)
+            right = candidate;
 
         return right;
     }
@@ -214,18 +163,10 @@ modded class TransferZHeaderControls
 
     override void UpdateControls()
     {
-        bool hasEntity = m_Root && m_Entity && m_Entity.GetInventory().GetCargo();
-        if (hasEntity && !TransferZCaptureNativeHeaderGeometry())
-        {
-            m_Root.Show(false);
-            return;
-        }
-
         super.UpdateControls();
-        if (!hasEntity)
+        if (!m_Root || !m_Entity || !m_Entity.GetInventory().GetCargo())
             return;
 
-        m_Root.Show(true);
         TransferZInitializeHeaderStyle();
         bool preferredVisible = CanBePreferred();
 
