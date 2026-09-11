@@ -1,9 +1,8 @@
 modded class Icon
 {
     protected static const int TRANSFERZ_DRAG_NONE = 0;
-    protected static const int TRANSFERZ_DRAG_CLASS = 1;
-    protected static const int TRANSFERZ_DRAG_TRANSFER = 2;
-    protected static const int TRANSFERZ_DRAG_UNPACK = 3;
+    protected static const int TRANSFERZ_DRAG_TRANSFER = 1;
+    protected static const int TRANSFERZ_DRAG_UNPACK = 2;
 
     protected int m_TransferZModifierDragMode = TRANSFERZ_DRAG_NONE;
     protected bool m_TransferZModifierDragStarted;
@@ -115,32 +114,21 @@ modded class Icon
 
     protected int TransferZReadModifierDragMode()
     {
-        bool ctrlDown = KeyState(KeyCode.KC_LCONTROL) || KeyState(KeyCode.KC_RCONTROL);
         bool shiftDown = KeyState(KeyCode.KC_LSHIFT) || KeyState(KeyCode.KC_RSHIFT);
         bool altDown = KeyState(KeyCode.KC_LMENU) || KeyState(KeyCode.KC_RMENU);
 
-        int modifierCount = 0;
-        if (ctrlDown)
-            modifierCount++;
-        if (shiftDown)
-            modifierCount++;
-        if (altDown)
-            modifierCount++;
-
-        // Combined modifiers are intentionally left to vanilla behavior. This
-        // keeps each TransferZ gesture unambiguous and leaves combinations free
-        // for future actions.
-        if (modifierCount != 1)
+        // Ctrl+click/drag is intentionally not owned by TransferZ. DayZ uses
+        // Ctrl+click as an immediate drop-to-ground gesture, so TransferZ must
+        // not compete with that stock interaction.
+        if (KeyState(KeyCode.KC_LCONTROL) || KeyState(KeyCode.KC_RCONTROL))
             return TRANSFERZ_DRAG_NONE;
 
-        if (ctrlDown)
-            return TRANSFERZ_DRAG_CLASS;
+        if (shiftDown == altDown)
+            return TRANSFERZ_DRAG_NONE;
+
         if (shiftDown)
             return TRANSFERZ_DRAG_TRANSFER;
-        if (altDown)
-            return TRANSFERZ_DRAG_UNPACK;
-
-        return TRANSFERZ_DRAG_NONE;
+        return TRANSFERZ_DRAG_UNPACK;
     }
 
     protected void TransferZResetModifierDrag()
@@ -176,9 +164,7 @@ modded class Icon
         if (location.GetType() != InventoryLocationType.CARGO || location.GetParent() != m_TransferZModifierDragSource)
             return;
 
-        if (m_TransferZModifierDragMode == TRANSFERZ_DRAG_CLASS)
-            TransferZOperationDrag.BeginClassTransfer(m_TransferZModifierDragSource, m_Obj);
-        else if (m_TransferZModifierDragMode == TRANSFERZ_DRAG_TRANSFER)
+        if (m_TransferZModifierDragMode == TRANSFERZ_DRAG_TRANSFER)
             TransferZOperationDrag.BeginContainer(TransferZOperation.TRANSFER, m_TransferZModifierDragSource);
         else if (m_TransferZModifierDragMode == TRANSFERZ_DRAG_UNPACK)
             TransferZOperationDrag.BeginContainer(TransferZOperation.UNPACK, m_TransferZModifierDragSource);
