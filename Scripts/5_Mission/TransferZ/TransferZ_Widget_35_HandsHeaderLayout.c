@@ -38,11 +38,6 @@ modded class TransferZHeaderControls
             return;
 
         m_TransferZHandsLeftSpacer.SetSize(m_TransferZHandsLeftSpacerW, m_TransferZHandsLeftSpacerH, false);
-
-        TextWidget title = TextWidget.Cast(m_HeaderLabel);
-        if (title)
-            title.SetTextHorizontalAlignment(ALIGN_CENTER);
-
         m_TransferZHandsGrid.Update();
         m_HeaderLabel.Update();
     }
@@ -66,10 +61,6 @@ modded class TransferZHeaderControls
         m_TransferZHandsLeftSpacer.SetSize(reservedWidth, m_TransferZHandsLeftSpacerH, false);
         m_TransferZHandsGrid.Update();
         m_HeaderLabel.Update();
-
-        TextWidget title = TextWidget.Cast(m_HeaderLabel);
-        if (title)
-            title.SetTextHorizontalAlignment(ALIGN_LEFT);
 
         float labelX;
         float labelY;
