@@ -109,12 +109,13 @@ class TransferZOperationPreview
 
     protected static int ItemArea(EntityAI item)
     {
-        if (!item)
+        InventoryItem inventoryItem = InventoryItem.Cast(item);
+        if (!inventoryItem)
             return 0;
 
         int width;
         int height;
-        GetGame().GetInventoryItemSize(item, width, height);
+        GetGame().GetInventoryItemSize(inventoryItem, width, height);
         if (width < 1)
             width = 1;
         if (height < 1)
