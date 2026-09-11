@@ -2,7 +2,8 @@ enum TransferZOperation
 {
     TRANSFER = 1,
     UNPACK = 2,
-    MOVE_ITEM = 3
+    MOVE_ITEM = 3,
+    TRANSFER_CLASS = 4
 }
 
 class TransferZRPC
