@@ -12,6 +12,8 @@ A cargo-bearing entity may be selected as the active destination. Exact-containe
 
 A selected container destination is transient. It is valid only while the corresponding inventory container is open or the entity is in the player's hands. Clear it when the entity is closed, stowed from the hands, no longer exists, no longer has cargo, moves into another player's inventory, or is no longer within normal inventory-manipulation reach. Clear a vicinity destination when the vicinity panel is closed.
 
+Selecting another valid `D` replaces the current destination.
+
 ### Transfer
 
 Transfer snapshots the source container's direct cargo children and attempts to move them in source order. Cargo-bearing child containers move intact when DayZ permits the move. Failed items remain in place.
@@ -36,22 +38,47 @@ Vicinity `U` is intentionally zone-oriented rather than equivalent to applying n
 
 ### Modifier item drags
 
-Normal unmodified item drag remains vanilla behavior.
+Normal unmodified left-button item drag remains vanilla behavior.
 
 TransferZ owns two left-button modifier drags:
 
-- `Shift + Drag`: equivalent to dragging the source zone's `T` handle.
-- `Alt + Drag`: equivalent to dragging the source zone's `U` handle.
+- `Shift + Left Drag`: equivalent to dragging the source zone's `T` handle.
+- `Alt + Left Drag`: equivalent to dragging the source zone's `U` handle.
 
 For a direct cargo child, the source zone is its immediate cargo owner. Shift transfers that container's direct cargo children; Alt extracts only cargo contained inside that container's nested cargo-bearing children and leaves its direct loose cargo untouched.
 
 For an item shown in `VICINITY`, the source zone is the current vicinity list. Shift behaves like vicinity `T`; Alt behaves like vicinity `U`. These operations must work from vicinity to a container, from a container to vicinity, and between normal container targets. Shift from vicinity to vicinity is a no-op because loose vicinity items are already at that destination; Alt from vicinity to vicinity unpacks shown vicinity containers onto the ground.
 
-Do not assign `Ctrl + Drag` to TransferZ. Stock DayZ owns Ctrl+click as immediate drop-to-ground and TransferZ must not compete with or suppress that interaction. Right-button drag also remains outside TransferZ.
+Do not assign `Ctrl + Drag` to TransferZ. Stock DayZ owns Ctrl-related inventory interactions and TransferZ must not compete with or suppress them.
+
+### Right-button exact-class drag
+
+Right-button drag is a first-class TransferZ gesture and is separate from DayZ's normal left-button drag system.
+
+A right drag must begin only after actual pointer movement beyond a small threshold so a normal RMB click remains available.
+
+For a cargo item:
+
+- the source is the item's immediate cargo owner;
+- the representative item selects an exact `GetType()` classname;
+- all direct cargo children of that source with the same exact `GetType()` are eligible;
+- dropping onto another open TransferZ cargo target moves those exact-class matches there;
+- dropping onto `VICINITY` moves those exact-class matches to the ground through the existing validated class-transfer-to-vicinity path.
+
+For an item shown in `VICINITY`:
+
+- the source is the currently shown loose vicinity list;
+- snapshot the shown vicinity items and filter to the representative item's exact `GetType()`;
+- drop that filtered set onto an open TransferZ cargo target using the existing validated vicinity-transfer backend;
+- vicinity-to-vicinity is a no-op because those loose items are already there.
+
+Do not broaden exact-class matching into category matching, inheritance matching, ammo-family matching, or fuzzy similarity without an explicit new specification.
+
+Do not implement RMB drag by relying on DayZ's stock draggable-widget `DragQueue`: the stock queue is left-button driven. TransferZ's RMB gesture must keep its own short-lived tracking while the button is held and terminate cleanly on release/cancel.
 
 ### Modifier item clicks
 
-A modifier click is a single-item route, distinct from the source-zone batch behavior of the same modifier followed by an actual drag.
+A modifier click is a single-item route, distinct from the source-zone batch behavior of the same modifier followed by an actual left drag.
 
 - `Shift + Click`: move the clicked cargo/vicinity item to the active `D*` destination.
 - `Alt + Click`: move the clicked cargo/vicinity item to the resolved preferred `P*` destination.
@@ -70,6 +97,7 @@ The `VICINITY` header exposes `D`, `T`, and `U` controls.
 - If a selected container destination is itself in vicinity, skip it as a source and allow it to receive the other items.
 - With vicinity itself selected, vicinity `T` is a no-op because those loose items are already there; vicinity `U` unpacks shown containers onto the ground.
 - Vicinity `T` and `U` may also be dragged onto a visible cargo container field for a one-off direct batch action.
+- Vicinity RMB drag filters shown loose vicinity items to the dragged item's exact `GetType()` and moves only that filtered set to the cargo drop target.
 
 ### Links and double-click routing
 
@@ -88,7 +116,7 @@ Double-left-click routing precedence for a cargo item is:
 
 A source at or below the entity currently held in hands counts as an in-hand container for rule 2, even though its hierarchy root is the player.
 
-Double-right-click remains the exact-class batch variant of the same TransferZ destination resolution: exact `GetType()` matches in the immediate source cargo are moved to an active link destination first, otherwise to the preferred destination. This is separate from dragging; right-button drag itself has no TransferZ bulk behavior.
+Double-right-click is the exact-class batch variant of the same TransferZ destination resolution: exact `GetType()` matches in the immediate source cargo are moved to an active link destination first, otherwise to the preferred destination.
 
 For vicinity, left double-click routes the selected item to `P*`. Right double-click routes all currently shown vicinity items of that exact class to `P*`.
 
@@ -98,7 +126,7 @@ Store the preferred personal target as the ordered attachment-slot path from the
 
 Direct worn containers are one-hop paths such as `Back`. Nested attachment containers are multi-hop paths such as `Belt > DumpPouch` or `Vest > Pouch`. Replacing gear should preserve the preference when the currently equipped attachment hierarchy exposes the same slot path and the final entity has cargo.
 
-If any path element cannot be resolved, or the final entity no longer has cargo, do not guess a replacement destination; leave vanilla routing in control.
+Selecting another valid `P` replaces the stored preferred path. If any path element cannot be resolved, or the final entity no longer has cargo, do not guess a replacement destination; leave vanilla routing in control.
 
 Continue reading the legacy single `preferred_slot` preference as a compatibility fallback. Cargo-nested containers are not persistent preferred personal destinations in 0.1.
 
@@ -122,11 +150,13 @@ Cargo headers use compact controls:
 
 Vicinity exposes `D`, `T`, and `U`.
 
-The TransferZ button block sits on the left side of the header **after DayZ's native left-side preview/move controls and before the title**. The native hover-only move/reorder panel must have reserved space even while hidden. Do not let TransferZ controls overlap native handles.
+TransferZ must preserve DayZ's native title geometry. Do not move or shrink the native header title to make room for TransferZ controls. Overlay the TransferZ control block in the available left-side header area while respecting DayZ's native left preview/move controls and right-side header controls.
 
-DayZ may finish sizing header previews and cargo widgets after TransferZ's first setup call. Initial placement therefore uses bounded deferred GUI-layout correction after the immediate pass. Keep this initialization-only; do not introduce per-frame layout polling.
+DayZ may finish sizing header previews and cargo widgets after TransferZ's first setup call. Initial placement therefore uses bounded deferred GUI-layout correction after the immediate pass. Keep this initialization-only; do not introduce permanent per-frame layout polling.
 
 T/U drag targets cover the visible destination container field rather than only the header. The temporary drag overlay must forward mouse-wheel scrolling to the appropriate native inventory scroller.
+
+RMB class-drag uses the same visible TransferZ destination overlays but its gesture detection is independent from DayZ's stock left-button draggable-widget path.
 
 Hover tooltips must stay close to the hovered control, use a dark mostly-opaque background, and wrap onto additional lines instead of clipping longer messages. If state changes while a control remains hovered, rebuild both tooltip text and calculated geometry immediately rather than requiring mouse-out/mouse-in. Do not use the word `recursive` in player-facing tooltip text.
 
@@ -142,21 +172,23 @@ TransferZ extends the vanilla inventory rather than replacing it. Native header 
 
 ## Source layout and extension staging
 
-Use descriptive filenames. Do not add `Z`, `ZZ`, `ZZZZ`, or similar alphabetical load-order prefixes.
+Use descriptive filenames for new ordinary source files.
 
-The existing late mission-UI extension layers use the explicit pattern:
+The current late mission-UI extension layers include historical `Z`-prefixed filenames. **Treat their lexical order as part of the working implementation.** A previous cleanup that renamed these files to numeric `TransferZ_Widget_<stage>_<purpose>.c` names changed Enforce/modded-class resolution order and caused both compile and runtime regressions even though the source bodies were effectively unchanged.
 
-```text
-TransferZ_Widget_<stage>_<purpose>.c
-```
+Therefore:
 
-The numeric stages document intentional extension order after the base TransferZ UI hooks. Keep the numbering sparse and preserve established order when a new stage is truly required. Prefer moving behavior into the owning subsystem over adding new stages.
+- do not rename the existing `Z`-prefixed extension files merely for cleanliness;
+- do not remove them during pre-merge cleanup;
+- if the staging scheme is redesigned, do so as an explicit refactor with current DayZ source inspection, a real DayZ compile, and runtime validation of every affected UI/input path;
+- prefer consolidating behavior into the owning subsystem rather than adding more late extension layers when practical;
+- avoid direct helper calls across separate `modded class` layers when ordinary override flow can perform the work.
 
-Avoid direct helper calls across separate `modded class` layers when normal override flow can perform the work. This previously caused Enforce compile failures even when filename ordering appeared correct.
+The currently working extension order is more important than filename aesthetics.
 
 ## Scope boundaries for 0.1
 
-- No arbitrary item-category filtering; exact-class matching is available through double-right-click routing only.
+- No arbitrary item-category filtering; exact-class matching is available through right-drag and double-right-click routing.
 - No persistent world-container links.
 - No TransferZ-owned partial stack splitting or merging.
 - No automatic relocation of empty nested containers after Unpack.
