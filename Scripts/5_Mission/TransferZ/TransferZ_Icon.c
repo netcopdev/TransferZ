@@ -28,6 +28,50 @@ modded class Icon
         return source;
     }
 
+    protected EntityAI TransferZResolveDoubleClickDestination(EntityAI source)
+    {
+        if (!source)
+            return null;
+
+        TransferZClientState state = TransferZClientState.Get();
+
+        // An explicit link always wins over the preferred personal target.
+        EntityAI destination = state.GetLinkedDestination(source);
+        if (destination)
+            return destination;
+
+        destination = state.GetPreferredDestination();
+        if (!destination || destination == source)
+            return null;
+
+        return destination;
+    }
+
+    protected bool TransferZRouteSingleDoubleClick(EntityAI source)
+    {
+        if (!source || !m_Obj)
+            return false;
+
+        EntityAI destination = TransferZResolveDoubleClickDestination(source);
+        if (!destination)
+            return false;
+
+        return TransferZClientState.Get().RequestMoveItem(m_Obj, destination);
+    }
+
+    protected bool TransferZRouteClassDoubleClick(EntityAI source)
+    {
+        if (!source || !m_Obj)
+            return false;
+
+        EntityAI destination = TransferZResolveDoubleClickDestination(source);
+        if (!destination)
+            return false;
+
+        // Exact GetType() matching is performed and revalidated by the server.
+        return TransferZClientState.Get().RequestClassTransferTo(source, destination, m_Obj);
+    }
+
     override void MouseClick(Widget w, int x, int y, int button)
     {
         if (button == MouseState.RIGHT)
@@ -89,13 +133,15 @@ modded class Icon
 
     override void DoubleClick(Widget w, int x, int y, int button)
     {
-        if (button == MouseState.LEFT && !g_Game.IsLeftCtrlDown() && !m_HandsIcon && m_Obj)
+        if (!g_Game.IsLeftCtrlDown() && !m_HandsIcon && m_Obj)
         {
-            CargoContainer sourceContainer = CargoContainer.Cast(m_Parent);
-            if (sourceContainer)
+            EntityAI source = TransferZGetDirectCargoSource();
+            if (source)
             {
-                EntityAI source = sourceContainer.GetEntity();
-                if (TransferZClientState.Get().TryRouteCargoDoubleClick(source, m_Obj))
+                if (button == MouseState.LEFT && TransferZRouteSingleDoubleClick(source))
+                    return;
+
+                if (button == MouseState.RIGHT && TransferZRouteClassDoubleClick(source))
                     return;
             }
         }
