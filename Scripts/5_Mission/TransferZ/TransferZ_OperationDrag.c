@@ -2,6 +2,8 @@ class TransferZOperationDrag
 {
     protected static int s_Operation = 0;
     protected static EntityAI s_Source;
+    protected static EntityAI s_RepresentativeItem;
+    protected static bool s_ClassTransfer = false;
     protected static bool s_FromVicinity = false;
     protected static ref array<EntityAI> s_VicinityItems;
 
@@ -12,6 +14,23 @@ class TransferZOperationDrag
 
         s_Operation = operation;
         s_Source = source;
+        s_RepresentativeItem = null;
+        s_ClassTransfer = false;
+        s_FromVicinity = false;
+
+        if (s_VicinityItems)
+            s_VicinityItems.Clear();
+    }
+
+    static void BeginClassTransfer(EntityAI source, EntityAI representative)
+    {
+        if (!source || !representative)
+            return;
+
+        s_Operation = TransferZOperation.TRANSFER_CLASS;
+        s_Source = source;
+        s_RepresentativeItem = representative;
+        s_ClassTransfer = true;
         s_FromVicinity = false;
 
         if (s_VicinityItems)
@@ -22,6 +41,8 @@ class TransferZOperationDrag
     {
         s_Operation = operation;
         s_Source = null;
+        s_RepresentativeItem = null;
+        s_ClassTransfer = false;
         s_FromVicinity = true;
 
         if (!s_VicinityItems)
@@ -38,12 +59,22 @@ class TransferZOperationDrag
 
     static bool IsActive()
     {
-        return s_Operation == TransferZOperation.TRANSFER || s_Operation == TransferZOperation.UNPACK;
+        return s_Operation == TransferZOperation.TRANSFER || s_Operation == TransferZOperation.UNPACK || s_Operation == TransferZOperation.TRANSFER_CLASS;
+    }
+
+    static bool IsClassTransfer()
+    {
+        return s_ClassTransfer && s_Operation == TransferZOperation.TRANSFER_CLASS;
     }
 
     static EntityAI GetSource()
     {
         return s_Source;
+    }
+
+    static EntityAI GetRepresentativeItem()
+    {
+        return s_RepresentativeItem;
     }
 
     static bool IsFromVicinity()
@@ -64,7 +95,13 @@ class TransferZOperationDrag
         bool handled = false;
         TransferZClientState state = TransferZClientState.Get();
 
-        if (s_FromVicinity)
+        if (s_ClassTransfer)
+        {
+            if (!s_Source || !s_RepresentativeItem || s_Source == destination)
+                return false;
+            handled = state.RequestClassTransferTo(s_Source, destination, s_RepresentativeItem);
+        }
+        else if (s_FromVicinity)
         {
             if (!s_VicinityItems)
                 return false;
@@ -93,6 +130,8 @@ class TransferZOperationDrag
     {
         s_Operation = 0;
         s_Source = null;
+        s_RepresentativeItem = null;
+        s_ClassTransfer = false;
         s_FromVicinity = false;
         if (s_VicinityItems)
             s_VicinityItems.Clear();
