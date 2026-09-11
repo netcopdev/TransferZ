@@ -97,29 +97,64 @@ class TransferZOperationDrag
 
         if (s_ClassTransfer)
         {
-            if (!s_Source || !s_RepresentativeItem || s_Source == destination)
-                return false;
-            handled = state.RequestClassTransferTo(s_Source, destination, s_RepresentativeItem);
+            if (s_Source && s_RepresentativeItem && s_Source != destination)
+                handled = state.RequestClassTransferTo(s_Source, destination, s_RepresentativeItem);
         }
         else if (s_FromVicinity)
         {
-            if (!s_VicinityItems)
-                return false;
-
-            if (s_Operation == TransferZOperation.TRANSFER)
-                handled = state.RequestVicinityTransferTo(s_VicinityItems, destination);
-            else if (s_Operation == TransferZOperation.UNPACK)
-                handled = state.RequestVicinityUnpackTo(s_VicinityItems, destination);
+            if (s_VicinityItems)
+            {
+                if (s_Operation == TransferZOperation.TRANSFER)
+                    handled = state.RequestVicinityTransferTo(s_VicinityItems, destination);
+                else if (s_Operation == TransferZOperation.UNPACK)
+                    handled = state.RequestVicinityUnpackTo(s_VicinityItems, destination);
+            }
         }
-        else
+        else if (s_Source)
         {
-            if (!s_Source || s_Source == destination)
-                return false;
-
             if (s_Operation == TransferZOperation.TRANSFER)
-                handled = state.RequestTransferTo(s_Source, destination);
+            {
+                if (s_Source != destination)
+                    handled = state.RequestTransferTo(s_Source, destination);
+            }
             else if (s_Operation == TransferZOperation.UNPACK)
+            {
+                // U may be dropped back onto its own source to flatten nested
+                // cargo into that source container.
                 handled = state.RequestUnpackTo(s_Source, destination);
+            }
+        }
+
+        Clear();
+        return handled;
+    }
+
+    static bool CompleteToVicinity()
+    {
+        if (!IsActive())
+            return false;
+
+        bool handled = false;
+        TransferZClientState state = TransferZClientState.Get();
+
+        if (s_ClassTransfer)
+        {
+            if (s_Source && s_RepresentativeItem)
+                handled = state.RequestClassTransferToVicinity(s_Source, s_RepresentativeItem);
+        }
+        else if (s_FromVicinity)
+        {
+            if (s_VicinityItems && s_Operation == TransferZOperation.UNPACK)
+                handled = state.RequestVicinityUnpackToVicinity(s_VicinityItems);
+            // Vicinity T -> Vicinity is deliberately a no-op: those loose
+            // items are already in the requested destination.
+        }
+        else if (s_Source)
+        {
+            if (s_Operation == TransferZOperation.TRANSFER)
+                handled = state.RequestTransferToVicinity(s_Source);
+            else if (s_Operation == TransferZOperation.UNPACK)
+                handled = state.RequestUnpackToVicinity(s_Source);
         }
 
         Clear();
