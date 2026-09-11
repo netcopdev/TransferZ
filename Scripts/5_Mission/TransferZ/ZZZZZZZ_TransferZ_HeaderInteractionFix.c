@@ -8,18 +8,19 @@ modded class TransferZHeaderControls
         if (!m_Root || !m_HeaderLabel || !m_Entity || !m_Entity.GetInventory().GetCargo())
             return;
 
-        // Restore the native title geometry before forcing DayZ to recalculate
-        // this header. On first inventory creation, SetEntity/UpdateControls can
-        // run before spacer/preview geometry has reached its final screen
-        // position, which is why a later D/L/P RefreshAll() used to make the
-        // controls suddenly snap into place.
+        // First inventory creation can run TransferZ placement before DayZ has
+        // finished sizing/positioning the native preview and header widgets.
+        // Force those widgets through a layout update, then re-run the normal
+        // TransferZ UpdateControls chain. The styling layer in that chain owns
+        // the actual placement helper, so we do not call across modded-class
+        // layers directly.
         RestoreHeaderText();
         if (m_HeaderHost)
             m_HeaderHost.Update();
         m_HeaderLabel.Update();
         m_Root.Update();
 
-        TransferZPlaceControlsBeforeTitle(CanBePreferred());
+        UpdateControls();
     }
 
     protected void TransferZDeferredPlacementPassOne()
@@ -41,8 +42,8 @@ modded class TransferZHeaderControls
         m_TransferZInitialPlacementQueued = true;
 
         // One GUI-queue turn handles the normal first layout pass. The short
-        // second pass covers headers whose size changes once previews/cargo have
-        // populated. This is still initialization-only, not a polling loop.
+        // second pass covers headers whose geometry changes once previews/cargo
+        // have populated. This is initialization-only, not a polling loop.
         GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(TransferZDeferredPlacementPassOne, 0, false);
         GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(TransferZDeferredPlacementPassTwo, 60, false);
     }
@@ -55,7 +56,8 @@ modded class TransferZHeaderControls
             return;
 
         // Queue the deferred geometry correction once for each entity shown by
-        // this control object. Ordinary D/L/P refreshes remain immediate.
+        // this control object. Deferred UpdateControls() calls see the same
+        // entity, so they do not queue themselves again.
         if (m_TransferZPlacementEntity != m_Entity)
         {
             m_TransferZPlacementEntity = m_Entity;
