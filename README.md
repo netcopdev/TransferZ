@@ -1,28 +1,52 @@
 # TransferZ
 
-TransferZ is a DayZ inventory-routing mod focused on deterministic, low-friction movement between containers.
+TransferZ is a DayZ inventory-routing mod for moving items between containers quickly while keeping the destination explicit and predictable.
 
-## Status
+Current version: **0.1.0**.
 
-Current development target: **0.1 prototype** on `feature/core-transfer-routing`.
+## Quick user guide
 
-The prototype currently includes exact destination selection, direct bulk transfer, nested-content unpacking, draggable transfer/unpack handles, modifier-based batch drags and single-item clicks, temporary container links, linked-container double-click routing, a persistent preferred personal destination, and vicinity-wide transfer/unpack actions.
+1. **Choose where items should go** with `D`.
+   - `D*` marks the active destination.
+   - Click `D*` again to clear it.
+   - `D` on `VICINITY` means the ground around you.
+2. **Move a container's direct contents** with `T`.
+   - Nested containers move intact when they fit.
+3. **Empty nested containers** with `U`.
+   - `U` moves items found inside nested cargo containers.
+   - Loose items directly in the source stay where they are.
+4. **For one-off moves**, drag `T` or `U` onto another container instead of changing `D*`.
+5. **Fast item shortcuts**:
+   - `Shift + Click` -> move that item to `D*`.
+   - `Alt + Click` -> move that item to `P*`.
+   - `Shift + Drag` -> batch `T` from that item's source container/zone.
+   - `Alt + Drag` -> batch `U` from that item's source container/zone.
+6. **Link two containers** with `L` on the first and `L` on the second. Double-clicking items then routes between the linked pair.
+7. **Set a preferred personal container** with `P` on worn/attached cargo. `P*` is persistent and is used by preferred-routing shortcuts.
 
-## Core behavior
+Hover the buttons for a short explanation. `T` and `U` also show a green/yellow/red preview for ready/partial/impossible operations.
 
-### Select a destination
+## Header controls
 
-Every supported cargo header gets compact TransferZ controls. Press `D` on a cargo-bearing item or world container to select that exact entity as the active destination. `VICINITY` also exposes `D` and may be selected as the destination.
+| Control | Meaning |
+| --- | --- |
+| `D` | Select exact destination. `D*` is active. |
+| `T` | Transfer direct cargo children. Can also be dragged to a destination. |
+| `U` | Move leaf items from nested cargo containers while leaving direct loose cargo in place. Can also be dragged. |
+| `L` | Start, complete, replace, or remove a temporary container link. |
+| `P` | Set or clear the persistent preferred attached-container destination. |
 
-A container destination always targets that entity's own cargo. It does not fall back to arbitrary player inventory or cargo nested inside the destination. A `VICINITY` destination means accessible ground space around the player.
+The controls are placed between DayZ's native left-side header controls and the header title. Native move/reorder handles keep their own reserved area.
 
-Container destinations are transient and valid only while their inventory entry is open or the container is in the player's hands. If a selected container is closed, stowed from the hands, becomes unreachable, or otherwise stops being a valid cargo participant, TransferZ clears it. A vicinity destination is cleared when the vicinity panel is closed.
+## Destination behavior
 
-### Transfer
+A selected container always means that container's own cargo. TransferZ does not silently fall back to arbitrary player inventory or cargo nested inside the destination.
 
-Press `T` on a source container to move its **direct cargo children** to the selected destination.
+Container destinations are temporary. They are cleared when the selected container is no longer a valid open/in-hand participant, becomes unreachable, or otherwise stops being usable. A `VICINITY` destination is cleared when the vicinity panel is closed.
 
-Nested cargo-bearing containers are transferred as containers when DayZ permits the move. Their contents are not flattened.
+## Transfer (`T`)
+
+`T` moves the source container's **direct cargo children** to the selected destination.
 
 Example:
 
@@ -35,145 +59,95 @@ Backpack
   Knife
 ```
 
-`Transfer -> Barrel` attempts to move `Ammo Box`, `Medical Pouch`, and `Knife`.
+`T -> Barrel` attempts to move `Ammo Box`, `Medical Pouch`, and `Knife`. The nested containers keep their contents.
 
-For a one-off direct transfer, drag the source header's `T` handle onto the destination container field. This does not replace or change the currently selected `D` destination. The destination's full visible container field is a drop target, not only its header, and mouse-wheel scrolling remains available while an operation handle is dragged.
+When `VICINITY` is the destination, direct source items are dropped using DayZ's normal ground inventory path.
 
-When `VICINITY` is the destination, Transfer moves the source container's direct cargo children to the ground around the player.
+## Unpack (`U`)
 
-### Unpack
+`U` moves non-container leaf items found **inside nested cargo-bearing child containers**. Direct loose cargo in the source is not moved.
 
-Press `U` on a source container to extract non-container leaf items found **inside nested cargo-bearing child containers** and move them into the selected destination. Loose items already sitting directly in the source container are not moved.
+Using the example above, `U -> Barrel` attempts to move `ammo` and `bandage`. `Knife`, `Ammo Box`, and `Medical Pouch` stay in the Backpack.
 
-In the example above, `Unpack -> Barrel` attempts to move `ammo` and `bandage`. `Knife` stays directly in the Backpack, and the Ammo Box and Medical Pouch also remain where they are.
+Dragging `U` back onto its own source container flattens nested cargo into that source while still leaving existing direct loose cargo alone.
 
-Empty nested containers are not moved automatically. Attachments are not traversed by Unpack in 0.1.
+Attachments are not traversed by `U` in 0.1.0.
 
-For a one-off direct unpack, drag the source header's `U` handle onto the destination container field. `U` may also target its **own source container**: in that case TransferZ flattens cargo from nested containers into the source while leaving existing direct loose items alone.
+## Vicinity actions
 
-When `VICINITY` is the destination, normal container Unpack drops only leaf items originating inside nested cargo-bearing child containers to the ground around the player.
+`VICINITY` has `D`, `T`, and `U`.
 
-### Modifier item drags
+- `D`: use vicinity/ground as `D*`.
+- `T`: move shown loose takeable vicinity items, excluding cargo containers, into the selected container.
+- `U`: unpack shown vicinity cargo containers into the selected destination while leaving those containers in place.
+- With `VICINITY` itself selected, vicinity `T` is a no-op and vicinity `U` empties shown containers onto the ground.
 
-Unmodified item drag remains vanilla DayZ behavior. TransferZ adds two left-button modifier gestures. The operation is chosen when the drag starts, so the modifier may be released while moving or scrolling toward the destination.
+The vicinity `T` and `U` buttons can also be dragged directly onto a container.
 
-- `Shift + Drag` performs the same operation as dragging the source zone's `T` handle.
-- `Alt + Drag` performs the same operation as dragging the source zone's `U` handle.
+## Modifier shortcuts
 
-For an item inside a cargo container, the source zone is that item's immediate cargo owner. Shift therefore transfers all direct cargo children from that container, while Alt extracts only cargo from its nested cargo-bearing child containers and leaves its direct loose cargo untouched.
+Unmodified drag remains normal DayZ behavior.
 
-For an item shown in `VICINITY`, the source zone is the current vicinity list. Shift therefore behaves like vicinity `T`, and Alt behaves like vicinity `U`. These modifier operations can be dragged **from vicinity to a container, from a container to vicinity, and between normal container targets**. Shift from vicinity back to vicinity is intentionally a no-op because those loose items are already there; Alt from vicinity to vicinity unpacks shown vicinity containers onto the ground.
+- `Shift + Click`: move one cargo/vicinity item to `D*`.
+- `Alt + Click`: move one cargo/vicinity item to `P*`.
+- `Shift + Drag`: perform source-zone `T`.
+- `Alt + Drag`: perform source-zone `U`.
 
-`Ctrl + Drag` is deliberately not assigned by TransferZ because stock DayZ owns Ctrl+click as an immediate drop-to-ground interaction. Right-button drag also has no TransferZ bulk behavior.
+For cargo items, the source zone is the item's immediate cargo owner. For vicinity items, the source zone is the visible vicinity list.
 
-### Modifier item clicks
+`Ctrl + Click` remains vanilla DayZ behavior. TransferZ does not assign a special right-button drag action.
 
-The same modifiers also provide single-item routes when the mouse is clicked without starting a drag:
+## Links and double-click routing
 
-- `Shift + Click` sends that item to the active `D*` destination.
-- `Alt + Click` sends that item to the resolved preferred `P*` destination.
+Press `L` on one container and then `L` on another to create one temporary link pair.
 
-This applies to cargo and vicinity items. `D*` may be a normal cargo container or `VICINITY`. If no valid destination exists, the item is already there, or the target cannot accept it, the item remains where it is.
+- `L+` = waiting for the second container.
+- `L*` = linked participant.
+- Clicking `L` on a linked participant removes the link.
+- Starting a new link drops the old pair.
+- Link participants must remain valid/open/in-hand participants.
 
-A modifier click moves only the clicked item. Once a drag actually starts, the gesture becomes the corresponding source-zone batch `T`/`U` operation instead.
+Double-left-click routing priority for cargo items is:
 
-`Ctrl + Click` remains stock DayZ behavior.
+1. linked partner, when the source container is linked;
+2. otherwise `P*` for external or in-hand containers;
+3. otherwise vanilla DayZ behavior.
 
-### Vicinity batch actions
+Double-right-click is the exact-class batch version of the same route: matching direct source-cargo items with the same exact `GetType()` are attempted against the linked destination first, otherwise `P*`.
 
-The `VICINITY` header exposes `D`, `T`, and `U` controls.
+For vicinity, left double-click routes the selected item to `P*`, while right double-click routes shown items of that exact class to `P*`.
 
-- `D` makes vicinity/ground the active destination.
-- `T` moves the currently shown loose, takeable vicinity items that are **not cargo containers** into a selected container destination.
-- `U` unpacks the contents of the currently shown vicinity cargo containers into the selected destination while leaving the containers themselves in place.
-- If the selected container destination is itself in vicinity, TransferZ skips it as a source and allows it to receive the other items.
-- If vicinity itself is the destination, vicinity `T` is a no-op because loose items are already there, while vicinity `U` empties leaf contents from the shown containers onto the ground.
+## Preferred destination (`P`)
 
-The vicinity `T` and `U` handles can also be dragged directly onto a destination container field for a one-off batch operation without changing the selected `D` destination.
+`P` is available on cargo-bearing items in the player's attachment hierarchy, including nested attachments such as a pouch attached to a belt or vest.
 
-### Link two containers
-
-Press `L` on the first container, then `L` on the second. TransferZ keeps a single temporary pair for the current client session.
-
-While linked, double-left-clicking an item in one container requests an exact move to the other container. Clicking `L` on either participant removes that pair. If a pair already exists and `L` is clicked on another container, the old pair is dropped and that container becomes the new pending `L+` anchor. A pending first link click can be cancelled by clicking `L` on the same container again.
-
-Link participants are transient and must remain open or in the player's hands. Closing, stowing, losing reach of, or otherwise invalidating either participant clears the link.
-
-For normal double-left-click behavior, a link has first priority. Without a link:
-
-- items in external containers or containers held in hands route to the resolved `P*` preferred destination when available;
-- items in the player's worn/attached inventory are left to vanilla DayZ behavior, which takes or swaps the item into hands.
-
-Double-right-click keeps the exact-class batch version of the same TransferZ route: all direct source-cargo items with the representative item's exact `GetType()` are attempted against the link destination first, otherwise the preferred destination.
-
-### Preferred personal destination
-
-Press `P` on a cargo-bearing item attached anywhere in the player's attachment hierarchy. This includes direct worn storage such as a backpack or vest and nested cargo-bearing attachments such as a dump pouch hanging from a belt. The active preferred target is shown as `P*`; clicking that same `P*` again clears the preference.
-
-TransferZ stores the **ordered attachment-slot path from the player to the destination**, not item classnames. Examples:
+TransferZ stores the ordered attachment-slot path, for example:
 
 ```text
 Back
 Belt > DumpPouch
 Vest > Pouch
-Back > AttachedPouch
 ```
 
-At runtime TransferZ walks that slot path through the currently equipped attachment tree. Replacing gear with another item that exposes the same attachment path therefore keeps the preference valid. If any path element is missing or the final attachment has no cargo, TransferZ does not guess another destination and vanilla behavior is used.
+The preferred path survives restarts and can resolve through replacement gear when the same attachment path exists. If the path cannot be resolved, TransferZ does not guess another destination.
 
-The preferred path is persistent across client/game restarts. When the player returns and the saved attachment path exists again, the corresponding container is marked `P*` automatically. Clearing `P*` is also persisted, so a cleared preference does not reappear after restart.
-
-Loose vicinity items that are double-clicked are routed to the resolved preferred destination.
-
-The preference is stored in:
+Preferences are stored at:
 
 ```text
 $profile:TransferZ/preferences.json
 ```
 
-Older profiles containing only the original single `preferred_slot` value remain readable as a compatibility fallback.
+The older single `preferred_slot` format remains readable as a compatibility fallback.
 
-## Header controls
+## Safety
 
-| Control | Meaning |
-| --- | --- |
-| `D` | Select exact destination; clicking the active `D*` clears it; on `VICINITY`, select ground/vicinity |
-| `T` | Transfer direct contents to selected destination; drag onto another destination field for a direct one-off transfer |
-| `U` | Extract leaf cargo from nested child containers while leaving direct loose cargo in place; drag onto another destination field for a direct one-off unpack |
-| `L` | Start, complete, replace, or remove the temporary container link |
-| `P` | Set the attached cargo container's persistent preferred path; clicking the active `P*` clears it |
+TransferZ never deletes and recreates items to simulate movement.
 
-`D*`, `L*`, `L+`, and `P*` indicate current state. Hovering a control shows a compact dark tooltip close to the button. Tooltip wrapping and height are recalculated immediately when live state changes alter the text.
-
-While hovering `T` or `U`, its background previews the immediate operation result using subdued translucent colors:
-
-- green: the operation is expected to execute normally;
-- yellow: partial execution is likely, usually because available destination space is insufficient or only some items currently qualify;
-- red: the operation is currently impossible.
-
-This is an advisory client-side preview. The server still revalidates every actual move against current DayZ inventory state.
-
-## Inventory safety
-
-TransferZ does not delete and recreate items. Requests are resolved and executed on the server using DayZ inventory locations and normal move validation.
-
-For every move, the server re-resolves the entities, checks reachability, rejects other-player inventory roots, checks cargo release/receive conditions, requires free space in the exact selected cargo owner, validates the source/destination locations, and only then performs the inventory move. Vicinity moves use DayZ's normal inventory drop path.
-
-Items that no longer qualify or do not fit remain where they are.
-
-## Deliberate 0.1 limitations
-
-- No arbitrary item-category filtering yet; exact-class batch matching remains available through double-right-click routing rather than Ctrl-drag.
-- No partial stack splitting or TransferZ-owned stack merging.
-- Links are not persistent.
-- Unpack traverses cargo only, not attachments.
-- Preferred personal destinations follow attachment-slot paths only; cargo-nested containers are not persisted as personal destinations.
-- UI controls are intentionally compact while interaction behavior is being validated.
-- The current scripts still require a real DayZ/DayZ Tools compile and in-game validation before the prototype should be treated as release-ready.
+The client requests operations; the server re-resolves entities and validates reachability, source removal, destination acceptance, exact cargo space, and DayZ inventory locations before moving anything. Items that no longer qualify or do not fit stay where they are.
 
 ## Build and sign
 
-TransferZ follows the PaintZ-style local build configuration: machine-specific paths stay outside Git.
+TransferZ uses a local build configuration so machine-specific paths are not committed.
 
 1. Copy `tools/build-config.example.psd1` to `%LOCALAPPDATA%\TransferZ\build.psd1`.
 2. Set `PrivateKey` and `PublicKey`. Tool paths may be left blank when DayZ Tools is in a standard Steam library.
@@ -192,8 +166,12 @@ dist\release\@TransferZ\
   mod.cpp
 ```
 
-Load `@TransferZ` on both client and server, and copy the public `.bikey` to the server root `keys` directory.
+Load `@TransferZ` on both client and server, and copy the public `.bikey` into the server root `keys` directory.
 
-## Development rules
+## Current scope
 
-Read `AGENTS.md` and `docs/CODEX_PROJECT_RULES.md` before modifying the project. Work is branch-first; `main` is not merged without explicit approval.
+TransferZ 0.1.0 intentionally does not provide arbitrary item-category filters, partial stack splitting/merging, persistent world-container links, attachment traversal during `U`, or persistent preferred targets for containers nested in cargo rather than attached through slots.
+
+## Development
+
+Read `AGENTS.md` and `docs/CODEX_PROJECT_RULES.md` before modifying the project. `main` is the stable integration branch and feature work is branch-first.
