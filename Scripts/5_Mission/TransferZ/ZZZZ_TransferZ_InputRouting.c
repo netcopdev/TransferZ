@@ -219,6 +219,12 @@ modded class SlotsIcon
 
 modded class VicinitySlotsContainer
 {
+    protected static const int TRANSFERZ_CLICK_NONE = 0;
+    protected static const int TRANSFERZ_CLICK_DESTINATION = 1;
+    protected static const int TRANSFERZ_CLICK_PREFERRED = 2;
+
+    protected int m_TransferZModifierClickMode;
+
     protected EntityAI TransferZResolveClickedVicinityItem(Widget w)
     {
         if (!w)
@@ -237,10 +243,9 @@ modded class VicinitySlotsContainer
         return preview.GetItem();
     }
 
-    override void MouseClick(Widget w, int x, int y, int button)
+    override void MouseButtonDown(Widget w, int x, int y, int button)
     {
-        if (button == MouseState.LEFT && SlotsIcon.TransferZSuppressModifierClick())
-            return;
+        m_TransferZModifierClickMode = TRANSFERZ_CLICK_NONE;
 
         if (button == MouseState.LEFT && !KeyState(KeyCode.KC_LCONTROL) && !KeyState(KeyCode.KC_RCONTROL))
         {
@@ -249,17 +254,36 @@ modded class VicinitySlotsContainer
 
             if (shiftDown != altDown)
             {
-                EntityAI item = TransferZResolveClickedVicinityItem(w);
-                ItemBase itemBase = ItemBase.Cast(item);
-                if (itemBase && itemBase.IsTakeable() && item.GetInventory().CanRemoveEntity())
-                {
-                    if (shiftDown)
-                        TransferZClientState.Get().RequestItemToDestination(item);
-                    else
-                        TransferZClientState.Get().RequestItemToPreferred(item);
-                }
-                return;
+                if (shiftDown)
+                    m_TransferZModifierClickMode = TRANSFERZ_CLICK_DESTINATION;
+                else
+                    m_TransferZModifierClickMode = TRANSFERZ_CLICK_PREFERRED;
             }
+        }
+
+        super.MouseButtonDown(w, x, y, button);
+    }
+
+    override void MouseClick(Widget w, int x, int y, int button)
+    {
+        int clickMode = m_TransferZModifierClickMode;
+        m_TransferZModifierClickMode = TRANSFERZ_CLICK_NONE;
+
+        if (button == MouseState.LEFT && SlotsIcon.TransferZSuppressModifierClick())
+            return;
+
+        if (button == MouseState.LEFT && clickMode != TRANSFERZ_CLICK_NONE)
+        {
+            EntityAI item = TransferZResolveClickedVicinityItem(w);
+            ItemBase itemBase = ItemBase.Cast(item);
+            if (itemBase && itemBase.IsTakeable() && item.GetInventory().CanRemoveEntity())
+            {
+                if (clickMode == TRANSFERZ_CLICK_DESTINATION)
+                    TransferZClientState.Get().RequestItemToDestination(item);
+                else if (clickMode == TRANSFERZ_CLICK_PREFERRED)
+                    TransferZClientState.Get().RequestItemToPreferred(item);
+            }
+            return;
         }
 
         super.MouseClick(w, x, y, button);
