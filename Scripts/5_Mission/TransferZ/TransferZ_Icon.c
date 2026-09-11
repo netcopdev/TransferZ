@@ -1,15 +1,13 @@
 modded class Icon
 {
-    protected bool m_TransferZRightDragArmed;
-    protected bool m_TransferZClassDragStarted;
-    protected EntityAI m_TransferZClassDragSource;
+    protected static const int TRANSFERZ_DRAG_NONE = 0;
+    protected static const int TRANSFERZ_DRAG_CLASS = 1;
+    protected static const int TRANSFERZ_DRAG_TRANSFER = 2;
+    protected static const int TRANSFERZ_DRAG_UNPACK = 3;
 
-    void Icon(LayoutHolder parent, bool hands_icon = false)
-    {
-        Widget mainWidget = GetMainWidget();
-        if (mainWidget)
-            WidgetEventHandler.GetInstance().RegisterOnMouseButtonUp(mainWidget, this, "TransferZMouseButtonUp");
-    }
+    protected int m_TransferZModifierDragMode = TRANSFERZ_DRAG_NONE;
+    protected bool m_TransferZModifierDragStarted;
+    protected EntityAI m_TransferZModifierDragSource;
 
     protected EntityAI TransferZGetDirectCargoSource()
     {
@@ -26,6 +24,38 @@ modded class Icon
         if (!source || !source.GetInventory().GetCargo())
             return null;
         return source;
+    }
+
+    protected bool TransferZIsDescendantOf(EntityAI entity, EntityAI ancestor)
+    {
+        if (!entity || !ancestor)
+            return false;
+
+        EntityAI current = entity;
+        while (current)
+        {
+            if (current == ancestor)
+                return true;
+            current = current.GetHierarchyParent();
+        }
+
+        return false;
+    }
+
+    protected bool TransferZIsPlayerInventorySource(EntityAI source)
+    {
+        PlayerBase player = PlayerBase.Cast(g_Game.GetPlayer());
+        if (!player || !source || source.GetHierarchyRoot() != player)
+            return false;
+
+        // Contents of a container currently held in hands keep TransferZ's
+        // external/in-hand routing semantics rather than vanilla worn-inventory
+        // double-click-to-hands behavior.
+        EntityAI hands = player.GetEntityInHands();
+        if (hands && TransferZIsDescendantOf(source, hands))
+            return false;
+
+        return true;
     }
 
     protected EntityAI TransferZResolveDoubleClickDestination(EntityAI source)
@@ -52,11 +82,22 @@ modded class Icon
         if (!source || !m_Obj)
             return false;
 
-        EntityAI destination = TransferZResolveDoubleClickDestination(source);
-        if (!destination)
+        TransferZClientState state = TransferZClientState.Get();
+        EntityAI linked = state.GetLinkedDestination(source);
+        if (linked)
+            return state.RequestMoveItem(m_Obj, linked);
+
+        // Normal double-left-click from worn/player inventory must remain the
+        // familiar DayZ action: take/swap the item to hands. Returning false
+        // here lets vanilla Icon.DoubleClick perform exactly that action.
+        if (TransferZIsPlayerInventorySource(source))
             return false;
 
-        return TransferZClientState.Get().RequestMoveItem(m_Obj, destination);
+        EntityAI destination = state.GetPreferredDestination();
+        if (!destination || destination == source)
+            return false;
+
+        return state.RequestMoveItem(m_Obj, destination);
     }
 
     protected bool TransferZRouteClassDoubleClick(EntityAI source)
@@ -72,15 +113,51 @@ modded class Icon
         return TransferZClientState.Get().RequestClassTransferTo(source, destination, m_Obj);
     }
 
+    protected int TransferZReadModifierDragMode()
+    {
+        bool ctrlDown = KeyState(KeyCode.KC_LCONTROL) || KeyState(KeyCode.KC_RCONTROL);
+        bool shiftDown = KeyState(KeyCode.KC_LSHIFT) || KeyState(KeyCode.KC_RSHIFT);
+        bool altDown = KeyState(KeyCode.KC_LMENU) || KeyState(KeyCode.KC_RMENU);
+
+        int modifierCount = 0;
+        if (ctrlDown)
+            modifierCount++;
+        if (shiftDown)
+            modifierCount++;
+        if (altDown)
+            modifierCount++;
+
+        // Combined modifiers are intentionally left to vanilla behavior. This
+        // keeps each TransferZ gesture unambiguous and leaves combinations free
+        // for future actions.
+        if (modifierCount != 1)
+            return TRANSFERZ_DRAG_NONE;
+
+        if (ctrlDown)
+            return TRANSFERZ_DRAG_CLASS;
+        if (shiftDown)
+            return TRANSFERZ_DRAG_TRANSFER;
+        if (altDown)
+            return TRANSFERZ_DRAG_UNPACK;
+
+        return TRANSFERZ_DRAG_NONE;
+    }
+
+    protected void TransferZResetModifierDrag()
+    {
+        m_TransferZModifierDragMode = TRANSFERZ_DRAG_NONE;
+        m_TransferZModifierDragStarted = false;
+        m_TransferZModifierDragSource = null;
+    }
+
     override void MouseClick(Widget w, int x, int y, int button)
     {
-        if (button == MouseState.RIGHT)
+        if (button == MouseState.LEFT)
         {
-            m_TransferZRightDragArmed = false;
-            m_TransferZClassDragStarted = false;
-            m_TransferZClassDragSource = TransferZGetDirectCargoSource();
-            if (m_TransferZClassDragSource && m_Obj)
-                m_TransferZRightDragArmed = true;
+            TransferZResetModifierDrag();
+            m_TransferZModifierDragSource = TransferZGetDirectCargoSource();
+            if (m_TransferZModifierDragSource && m_Obj)
+                m_TransferZModifierDragMode = TransferZReadModifierDragMode();
         }
 
         super.MouseClick(w, x, y, button);
@@ -90,45 +167,36 @@ modded class Icon
     {
         super.CreateWhiteBackground();
 
-        if (!m_TransferZRightDragArmed || !m_Obj || !m_TransferZClassDragSource)
+        if (m_TransferZModifierDragMode == TRANSFERZ_DRAG_NONE || !m_Obj || !m_TransferZModifierDragSource)
             return;
 
         InventoryLocation location = new InventoryLocation();
         if (!m_Obj.GetInventory().GetCurrentInventoryLocation(location))
             return;
-        if (location.GetType() != InventoryLocationType.CARGO || location.GetParent() != m_TransferZClassDragSource)
+        if (location.GetType() != InventoryLocationType.CARGO || location.GetParent() != m_TransferZModifierDragSource)
             return;
 
-        TransferZOperationDrag.BeginClassTransfer(m_TransferZClassDragSource, m_Obj);
+        if (m_TransferZModifierDragMode == TRANSFERZ_DRAG_CLASS)
+            TransferZOperationDrag.BeginClassTransfer(m_TransferZModifierDragSource, m_Obj);
+        else if (m_TransferZModifierDragMode == TRANSFERZ_DRAG_TRANSFER)
+            TransferZOperationDrag.BeginContainer(TransferZOperation.TRANSFER, m_TransferZModifierDragSource);
+        else if (m_TransferZModifierDragMode == TRANSFERZ_DRAG_UNPACK)
+            TransferZOperationDrag.BeginContainer(TransferZOperation.UNPACK, m_TransferZModifierDragSource);
+        else
+            return;
+
         TransferZHeaderControls.SetOperationDropTargetsVisible(true);
-        m_TransferZClassDragStarted = true;
-        m_TransferZRightDragArmed = false;
+        m_TransferZModifierDragStarted = true;
     }
 
     override void DestroyWhiteBackground()
     {
         super.DestroyWhiteBackground();
 
-        if (m_TransferZClassDragStarted)
-        {
+        if (m_TransferZModifierDragStarted)
             TransferZHeaderControls.CancelOperationDragLater();
-            m_TransferZClassDragStarted = false;
-        }
 
-        m_TransferZRightDragArmed = false;
-        m_TransferZClassDragSource = null;
-    }
-
-    void TransferZMouseButtonUp(Widget w, int x, int y, int button)
-    {
-        if (button != MouseState.RIGHT)
-            return;
-
-        if (!m_TransferZClassDragStarted)
-        {
-            m_TransferZRightDragArmed = false;
-            m_TransferZClassDragSource = null;
-        }
+        TransferZResetModifierDrag();
     }
 
     override void DoubleClick(Widget w, int x, int y, int button)
