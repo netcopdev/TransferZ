@@ -169,6 +169,49 @@ class TransferZServerService
         return moved;
     }
 
+    static int TransferClass(PlayerBase player, EntityAI source, EntityAI destination, EntityAI representative)
+    {
+        if (!player || !source || !destination || !representative || source == destination)
+            return 0;
+
+        if (!IsReachable(player, source) || !IsReachable(player, destination) || !IsReachable(player, representative))
+            return 0;
+
+        if (!source.GetInventory().GetCargo() || !destination.GetInventory().GetCargo())
+            return 0;
+
+        if (IsDescendantOf(destination, source))
+            return 0;
+
+        InventoryLocation representativeLocation = new InventoryLocation();
+        if (!representative.GetInventory().GetCurrentInventoryLocation(representativeLocation))
+            return 0;
+        if (representativeLocation.GetType() != InventoryLocationType.CARGO || representativeLocation.GetParent() != source)
+            return 0;
+
+        string className = representative.GetType();
+        if (className == "")
+            return 0;
+
+        ref array<EntityAI> items = new array<EntityAI>();
+        SnapshotDirectCargo(source, items);
+
+        int matched = 0;
+        int moved = 0;
+        foreach (EntityAI item : items)
+        {
+            if (!item || item.GetType() != className)
+                continue;
+
+            matched++;
+            if (TryMoveToExactCargo(player, item, destination))
+                moved++;
+        }
+
+        Print("[TransferZ] Class transfer result class=" + className + " source=" + source.GetType() + " destination=" + destination.GetType() + " moved=" + moved.ToString() + "/" + matched.ToString());
+        return moved;
+    }
+
     static int Unpack(PlayerBase player, EntityAI source, EntityAI destination)
     {
         if (!player || !source || !destination || source == destination)
@@ -267,6 +310,8 @@ class TransferZServerService
             Unpack(player, source, destination);
         else if (operation == TransferZOperation.MOVE_ITEM)
             MoveItem(player, item, destination);
+        else if (operation == TransferZOperation.TRANSFER_CLASS)
+            TransferClass(player, source, destination, item);
     }
 }
 
