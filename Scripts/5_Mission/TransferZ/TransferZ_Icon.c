@@ -3,7 +3,6 @@ modded class Icon
     protected static const int TRANSFERZ_DRAG_NONE = 0;
     protected static const int TRANSFERZ_DRAG_TRANSFER = 1;
     protected static const int TRANSFERZ_DRAG_UNPACK = 2;
-    protected static const int TRANSFERZ_DRAG_CLASS = 3;
 
     protected int m_TransferZModifierDragMode = TRANSFERZ_DRAG_NONE;
     protected bool m_TransferZModifierDragStarted;
@@ -147,25 +146,12 @@ modded class Icon
 
     override void MouseClick(Widget w, int x, int y, int button)
     {
-        if (button == MouseState.LEFT || button == MouseState.RIGHT)
+        if (button == MouseState.LEFT)
         {
             TransferZResetModifierDrag();
             m_TransferZModifierDragSource = TransferZGetDirectCargoSource();
-
             if (m_TransferZModifierDragSource && m_Obj)
-            {
-                if (button == MouseState.RIGHT)
-                {
-                    // Right-drag uses the dragged item only as the class selector.
-                    // Ctrl remains reserved for vanilla inventory behavior.
-                    if (!KeyState(KeyCode.KC_LCONTROL) && !KeyState(KeyCode.KC_RCONTROL))
-                        m_TransferZModifierDragMode = TRANSFERZ_DRAG_CLASS;
-                }
-                else
-                {
-                    m_TransferZModifierDragMode = TransferZReadModifierDragMode();
-                }
-            }
+                m_TransferZModifierDragMode = TransferZReadModifierDragMode();
         }
 
         super.MouseClick(w, x, y, button);
@@ -188,8 +174,6 @@ modded class Icon
             TransferZOperationDrag.BeginContainer(TransferZOperation.TRANSFER, m_TransferZModifierDragSource);
         else if (m_TransferZModifierDragMode == TRANSFERZ_DRAG_UNPACK)
             TransferZOperationDrag.BeginContainer(TransferZOperation.UNPACK, m_TransferZModifierDragSource);
-        else if (m_TransferZModifierDragMode == TRANSFERZ_DRAG_CLASS)
-            TransferZOperationDrag.BeginClassTransfer(m_TransferZModifierDragSource, m_Obj);
         else
             return;
 
