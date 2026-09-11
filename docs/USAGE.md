@@ -6,28 +6,28 @@ This guide describes the current TransferZ 0.1.0 controls and routing behavior.
 
 TransferZ separates **where items should go** from **what operation should be performed**.
 
-- `D*` is the active destination.
-- `T` transfers a source zone's direct contents.
-- `U` unpacks nested cargo.
-- `L` creates one temporary bidirectional container link.
-- `P*` is the persistent preferred personal cargo target.
-- Item gestures provide single-item, zone-batch, and exact-class batch shortcuts.
+Cargo headers show two compact groups:
+
+- **left:** Destination, Transfer, Unpack, Link, Preferred;
+- **right:** Sort, Stack.
+
+`VICINITY` shows Destination, Transfer, and Unpack on the left only.
 
 A destination always means that exact container's own cargo. TransferZ does not silently search through other player inventory space when the chosen destination cannot accept an item.
 
 ## Header controls
 
-### `D` — destination
+### Destination — target icon
 
-Click `D` on an open cargo container to make it the active destination. The active container shows `D*`.
+Click the target icon on an open cargo container to make it the active destination. The active target receives a subdued state highlight.
 
-Clicking `D` on another container replaces the previous destination. `VICINITY` also has `D`; selecting it makes the ground/vicinity zone the destination.
+Clicking it on another container replaces the previous destination. Clicking the active destination again clears it. `VICINITY` also has the target icon; selecting it makes the ground/vicinity zone the destination.
 
 Container destinations are intentionally temporary. TransferZ clears them when the selected container is no longer a valid open/in-hand reachable participant. A vicinity destination is cleared when the vicinity panel closes.
 
-### `T` — transfer
+### Transfer — arrow icon
 
-Click `T` to move the source container's **direct cargo children** to `D*`.
+Click Transfer to move the source container's **direct cargo children** to the active destination.
 
 Nested containers are treated as direct items and move intact when they fit.
 
@@ -42,7 +42,7 @@ Backpack
   Knife
 ```
 
-`T -> Barrel` attempts to move:
+Transfer to a Barrel attempts to move:
 
 ```text
 Ammo Box
@@ -52,13 +52,13 @@ Knife
 
 The `ammo` and `bandage` stay inside their respective containers.
 
-You can also drag `T` directly onto another open container to perform a one-off transfer without changing `D*`.
+You can also drag the Transfer control directly onto another open container to perform a one-off transfer without changing the active destination.
 
-### `U` — unpack
+### Unpack
 
-Click `U` to move non-container leaf items found **inside cargo-bearing direct child containers** to `D*`.
+Click Unpack to move non-container leaf items found **inside cargo-bearing direct child containers** to the active destination.
 
-Using the same example, `U -> Barrel` attempts to move:
+Using the same example, Unpack to a Barrel attempts to move:
 
 ```text
 ammo
@@ -67,24 +67,24 @@ bandage
 
 The `Ammo Box`, `Medical Pouch`, and direct loose `Knife` remain in the Backpack.
 
-Dragging `U` back onto its own source container flattens nested cargo into that source. Attachments are not traversed by `U` in 0.1.0.
+Dragging Unpack back onto its own source container flattens nested cargo into that source. Attachments are not traversed by Unpack in 0.1.0.
 
-### `L` — temporary link
+### Link
 
-Click `L` on one container, then `L` on another.
+Click Link on one container, then Link on another.
 
-- `L+` means the first container is waiting for its partner.
-- `L*` means the container is part of the active link pair.
-- Clicking `L` on a linked participant removes the link.
+- The first participant receives a pending-link state highlight.
+- Both participants receive the linked-state highlight after the pair is completed.
+- Clicking Link on a linked participant removes the link.
 - Starting another link replaces the old pair.
 
 Only one link pair exists at a time. Links are session-local and require both containers to remain valid/open/in-hand and reachable.
 
-### `P` — preferred personal destination
+### Preferred — pin icon
 
-`P` appears on cargo-bearing items in the player's attachment hierarchy.
+Preferred appears on cargo-bearing items in the player's attachment hierarchy.
 
-Selecting `P` stores that attachment path as the preferred personal destination and displays `P*` when it resolves. Selecting another valid `P` replaces the stored path.
+Selecting it stores that attachment path as the preferred personal destination and highlights it when resolved. Selecting the currently preferred target again clears the preference. Selecting another valid target replaces the stored path.
 
 Examples of stored paths:
 
@@ -102,6 +102,36 @@ Preferences are stored in:
 $profile:TransferZ/preferences.json
 ```
 
+### Sort — right-side maintenance control
+
+Sort reorganizes the selected container's **direct cargo grid only**.
+
+TransferZ first snapshots the direct cargo, calculates a deterministic compacted target layout, and then builds a move plan before changing anything. The plan uses the container's own grid only.
+
+Current behavior:
+
+- larger direct cargo items are placed first;
+- item type contributes to deterministic grouping after size priority;
+- each item's existing orientation is preserved;
+- nested containers are treated as ordinary direct cargo items and stay intact;
+- all movement uses native DayZ inventory locations within the same cargo owner;
+- if no safe in-container move plan exists, the operation is skipped rather than moving items to the ground or another temporary container.
+
+Sort never deletes/recreates items.
+
+### Stack — right-side maintenance control
+
+Stack scans the selected container's direct cargo and asks DayZ whether pairs can be combined.
+
+Only pairs accepted by DayZ's own `CanBeCombined` logic are passed to DayZ's native `CombineItems` behavior. This means TransferZ does not invent compatibility between related ammo types, different magazines, different food variants, or any other classes that DayZ itself refuses to combine.
+
+Stack does not:
+
+- merge through nested containers;
+- split stacks;
+- move stacks to another container;
+- recreate items or manually copy quantity/state.
+
 ## Item gestures
 
 ### Normal left drag
@@ -110,29 +140,29 @@ Unmodified left drag remains standard DayZ inventory dragging.
 
 ### `Shift + Click`
 
-Moves the clicked item to `D*`.
+Moves the clicked item to the active destination.
 
 This works for cargo items and shown vicinity items. If no valid destination exists or the item cannot be accepted, it stays where it is.
 
 ### `Alt + Click`
 
-Moves the clicked item to `P*`.
+Moves the clicked item to the preferred personal destination.
 
 If no valid preferred target resolves, nothing is moved.
 
 ### `Shift + Left Drag`
 
-Runs the source zone's `T` operation and lets you drop that operation onto another container.
+Runs the source zone's Transfer operation and lets you drop that operation onto another container.
 
 - From a cargo item, the source zone is the item's immediate cargo owner.
 - From a vicinity item, the source zone is the currently shown vicinity list.
 
 ### `Alt + Left Drag`
 
-Runs the source zone's `U` operation and lets you drop that operation onto another container.
+Runs the source zone's Unpack operation and lets you drop that operation onto another container.
 
-- From a cargo item, `U` operates on nested cargo under the item's immediate cargo owner.
-- From vicinity, it behaves like vicinity `U` and unpacks the shown vicinity containers.
+- From a cargo item, Unpack operates on nested cargo under the item's immediate cargo owner.
+- From vicinity, it behaves like vicinity Unpack and unpacks the shown vicinity containers.
 
 ### Right drag — exact-class batch move
 
@@ -148,7 +178,7 @@ From a cargo container:
 From vicinity:
 
 - the source is the currently shown loose vicinity list;
-- only shown items with the same exact `GetType()` are selected;
+- only shown loose, takeable, removable non-container items with the same exact `GetType()` are selected;
 - drop onto an open container to move those matches there;
 - vicinity-to-vicinity is a no-op because the items are already there.
 
@@ -167,7 +197,7 @@ TransferZ does not claim Ctrl click/drag gestures. Vanilla DayZ behavior remains
 TransferZ routing priority is:
 
 1. linked partner, when the immediate source container is linked;
-2. otherwise `P*` for external or in-hand containers;
+2. otherwise the preferred target for external or in-hand containers;
 3. otherwise vanilla DayZ behavior.
 
 Items in normal worn/attached player inventory therefore retain familiar vanilla double-click-to-hands behavior when no TransferZ route owns the action.
@@ -179,40 +209,42 @@ Double-right-click is the exact-class batch form of the same route resolution.
 TransferZ attempts to move matching direct source-cargo items with the same exact `GetType()` to:
 
 1. the linked partner, if the source is linked;
-2. otherwise `P*`.
+2. otherwise the preferred target.
 
 ### Vicinity double-click
 
-- Double-left-click routes the selected shown item to `P*`.
-- Double-right-click routes the currently shown items of that exact class to `P*`.
+- Double-left-click routes the selected shown item to the preferred target.
+- Double-right-click routes the currently shown items of that exact class to the preferred target.
 
 ## Vicinity controls
 
-The `VICINITY` header has `D`, `T`, and `U`.
+The `VICINITY` header has Destination, Transfer, and Unpack.
 
-### Vicinity `D`
+### Vicinity Destination
 
-Selects ground/vicinity as `D*`.
+Selects ground/vicinity as the active destination. Selecting it again clears it.
 
-### Vicinity `T`
+### Vicinity Transfer
 
 Moves currently shown loose, takeable vicinity items into the selected container destination. Cargo-bearing containers are excluded from this loose-item transfer.
 
 If the selected destination container is itself shown in vicinity, it is skipped as a source and may still receive the other items.
 
-With `VICINITY` itself selected as the destination, vicinity `T` is a no-op.
+With `VICINITY` itself selected as the destination, vicinity Transfer is a no-op.
 
-### Vicinity `U`
+### Vicinity Unpack
 
 Treats the currently shown cargo-bearing vicinity containers as sources, unpacks their nested contents into the selected destination, and leaves those source containers in place.
 
-With `VICINITY` selected as the destination, vicinity `U` empties the shown containers onto the ground.
+With `VICINITY` selected as the destination, vicinity Unpack empties the shown containers onto the ground.
 
-Both vicinity `T` and `U` can be dragged directly onto an open container for a one-off action.
+Both vicinity Transfer and Unpack can be dragged directly onto an open container for a one-off action.
+
+Vicinity does not expose Sort or Stack because it is a list of world items rather than one cargo grid.
 
 ## Operation previews
 
-Hovering `T` or `U` shows an advisory status color:
+Hovering Transfer or Unpack shows an advisory status color:
 
 - green — expected normal/full execution;
 - yellow — likely partial execution;
@@ -224,19 +256,27 @@ This is only a preview. The server performs the authoritative move validation wh
 
 TransferZ fails conservatively. If an item is no longer where expected, cannot be removed, cannot fit, is out of reach, or the chosen destination is no longer valid, the item remains where it is.
 
-TransferZ does not delete and recreate items to simulate movement.
+TransferZ does not delete and recreate items to simulate movement, sorting, or stacking.
 
 ## Common examples
 
 ### Move all loose contents of a crate to a barrel
 
-1. Click `D` on the Barrel.
-2. Click `T` on the Crate.
+1. Select the Barrel with Destination.
+2. Click Transfer on the Crate.
 
 ### Empty pouches inside a backpack but leave the pouches in the backpack
 
-1. Click `D` on the receiving container.
-2. Click `U` on the Backpack.
+1. Select the receiving container with Destination.
+2. Click Unpack on the Backpack.
+
+### Repack a messy container
+
+Click Sort on the right side of that container's header. TransferZ attempts a deterministic in-place compaction using only that container's cargo grid.
+
+### Consolidate partial stacks
+
+Click Stack on the right side of that container's header. Only pairs DayZ considers natively combinable are merged.
 
 ### Move every item of one exact ammo classname from a crate
 
@@ -244,8 +284,8 @@ Right-drag one representative round/stack of that exact classname from the Crate
 
 ### Pick up all shown loose vicinity items
 
-1. Select a receiving container with `D`.
-2. Click vicinity `T`.
+1. Select a receiving container with Destination.
+2. Click vicinity Transfer.
 
 ### Move all shown vicinity items of one exact class
 
@@ -253,7 +293,13 @@ Right-drag one representative vicinity item of that class onto the destination c
 
 ### Create a fast two-container workflow
 
-1. Click `L` on container A.
-2. Click `L` on container B.
+1. Click Link on container A.
+2. Click Link on container B.
 3. Double-left-click items in either container to route them to the other.
 4. Double-right-click an item to route all exact-class matches in that source container.
+
+## Dependency
+
+TransferZ requires Community Framework (CF) on both client and server. Load CF before TransferZ.
+
+Steam Workshop: https://steamcommunity.com/sharedfiles/filedetails/?id=1559212036
