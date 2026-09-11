@@ -6,7 +6,7 @@ TransferZ is a DayZ inventory-routing mod focused on deterministic, low-friction
 
 Current development target: **0.1 prototype** on `feature/core-transfer-routing`.
 
-The prototype currently includes exact destination selection, direct bulk transfer, nested-content unpacking, draggable transfer/unpack handles, modifier-based item drag operations, temporary container links, linked-container double-click routing, a persistent preferred personal destination, and vicinity-wide transfer/unpack actions.
+The prototype currently includes exact destination selection, direct bulk transfer, nested-content unpacking, draggable transfer/unpack handles, modifier-based batch drags and single-item clicks, temporary container links, linked-container double-click routing, a persistent preferred personal destination, and vicinity-wide transfer/unpack actions.
 
 ## Core behavior
 
@@ -43,15 +43,15 @@ When `VICINITY` is the destination, Transfer moves the source container's direct
 
 ### Unpack
 
-Press `U` on a source container to collect non-container leaf items from its cargo tree and move them into the selected destination.
+Press `U` on a source container to extract non-container leaf items found **inside nested cargo-bearing child containers** and move them into the selected destination. Loose items already sitting directly in the source container are not moved.
 
-In the example above, `Unpack -> Barrel` attempts to move `ammo`, `bandage`, and `Knife`. The Ammo Box and Medical Pouch remain where they are.
+In the example above, `Unpack -> Barrel` attempts to move `ammo` and `bandage`. `Knife` stays directly in the Backpack, and the Ammo Box and Medical Pouch also remain where they are.
 
 Empty nested containers are not moved automatically. Attachments are not traversed by Unpack in 0.1.
 
-For a one-off direct unpack, drag the source header's `U` handle onto the destination container field. `U` may also target its **own source container**: in that case TransferZ flattens nested cargo leaves into the source while leaving direct loose items alone.
+For a one-off direct unpack, drag the source header's `U` handle onto the destination container field. `U` may also target its **own source container**: in that case TransferZ flattens cargo from nested containers into the source while leaving existing direct loose items alone.
 
-When `VICINITY` is the destination, Unpack moves leaf items from the source cargo tree to the ground around the player.
+When `VICINITY` is the destination, normal container Unpack drops only leaf items originating inside nested cargo-bearing child containers to the ground around the player.
 
 ### Modifier item drags
 
@@ -60,11 +60,24 @@ Unmodified item drag remains vanilla DayZ behavior. TransferZ adds two left-butt
 - `Shift + Drag` performs the same operation as dragging the source zone's `T` handle.
 - `Alt + Drag` performs the same operation as dragging the source zone's `U` handle.
 
-For an item inside a cargo container, the source zone is that item's immediate cargo owner. Shift therefore transfers all direct cargo children from that container, while Alt unpacks that container.
+For an item inside a cargo container, the source zone is that item's immediate cargo owner. Shift therefore transfers all direct cargo children from that container, while Alt extracts only cargo from its nested cargo-bearing child containers and leaves its direct loose cargo untouched.
 
 For an item shown in `VICINITY`, the source zone is the current vicinity list. Shift therefore behaves like vicinity `T`, and Alt behaves like vicinity `U`. These modifier operations can be dragged **from vicinity to a container, from a container to vicinity, and between normal container targets**. Shift from vicinity back to vicinity is intentionally a no-op because those loose items are already there; Alt from vicinity to vicinity unpacks shown vicinity containers onto the ground.
 
 `Ctrl + Drag` is deliberately not assigned by TransferZ because stock DayZ owns Ctrl+click as an immediate drop-to-ground interaction. Right-button drag also has no TransferZ bulk behavior.
+
+### Modifier item clicks
+
+The same modifiers also provide single-item routes when the mouse is clicked without starting a drag:
+
+- `Shift + Click` sends that item to the active `D*` destination.
+- `Alt + Click` sends that item to the resolved preferred `P*` destination.
+
+This applies to cargo and vicinity items. `D*` may be a normal cargo container or `VICINITY`. If no valid destination exists, the item is already there, or the target cannot accept it, the item remains where it is.
+
+A modifier click moves only the clicked item. Once a drag actually starts, the gesture becomes the corresponding source-zone batch `T`/`U` operation instead.
+
+`Ctrl + Click` remains stock DayZ behavior.
 
 ### Vicinity batch actions
 
@@ -126,7 +139,7 @@ Older profiles containing only the original single `preferred_slot` value remain
 | --- | --- |
 | `D` | Select exact destination; clicking the active `D*` clears it; on `VICINITY`, select ground/vicinity |
 | `T` | Transfer direct contents to selected destination; drag onto another destination field for a direct one-off transfer |
-| `U` | Unpack nested leaf items to selected destination; drag onto another destination field for a direct one-off unpack |
+| `U` | Extract leaf cargo from nested child containers while leaving direct loose cargo in place; drag onto another destination field for a direct one-off unpack |
 | `L` | Start, complete, replace, or remove the temporary container link |
 | `P` | Set the attached cargo container's persistent preferred path; clicking the active `P*` clears it |
 
