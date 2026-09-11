@@ -144,7 +144,10 @@ class TransferZOperationPreview
             used += itemWidth * itemHeight;
         }
 
-        return Math.Max(0, total - used);
+        int freeArea = total - used;
+        if (freeArea < 0)
+            freeArea = 0;
+        return freeArea;
     }
 
     protected static bool CanFitIndividually(EntityAI item, EntityAI destination)
