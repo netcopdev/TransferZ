@@ -95,7 +95,7 @@ Double-right-click keeps the exact-class batch version of the same TransferZ rou
 
 ### Preferred personal destination
 
-Press `P` on a cargo-bearing item attached anywhere in the player's attachment hierarchy. This includes direct worn storage such as a backpack or vest and nested cargo-bearing attachments such as a dump pouch hanging from a belt.
+Press `P` on a cargo-bearing item attached anywhere in the player's attachment hierarchy. This includes direct worn storage such as a backpack or vest and nested cargo-bearing attachments such as a dump pouch hanging from a belt. The active preferred target is shown as `P*`; clicking that same `P*` again clears the preference.
 
 TransferZ stores the **ordered attachment-slot path from the player to the destination**, not item classnames. Examples:
 
@@ -107,6 +107,8 @@ Back > AttachedPouch
 ```
 
 At runtime TransferZ walks that slot path through the currently equipped attachment tree. Replacing gear with another item that exposes the same attachment path therefore keeps the preference valid. If any path element is missing or the final attachment has no cargo, TransferZ does not guess another destination and vanilla behavior is used.
+
+The preferred path is persistent across client/game restarts. When the player returns and the saved attachment path exists again, the corresponding container is marked `P*` automatically. Clearing `P*` is also persisted, so a cleared preference does not reappear after restart.
 
 Loose vicinity items that are double-clicked are routed to the resolved preferred destination.
 
@@ -122,11 +124,11 @@ Older profiles containing only the original single `preferred_slot` value remain
 
 | Control | Meaning |
 | --- | --- |
-| `D` | Select exact destination; on `VICINITY`, select ground/vicinity |
+| `D` | Select exact destination; clicking the active `D*` clears it; on `VICINITY`, select ground/vicinity |
 | `T` | Transfer direct contents to selected destination; drag onto another destination field for a direct one-off transfer |
 | `U` | Unpack nested leaf items to selected destination; drag onto another destination field for a direct one-off unpack |
 | `L` | Start, complete, replace, or remove the temporary container link |
-| `P` | Set this attached cargo container's slot path as preferred personal destination |
+| `P` | Set the attached cargo container's persistent preferred path; clicking the active `P*` clears it |
 
 `D*`, `L*`, `L+`, and `P*` indicate current state. Hovering a control shows a compact dark tooltip close to the button. Tooltip wrapping and height are recalculated immediately when live state changes alter the text.
 
