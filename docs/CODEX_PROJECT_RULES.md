@@ -16,6 +16,8 @@ Transfer snapshots the source container's direct cargo children and attempts to 
 
 The `T` control may also be dragged from a source onto another cargo header to perform a one-off direct transfer to that destination without changing the selected `D` destination. Preserve normal mouse-wheel inventory scrolling while an operation control is being dragged.
 
+Right-button dragging an item from cargo onto another cargo header performs an exact-class bulk transfer. The server must verify that the representative dragged item is still a direct cargo child of the source, derive the match from its server-side `GetType()`, snapshot only the source's direct cargo children, and attempt to move only exact type matches. Do not recurse into nested containers and do not broaden the match to inheritance or semantic categories.
+
 ### Unpack
 
 Unpack traverses cargo. Cargo-bearing nodes remain where they are; non-container leaf items are collected and moved to the destination. Loose direct items therefore move as well. Attachments are outside the initial traversal scope.
