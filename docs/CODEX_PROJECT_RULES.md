@@ -36,17 +36,16 @@ When vicinity is the destination, Unpack drops leaf items through DayZ's normal 
 
 Normal unmodified item drag remains vanilla behavior.
 
-For an item that is a direct cargo child, latch exactly one held modifier when the left-button drag starts:
+TransferZ owns two left-button modifier drags:
 
-- `Ctrl + Drag`: exact-class bulk transfer. Resolve the dragged representative's immediate cargo owner, snapshot that owner's direct cargo children, and move only children whose `GetType()` exactly equals the representative's `GetType()`.
-- `Shift + Drag`: equivalent to dragging the immediate source container's `T` handle. Transfer all direct cargo children from that source.
-- `Alt + Drag`: equivalent to dragging the immediate source container's `U` handle. Unpack that source container into the drop destination.
+- `Shift + Drag`: equivalent to dragging the source zone's `T` handle.
+- `Alt + Drag`: equivalent to dragging the source zone's `U` handle.
 
-Do not broaden exact-class matching to inheritance or arbitrary categories and do not recurse into nested cargo for the class filter. Failed or non-fitting matches remain in place.
+For a direct cargo child, the source zone is its immediate cargo owner. Shift transfers that container's direct cargo children; Alt unpacks that container.
 
-The modifier is latched at drag start; releasing it during movement or mouse-wheel scrolling must not change the operation. If more than one of Ctrl/Shift/Alt is held at drag start, do not guess an operation; leave the drag to vanilla behavior.
+For an item shown in `VICINITY`, the source zone is the current vicinity list. Shift behaves like vicinity `T`; Alt behaves like vicinity `U`. These operations must work from vicinity to a container, from a container to vicinity, and between normal container targets. Shift from vicinity to vicinity is a no-op because loose vicinity items are already at that destination; Alt from vicinity to vicinity unpacks shown vicinity containers onto the ground.
 
-TransferZ does not assign a bulk drag operation to the right mouse button.
+Do not assign `Ctrl + Drag` to TransferZ. Stock DayZ owns Ctrl+click as immediate drop-to-ground and TransferZ must not compete with or suppress that interaction. Right-button drag also remains outside TransferZ.
 
 ### Vicinity batch actions
 
@@ -128,7 +127,7 @@ The controls extend the vanilla inventory rather than replacing it.
 
 ## Scope boundaries for 0.1
 
-- No arbitrary item-category filtering; exact-class matching is the only bulk class filter.
+- No arbitrary item-category filtering; exact-class matching is available through double-right-click routing only.
 - No persistent world-container links.
 - No TransferZ-owned partial stack splitting or merging.
 - No automatic relocation of empty nested containers after Unpack.
