@@ -57,6 +57,8 @@ modded class TransferZHeaderControls
         float spacerY;
         m_TransferZHandsLeftSpacer.GetScreenPos(spacerX, spacerY);
 
+        // HANDS uses a GridSpacer for the item title. Reserve space by enlarging
+        // its native left spacer and let the grid keep ownership of title layout.
         float reservedWidth = m_TransferZHandsLeftSpacerW + blockWidth + titleGap;
         m_TransferZHandsLeftSpacer.SetSize(reservedWidth, m_TransferZHandsLeftSpacerH, false);
         m_TransferZHandsGrid.Update();
