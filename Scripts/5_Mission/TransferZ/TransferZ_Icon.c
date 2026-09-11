@@ -96,6 +96,12 @@ modded class Icon
         if (!destination || destination == source)
             return false;
 
+        // P* is a convenience route, not a trap. If its exact cargo cannot
+        // currently accept this item (most commonly because it is full), let
+        // vanilla DayZ handle the double-click instead of consuming it.
+        if (!state.CanPreferredAcceptItem(m_Obj, destination))
+            return false;
+
         return state.RequestMoveItem(m_Obj, destination);
     }
 
