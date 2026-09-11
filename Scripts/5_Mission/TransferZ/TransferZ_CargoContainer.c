@@ -3,7 +3,9 @@ class TransferZHeaderControls
     protected static ref array<TransferZHeaderControls> s_Instances;
 
     protected EntityAI m_Entity;
+    protected Container m_OwnerContainer;
     protected Widget m_HeaderHost;
+    protected Widget m_DropHost;
     protected Widget m_Root;
     protected Widget m_DropTarget;
     protected Widget m_HeaderLabel;
@@ -13,19 +15,27 @@ class TransferZHeaderControls
     protected float m_HeaderLabelH;
     protected Widget m_TooltipRoot;
     protected TextWidget m_TooltipText;
+    protected ImageWidget m_TooltipBackground;
     protected ButtonWidget m_DestinationButton;
     protected ButtonWidget m_TransferButton;
     protected ButtonWidget m_UnpackButton;
     protected ButtonWidget m_LinkButton;
     protected ButtonWidget m_PreferredButton;
+    protected ImageWidget m_TransferStatus;
+    protected ImageWidget m_UnpackStatus;
+    protected Widget m_HoveredOperation;
     protected int m_IgnoreOperationClickUntil;
 
-    void TransferZHeaderControls(Widget parent)
+    void TransferZHeaderControls(Widget parent, Container owner = null)
     {
         if (!parent)
             return;
 
         m_HeaderHost = parent;
+        m_OwnerContainer = owner;
+        m_DropHost = parent;
+        if (m_OwnerContainer && m_OwnerContainer.GetRootWidget())
+            m_DropHost = m_OwnerContainer.GetRootWidget();
 
         if (!s_Instances)
             s_Instances = new array<TransferZHeaderControls>();
@@ -49,6 +59,13 @@ class TransferZHeaderControls
         if (m_TooltipRoot)
         {
             m_TooltipText = TextWidget.Cast(m_TooltipRoot.FindAnyWidget("TransferZ_TooltipText"));
+            m_TooltipBackground = ImageWidget.Cast(m_TooltipRoot.FindAnyWidget("TransferZ_TooltipBackground"));
+            if (m_TooltipBackground)
+            {
+                m_TooltipBackground.LoadImageFile(0, "#(argb,8,8,3)color(1,1,1,1,ca)");
+                m_TooltipBackground.SetImage(0);
+                m_TooltipBackground.SetColor(ARGB(210, 0, 0, 0));
+            }
             m_TooltipRoot.SetSort(10000);
             m_TooltipRoot.Show(false);
         }
@@ -57,8 +74,10 @@ class TransferZHeaderControls
         if (m_DropTarget)
         {
             m_DropTarget.SetSort(9990);
-            WidgetEventHandler.GetInstance().RegisterOnDropReceived(m_DropTarget, this, "OnOperationDropReceived");
-            WidgetEventHandler.GetInstance().RegisterOnDraggingOver(m_DropTarget, this, "OnOperationDraggingOver");
+            WidgetEventHandler handler = WidgetEventHandler.GetInstance();
+            handler.RegisterOnDropReceived(m_DropTarget, this, "OnOperationDropReceived");
+            handler.RegisterOnDraggingOver(m_DropTarget, this, "OnOperationDraggingOver");
+            handler.RegisterOnMouseWheel(m_DropTarget, this, "OnOperationMouseWheel");
             m_DropTarget.Show(false);
         }
 
@@ -67,6 +86,11 @@ class TransferZHeaderControls
         m_UnpackButton = ButtonWidget.Cast(m_Root.FindAnyWidget("TransferZ_Unpack"));
         m_LinkButton = ButtonWidget.Cast(m_Root.FindAnyWidget("TransferZ_Link"));
         m_PreferredButton = ButtonWidget.Cast(m_Root.FindAnyWidget("TransferZ_Preferred"));
+        m_TransferStatus = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_TransferStatus"));
+        m_UnpackStatus = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_UnpackStatus"));
+
+        PrepareStatusImage(m_TransferStatus);
+        PrepareStatusImage(m_UnpackStatus);
 
         RegisterButton(m_DestinationButton, "OnDestination");
         RegisterOperationButton(m_TransferButton, "OnTransfer");
@@ -103,36 +127,91 @@ class TransferZHeaderControls
         }
     }
 
+    protected void PrepareStatusImage(ImageWidget image)
+    {
+        if (!image)
+            return;
+
+        image.LoadImageFile(0, "#(argb,8,8,3)color(1,1,1,1,ca)");
+        image.SetImage(0);
+        image.Show(false);
+    }
+
     static void RefreshAll()
     {
+        if (s_Instances)
+        {
+            for (int i = s_Instances.Count() - 1; i >= 0; i--)
+            {
+                TransferZHeaderControls controls = s_Instances.Get(i);
+                if (!controls)
+                {
+                    s_Instances.Remove(i);
+                    continue;
+                }
+
+                controls.UpdateControls();
+            }
+        }
+
+        TransferZVicinityHeaderControls.Refresh();
+    }
+
+    static bool IsEntityOpenOrInHands(EntityAI entity)
+    {
+        if (!entity)
+            return false;
+
+        PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
+        if (player && player.GetEntityInHands() == entity)
+            return true;
+
         if (!s_Instances)
-            return;
+            return false;
 
         for (int i = s_Instances.Count() - 1; i >= 0; i--)
         {
             TransferZHeaderControls controls = s_Instances.Get(i);
-            if (!controls)
-            {
-                s_Instances.Remove(i);
-                continue;
-            }
-
-            controls.UpdateControls();
+            if (controls && controls.m_Entity == entity && controls.IsOpenTarget())
+                return true;
         }
+
+        return false;
+    }
+
+    protected bool IsOpenTarget()
+    {
+        if (!m_Entity || !m_HeaderHost || !m_HeaderHost.IsVisibleHierarchy())
+            return false;
+
+        PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
+        if (player && player.GetEntityInHands() == m_Entity)
+            return true;
+
+        if (m_OwnerContainer && !m_OwnerContainer.IsOpened())
+            return false;
+
+        if (m_DropHost && !m_DropHost.IsVisibleHierarchy())
+            return false;
+
+        return true;
     }
 
     static void SetOperationDropTargetsVisible(bool show)
     {
-        if (!s_Instances)
-            return;
-
         EntityAI source = TransferZOperationDrag.GetSource();
-        for (int i = s_Instances.Count() - 1; i >= 0; i--)
+
+        if (s_Instances)
         {
-            TransferZHeaderControls controls = s_Instances.Get(i);
-            if (controls)
-                controls.SetDropTargetVisible(show, source);
+            for (int i = s_Instances.Count() - 1; i >= 0; i--)
+            {
+                TransferZHeaderControls controls = s_Instances.Get(i);
+                if (controls)
+                    controls.SetDropTargetVisible(show, source);
+            }
         }
+
+        TransferZVicinityHeaderControls.SetOperationDropTargetVisible(show);
     }
 
     static void CancelOperationDrag()
@@ -214,6 +293,7 @@ class TransferZHeaderControls
         else
         {
             HideTooltip();
+            HideOperationStatus();
             RestoreHeaderText();
             SetDropTargetVisible(false, null);
         }
@@ -258,13 +338,26 @@ class TransferZHeaderControls
         return name;
     }
 
+    protected string DestinationName()
+    {
+        TransferZClientState state = TransferZClientState.Get();
+        if (state.IsDestinationVicinity())
+            return "VICINITY";
+
+        EntityAI destination = state.GetDestination();
+        if (destination)
+            return DisplayName(destination);
+
+        return "";
+    }
+
     protected string TooltipFor(Widget w)
     {
         if (!m_Entity)
             return "";
 
         TransferZClientState state = TransferZClientState.Get();
-        EntityAI destination = state.GetDestination();
+        string destinationName = DestinationName();
 
         if (w == m_DestinationButton)
         {
@@ -275,15 +368,15 @@ class TransferZHeaderControls
 
         if (w == m_TransferButton)
         {
-            if (destination)
-                return "Transfer contents -> " + DisplayName(destination);
+            if (destinationName != "")
+                return "Transfer contents -> " + destinationName;
             return "Transfer: select destination";
         }
 
         if (w == m_UnpackButton)
         {
-            if (destination)
-                return "Unpack contents -> " + DisplayName(destination);
+            if (destinationName != "")
+                return "Unpack contents -> " + destinationName;
             return "Unpack: select destination";
         }
 
@@ -307,7 +400,55 @@ class TransferZHeaderControls
         return "";
     }
 
-    protected void PositionTooltip(Widget source)
+    protected string WrapTooltipText(string text, out int lineCount)
+    {
+        lineCount = 1;
+        if (text == "")
+            return text;
+
+        ref array<string> words = new array<string>();
+        text.Split(" ", words);
+
+        const int MAX_LINE_CHARS = 34;
+        string result = "";
+        string line = "";
+
+        foreach (string word : words)
+        {
+            if (word == "")
+                continue;
+
+            if (line == "")
+            {
+                line = word;
+                continue;
+            }
+
+            if (line.Length() + 1 + word.Length() <= MAX_LINE_CHARS)
+            {
+                line += " " + word;
+            }
+            else
+            {
+                if (result != "")
+                    result += "\n";
+                result += line;
+                line = word;
+                lineCount++;
+            }
+        }
+
+        if (line != "")
+        {
+            if (result != "")
+                result += "\n";
+            result += line;
+        }
+
+        return result;
+    }
+
+    protected void PositionTooltip(Widget source, float tooltipH)
     {
         if (!m_TooltipRoot || !source)
             return;
@@ -323,8 +464,7 @@ class TransferZHeaderControls
         int screenH;
         GetScreenSize(screenW, screenH);
 
-        float tooltipW = 270.0;
-        float tooltipH = 30.0;
+        float tooltipW = 260.0;
         float tooltipX = sourceX + sourceW * 0.5 - tooltipW * 0.5;
         float tooltipY = sourceY - tooltipH - 2.0;
 
@@ -336,6 +476,10 @@ class TransferZHeaderControls
             tooltipY = sourceY + sourceH + 2.0;
 
         m_TooltipRoot.SetScreenSize(tooltipW, tooltipH, false);
+        if (m_TooltipBackground)
+            m_TooltipBackground.SetSize(tooltipW, tooltipH, false);
+        if (m_TooltipText)
+            m_TooltipText.SetSize(tooltipW - 16.0, tooltipH - 10.0, false);
         m_TooltipRoot.SetScreenPos(tooltipX, tooltipY, false);
     }
 
@@ -355,8 +499,14 @@ class TransferZHeaderControls
         if (itemManager)
             itemManager.HideTooltip();
 
-        m_TooltipText.SetText(text);
-        PositionTooltip(source);
+        int lineCount;
+        string wrapped = WrapTooltipText(text, lineCount);
+        float tooltipH = 10.0 + lineCount * 18.0;
+        if (tooltipH < 34.0)
+            tooltipH = 34.0;
+
+        m_TooltipText.SetText(wrapped);
+        PositionTooltip(source, tooltipH);
         m_TooltipRoot.Show(true);
     }
 
@@ -366,17 +516,77 @@ class TransferZHeaderControls
             m_TooltipRoot.Show(false);
     }
 
+    protected int StatusColor(int result)
+    {
+        if (result == TransferZOperationPreviewResult.READY)
+            return ARGB(105, 68, 96, 72);
+        if (result == TransferZOperationPreviewResult.PARTIAL)
+            return ARGB(110, 125, 103, 48);
+        return ARGB(110, 112, 58, 55);
+    }
+
+    protected void ShowOperationStatus(Widget button)
+    {
+        ImageWidget status;
+        int operation;
+
+        if (button == m_TransferButton)
+        {
+            status = m_TransferStatus;
+            operation = TransferZOperation.TRANSFER;
+        }
+        else if (button == m_UnpackButton)
+        {
+            status = m_UnpackStatus;
+            operation = TransferZOperation.UNPACK;
+        }
+        else
+        {
+            return;
+        }
+
+        if (!status || !m_Entity)
+            return;
+
+        int result = TransferZOperationPreview.EvaluateContainerOperation(operation, m_Entity);
+        status.SetColor(StatusColor(result));
+        status.Show(true);
+        m_HoveredOperation = button;
+    }
+
+    protected void HideOperationStatus()
+    {
+        if (m_TransferStatus)
+            m_TransferStatus.Show(false);
+        if (m_UnpackStatus)
+            m_UnpackStatus.Show(false);
+        m_HoveredOperation = null;
+    }
+
+    protected void RefreshOperationStatus()
+    {
+        if (!m_HoveredOperation)
+            return;
+
+        Widget hovered = m_HoveredOperation;
+        if (m_TransferStatus)
+            m_TransferStatus.Show(false);
+        if (m_UnpackStatus)
+            m_UnpackStatus.Show(false);
+        ShowOperationStatus(hovered);
+    }
+
     protected void UpdateDropTargetPosition()
     {
-        if (!m_DropTarget || !m_HeaderHost)
+        if (!m_DropTarget || !m_DropHost)
             return;
 
         float x;
         float y;
         float w;
         float h;
-        m_HeaderHost.GetScreenPos(x, y);
-        m_HeaderHost.GetScreenSize(w, h);
+        m_DropHost.GetScreenPos(x, y);
+        m_DropHost.GetScreenSize(w, h);
         m_DropTarget.SetScreenPos(x, y, false);
         m_DropTarget.SetScreenSize(w, h, false);
     }
@@ -386,26 +596,55 @@ class TransferZHeaderControls
         if (!m_DropTarget)
             return;
 
-        bool canShow = show && TransferZOperationDrag.IsActive() && m_Entity && m_Entity.GetInventory().GetCargo();
+        bool canShow = show && TransferZOperationDrag.IsActive() && m_Entity && m_Entity.GetInventory().GetCargo() && IsOpenTarget();
         if (canShow && source && source == m_Entity)
-            canShow = false;
-        if (canShow && m_HeaderHost && !m_HeaderHost.IsVisibleHierarchy())
-            canShow = false;
+        {
+            bool selfUnpack = TransferZOperationDrag.GetOperation() == TransferZOperation.UNPACK && !TransferZOperationDrag.IsClassTransfer() && !TransferZOperationDrag.IsFromVicinity();
+            if (!selfUnpack)
+                canShow = false;
+        }
 
         if (canShow)
             UpdateDropTargetPosition();
         m_DropTarget.Show(canShow);
     }
 
+    protected ScrollWidget FindScrollWidget()
+    {
+        LayoutHolder current = m_OwnerContainer;
+        while (current)
+        {
+            Container container = Container.Cast(current);
+            if (container)
+            {
+                ScrollWidget scroll = container.GetScrollWidget();
+                if (scroll)
+                    return scroll;
+
+                scroll = container.GetSlotsScrollWidget();
+                if (scroll)
+                    return scroll;
+            }
+
+            current = current.GetParent();
+        }
+
+        return null;
+    }
+
     bool OnButtonMouseEnter(Widget w, int x, int y)
     {
         ShowTooltip(w);
+        if (w == m_TransferButton || w == m_UnpackButton)
+            ShowOperationStatus(w);
         return true;
     }
 
     bool OnButtonMouseLeave(Widget w, Widget enter_w, int x, int y)
     {
         HideTooltip();
+        if (w == m_TransferButton || w == m_UnpackButton)
+            HideOperationStatus();
         return true;
     }
 
@@ -423,6 +662,7 @@ class TransferZHeaderControls
 
         m_IgnoreOperationClickUntil = GetGame().GetTime() + 250;
         HideTooltip();
+        HideOperationStatus();
         SetOperationDropTargetsVisible(true);
     }
 
@@ -445,6 +685,16 @@ class TransferZHeaderControls
         TransferZOperationDrag.Complete(m_Entity);
         SetOperationDropTargetsVisible(false);
         RefreshAll();
+    }
+
+    void OnOperationMouseWheel(Widget w, int x, int y, int wheel)
+    {
+        ScrollWidget scroll = FindScrollWidget();
+        if (scroll)
+            scroll.VScrollStep(-wheel);
+
+        if (TransferZOperationDrag.IsActive())
+            UpdateDropTargetPosition();
     }
 
     void UpdateControls()
@@ -488,6 +738,7 @@ class TransferZHeaderControls
             m_Root.SetSize(82, 29, true);
 
         ReserveHeaderText(canPrefer);
+        RefreshOperationStatus();
 
         if (TransferZOperationDrag.IsActive())
             SetDropTargetVisible(true, TransferZOperationDrag.GetSource());
@@ -514,6 +765,7 @@ class TransferZHeaderControls
 
         TransferZClientState.Get().RequestTransfer(m_Entity);
         ShowTooltip(w);
+        RefreshOperationStatus();
     }
 
     void OnUnpack(Widget w, int x, int y, int button)
@@ -525,6 +777,7 @@ class TransferZHeaderControls
 
         TransferZClientState.Get().RequestUnpack(m_Entity);
         ShowTooltip(w);
+        RefreshOperationStatus();
     }
 
     void OnLink(Widget w, int x, int y, int button)
@@ -565,7 +818,7 @@ modded class ClosableHeader
 {
     void ClosableHeader(LayoutHolder parent, string function_name)
     {
-        m_TransferZHeaderControls = new TransferZHeaderControls(m_PanelWidget);
+        m_TransferZHeaderControls = new TransferZHeaderControls(m_PanelWidget, Container.Cast(m_Parent));
     }
 
     override void UpdateInterval()
@@ -579,9 +832,11 @@ modded class ClosableHeader
 
 modded class HandsHeader
 {
+    protected EntityAI m_TransferZLastHandsEntity;
+
     void HandsHeader(LayoutHolder parent, string function_name)
     {
-        m_TransferZHeaderControls = new TransferZHeaderControls(m_ItemHeader);
+        m_TransferZHeaderControls = new TransferZHeaderControls(m_ItemHeader, Container.Cast(m_Parent));
     }
 
     override void UpdateInterval()
@@ -595,10 +850,19 @@ modded class HandsHeader
         if (!player)
         {
             m_TransferZHeaderControls.SetEntity(null);
+            m_TransferZLastHandsEntity = null;
             return;
         }
 
-        m_TransferZHeaderControls.SetEntity(player.GetEntityInHands());
+        EntityAI currentHands = player.GetEntityInHands();
+        if (m_TransferZLastHandsEntity && m_TransferZLastHandsEntity != currentHands)
+        {
+            if (TransferZClientState.Get().OnContainerLeftHands(m_TransferZLastHandsEntity))
+                TransferZHeaderControls.RefreshAll();
+        }
+
+        m_TransferZLastHandsEntity = currentHands;
+        m_TransferZHeaderControls.SetEntity(currentHands);
     }
 }
 
@@ -612,7 +876,7 @@ modded class CargoContainer
         {
             Widget attachmentHeader = m_CargoHeader.FindAnyWidget("grid_container_header");
             if (attachmentHeader)
-                m_TransferZAttachmentHeaderControls = new TransferZHeaderControls(attachmentHeader);
+                m_TransferZAttachmentHeaderControls = new TransferZHeaderControls(attachmentHeader, this);
         }
     }
 
