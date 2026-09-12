@@ -190,14 +190,14 @@ class TransferZHeaderControls
         image.Show(show);
     }
 
-    protected void PrepareIcon(ImageWidget image, string imagePath, int color = ARGB(235, 235, 235, 235))
+    protected void PrepareIcon(ImageWidget image, string imagePath)
     {
         if (!image)
             return;
 
         image.LoadImageFile(0, imagePath);
         image.SetImage(0);
-        image.SetColor(color);
+        image.SetColor(ARGB(235, 235, 235, 235));
         image.Show(true);
     }
 
