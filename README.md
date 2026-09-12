@@ -13,7 +13,7 @@ For the complete control reference and examples, see [`docs/USAGE.md`](docs/USAG
 3. Use **Unpack** on a source container to extract leaf items from nested cargo containers while leaving the nested containers and the source's existing direct loose cargo in place.
 4. Drag Transfer or Unpack directly onto another open container for a one-off operation without changing the active destination.
 5. Use the **Sort** and **Stack** controls on the right side of a cargo header to organize that container in place.
-6. Use the item shortcuts below for single items, source-zone batch operations, and exact-class batch moves.
+6. Use `Shift + Left Drag` for a whole source-zone transfer and `Alt + Left Drag` for an exact-class batch move.
 
 ## Header controls
 
@@ -39,23 +39,29 @@ Hover a control for a short explanation. Transfer and Unpack also show a subdued
 | --- | --- |
 | `Shift + Click` | Move the clicked item to the active destination. |
 | `Alt + Click` | Move the clicked item to the preferred personal destination. |
-| `Shift + Left Drag` | Run the source zone's Transfer operation and drop it onto a destination. |
-| `Alt + Left Drag` | Run the source zone's Unpack operation and drop it onto a destination. |
-| `Right Drag` | Move all currently eligible items with the same exact `GetType()` as the dragged item to the drop target. |
+| `Shift + Left Drag` | Move the source container's direct cargo as a batch. From vicinity, move the shown eligible loose items. |
+| `Alt + Left Drag` | Move all eligible items of the dragged item's exact `GetType()` from the same source zone. |
 | `Double Left Click` | Use link/preferred routing when TransferZ owns the route; otherwise preserve vanilla DayZ behavior. |
-| `Double Right Click` | Exact-class batch version of TransferZ double-click routing. |
 
 Unmodified left drag remains vanilla DayZ drag behavior. `Ctrl` interactions remain vanilla and are not reassigned by TransferZ.
 
-### Right-drag exact-class transfer
+**Right click is not assigned to TransferZ operations.** Normal DayZ right-click behavior, including stack splitting, remains available.
 
-Right-drag is an explicit same-class batch move.
+### Exact-class transfer with Alt drag
 
-From a cargo container, dragging one item selects all direct cargo items in that same source container whose exact `GetType()` matches the representative item. Drop onto another open TransferZ container to move those matches there. Dropping onto `VICINITY` moves those matching source-cargo items to the ground.
+From a cargo container, `Alt + Left Drag` on one item selects all direct cargo items in that same source container whose exact `GetType()` matches the representative item. Drop onto another open TransferZ container to move those matches there. Dropping onto `VICINITY` moves those matching source-cargo items to the ground.
 
-From `VICINITY`, right-drag selects currently shown loose, takeable, removable non-container items whose exact `GetType()` matches the representative item and moves that set into the destination container. Vicinity-to-vicinity is a no-op because those items are already there.
+From `VICINITY`, `Alt + Left Drag` selects currently shown loose, takeable, removable non-container items whose exact `GetType()` matches the representative item and moves that set into the destination container. Vicinity-to-vicinity is a no-op because those items are already there.
 
-Different classnames are never included just because they are similar items. For example, right-dragging one ammunition classname moves only that exact ammunition classname.
+Different classnames are never included just because they are similar items. For example, Alt-dragging one ammunition classname moves only that exact ammunition classname.
+
+## Native stack splitting and P*
+
+TransferZ does not replace DayZ's stack-splitting rules. Right click still invokes the native split behavior.
+
+When the stack itself is held in hands, TransferZ tries to place the native split result into the resolved preferred destination (`P*`) when that exact cargo has room. If `P*` cannot accept it, normal DayZ fallback behavior remains in control.
+
+For a stack inside cargo below a container currently held in hands, the established order is: exact source cargo, then `P*`, then normal DayZ fallback.
 
 ## Destination behavior
 
@@ -96,7 +102,7 @@ Attachments are not traversed by Unpack in 0.1.0.
 
 Sort reorganizes the selected container's **direct cargo only**.
 
-TransferZ first builds a complete deterministic layout plan using the container's native cargo grid. It then performs only validated in-cargo DayZ inventory moves. Items are not dropped, spawned, or recreated as temporary storage.
+TransferZ first builds a complete deterministic layout plan using the container's native cargo grid. It then performs only validated in-cargo DayZ inventory moves. Items are not dropped, spawned, or recreated as temporary storage. DayZ user-reserved cells, including the placeholder for an item currently in hands, are treated as occupied and are preserved.
 
 Current Sort behavior:
 
@@ -121,9 +127,8 @@ TransferZ does not define its own ammo-family/category matching, does not merge 
 - Unpack: unpack currently shown vicinity cargo containers into the destination while leaving those containers in place.
 - `Shift + Click`: move one shown item to the active destination.
 - `Alt + Click`: move one shown item to the preferred personal destination.
-- `Shift + Left Drag`: run vicinity Transfer and drop onto a container.
-- `Alt + Left Drag`: run vicinity Unpack and drop onto a container.
-- `Right Drag`: move shown loose items of the dragged item's exact class into the drop target.
+- `Shift + Left Drag`: move the shown eligible loose items as a transfer batch.
+- `Alt + Left Drag`: move shown eligible loose items of the dragged item's exact class.
 
 With `VICINITY` itself selected, vicinity Transfer is a no-op and vicinity Unpack empties shown cargo containers onto the ground.
 
@@ -142,9 +147,7 @@ For cargo items, double-left-click routing priority is:
 2. otherwise the preferred destination for external or in-hand containers;
 3. otherwise vanilla DayZ behavior.
 
-Double-right-click uses the same destination resolution but sends exact `GetType()` matches from the immediate source cargo as a batch.
-
-For vicinity, left double-click routes the selected item to the preferred destination; right double-click routes currently shown items of that exact class to the preferred destination.
+For vicinity, left double-click routes the selected item to the preferred destination. TransferZ does not assign double-right-click behavior.
 
 ## Preferred destination
 
@@ -210,7 +213,7 @@ dist\release\@TransferZ\
 
 TransferZ 0.1.0 intentionally does not provide arbitrary category filters, TransferZ-owned stack splitting, persistent world-container links, attachment traversal during Unpack, or persistent preferred targets for containers nested in cargo rather than attached through slots.
 
-Exact-class matching is available through right-drag and right-double-click routing. Stack merging is available only through DayZ's own native compatibility rules.
+Exact-class matching is available through `Alt + Left Drag`. Stack merging is available only through DayZ's own native compatibility rules.
 
 ## Development
 
