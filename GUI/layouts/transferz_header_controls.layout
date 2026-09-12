@@ -37,8 +37,8 @@ PanelWidgetClass TransferZHeaderControls {
   ImageWidgetClass TransferZ_DestinationState {
    visible 0
    ignorepointer 1
-   position 2 3
-   size 19 23
+   position 1 2
+   size 21 25
    hexactpos 1
    vexactpos 1
    hexactsize 1
@@ -214,8 +214,8 @@ PanelWidgetClass TransferZHeaderControls {
   ImageWidgetClass TransferZ_LinkState {
    visible 0
    ignorepointer 1
-   position 65 3
-   size 19 23
+   position 64 2
+   size 21 25
    hexactpos 1
    vexactpos 1
    hexactsize 1
@@ -273,8 +273,8 @@ PanelWidgetClass TransferZHeaderControls {
   ImageWidgetClass TransferZ_PreferredState {
    visible 0
    ignorepointer 1
-   position 86 3
-   size 19 23
+   position 85 2
+   size 21 25
    hexactpos 1
    vexactpos 1
    hexactsize 1
