@@ -154,25 +154,23 @@ modded class ItemBase
         EntityAI hands = player.GetEntityInHands();
         EntityAI preferred = TransferZSplitPreferenceResolver.Resolve(player);
 
-        // When the stack itself is in hands, prefer P*. If P* has no room,
-        // return false and let DayZ perform its normal split fallback.
-        if (hands == this)
-        {
-            if (preferred && TransferZExecuteSplitTo(preferred, true))
-                return true;
-            return false;
-        }
+        // An explicitly configured P* overrides normal same-source placement.
+        // If P* cannot accept the split, preserve the source/vanilla fallback.
+        if (preferred && TransferZExecuteSplitTo(preferred, true))
+            return true;
 
-        // For a stack inside cargo under the held container, preserve the
-        // established source -> P* -> vanilla fallback order.
+        // A stack itself in hands has no cargo parent to preserve. With no usable
+        // P*, leave the operation entirely to vanilla DayZ.
+        if (hands == this)
+            return false;
+
+        // DayZ can otherwise lose the same-container placement for cargo under a
+        // held container. Keep the split beside the original stack when possible.
         EntityAI source;
         if (!TransferZResolveInHandsCargoSource(player, source))
             return false;
 
-        if (TransferZExecuteSplitTo(source, false))
-            return true;
-
-        if (preferred && preferred != source && TransferZExecuteSplitTo(preferred, true))
+        if (source != preferred && TransferZExecuteSplitTo(source, false))
             return true;
 
         return false;
