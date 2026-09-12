@@ -80,7 +80,9 @@ class TransferZVicinityHeaderControls
         m_UnpackStatus = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityUnpackStatus"));
         m_BlockBackground = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityBlockBackground"));
         m_DestinationHover = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityDestinationHover"));
-        m_TransferHover = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityTransferHover"));
+        m_TransferHover = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_TransferHover"));
+        if (!m_TransferHover)
+            m_TransferHover = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityTransferHover"));
         m_UnpackHover = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityUnpackHover"));
         m_DestinationState = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityDestinationState"));
 
@@ -182,22 +184,6 @@ class TransferZVicinityHeaderControls
     {
         if (s_Instance)
             s_Instance.SetDropTargetVisible(show);
-    }
-
-    static bool CompleteRightDragAtWidget(Widget widget)
-    {
-        if (!widget || !s_Instance || !s_Instance.m_DropTarget || !s_Instance.m_DropTarget.IsVisibleHierarchy())
-            return false;
-
-        Widget current = widget;
-        while (current)
-        {
-            if (current == s_Instance.m_DropTarget)
-                return TransferZOperationDrag.CompleteToVicinity();
-            current = current.GetParent();
-        }
-
-        return false;
     }
 
     protected void RegisterButton(ButtonWidget button, string clickFunction)
@@ -662,6 +648,10 @@ class TransferZVicinityHeaderControls
 
 modded class SlotsIcon
 {
+    protected static const int TRANSFERZ_VICINITY_MODIFIER_NONE = 0;
+    protected static const int TRANSFERZ_VICINITY_MODIFIER_SHIFT = 1;
+    protected static const int TRANSFERZ_VICINITY_MODIFIER_ALT = 2;
+
     protected bool m_TransferZVicinityModifierDragStarted;
     protected static int s_TransferZModifierClickSuppressUntil;
 
@@ -678,18 +668,50 @@ modded class SlotsIcon
         return null;
     }
 
-    protected int TransferZReadVicinityModifierOperation()
+    protected int TransferZReadVicinityModifierMode()
     {
         if (KeyState(KeyCode.KC_LCONTROL) || KeyState(KeyCode.KC_RCONTROL))
-            return 0;
+            return TRANSFERZ_VICINITY_MODIFIER_NONE;
 
         bool shiftDown = KeyState(KeyCode.KC_LSHIFT) || KeyState(KeyCode.KC_RSHIFT);
         bool altDown = KeyState(KeyCode.KC_LMENU) || KeyState(KeyCode.KC_RMENU);
         if (shiftDown == altDown)
-            return 0;
+            return TRANSFERZ_VICINITY_MODIFIER_NONE;
         if (shiftDown)
-            return TransferZOperation.TRANSFER;
-        return TransferZOperation.UNPACK;
+            return TRANSFERZ_VICINITY_MODIFIER_SHIFT;
+        return TRANSFERZ_VICINITY_MODIFIER_ALT;
+    }
+
+    protected bool TransferZBuildExactClassItems(VicinitySlotsContainer vicinity, EntityAI representative, notnull array<EntityAI> matches)
+    {
+        matches.Clear();
+        if (!vicinity || !representative)
+            return false;
+
+        string className = representative.GetType();
+        if (className == "")
+            return false;
+
+        ref array<EntityAI> visible = new array<EntityAI>();
+        vicinity.TransferZSnapshotVisibleItems(visible);
+        bool representativeStillVisible = false;
+
+        foreach (EntityAI item : visible)
+        {
+            if (!item)
+                continue;
+            if (item == representative)
+                representativeStillVisible = true;
+            if (item.GetType() != className || item.GetInventory().GetCargo())
+                continue;
+
+            ItemBase itemBase = ItemBase.Cast(item);
+            if (!itemBase || !itemBase.IsTakeable() || !item.GetInventory().CanRemoveEntity())
+                continue;
+            matches.Insert(item);
+        }
+
+        return representativeStillVisible && matches.Count() > 0;
     }
 
     override void OnIconDrag(Widget w)
@@ -701,16 +723,24 @@ modded class SlotsIcon
         if (!vicinity || !m_Obj)
             return;
 
-        int operation = TransferZReadVicinityModifierOperation();
-        if (operation == 0)
+        int mode = TransferZReadVicinityModifierMode();
+        if (mode == TRANSFERZ_VICINITY_MODIFIER_NONE)
             return;
 
         ref array<EntityAI> items = new array<EntityAI>();
-        vicinity.TransferZSnapshotVisibleItems(items);
+        if (mode == TRANSFERZ_VICINITY_MODIFIER_SHIFT)
+        {
+            vicinity.TransferZSnapshotVisibleItems(items);
+        }
+        else if (!TransferZBuildExactClassItems(vicinity, m_Obj, items))
+        {
+            return;
+        }
+
         if (items.Count() == 0)
             return;
 
-        TransferZOperationDrag.BeginVicinity(operation, items);
+        TransferZOperationDrag.BeginVicinity(TransferZOperation.TRANSFER, items);
         TransferZHeaderControls.SetOperationDropTargetsVisible(true);
         m_TransferZVicinityModifierDragStarted = true;
         s_TransferZModifierClickSuppressUntil = GetGame().GetTime() + 300;
@@ -738,11 +768,6 @@ modded class VicinitySlotsContainer
     protected static const int TRANSFERZ_CLICK_PREFERRED = 2;
 
     protected int m_TransferZModifierClickMode;
-    protected bool m_TransferZVicinityRightDragTracking;
-    protected bool m_TransferZVicinityRightDragStarted;
-    protected int m_TransferZVicinityRightDragStartX;
-    protected int m_TransferZVicinityRightDragStartY;
-    protected EntityAI m_TransferZVicinityRightDragRepresentative;
 
     void TransferZSnapshotVisibleItems(notnull array<EntityAI> items)
     {
@@ -778,138 +803,6 @@ modded class VicinitySlotsContainer
         return preview.GetItem();
     }
 
-    protected bool TransferZRouteVicinityClassDoubleClick(ItemBase representative)
-    {
-        if (!representative || !m_ShowedItems)
-            return false;
-
-        TransferZClientState state = TransferZClientState.Get();
-        EntityAI destination = state.GetPreferredDestination();
-        if (!destination)
-            return false;
-
-        string className = representative.GetType();
-        if (className == "")
-            return false;
-
-        bool requested = false;
-        for (int i = 0; i < m_ShowedItems.Count(); i++)
-        {
-            EntityAI item = m_ShowedItems.Get(i);
-            if (!item || item.GetType() != className)
-                continue;
-
-            ItemBase itemBase = ItemBase.Cast(item);
-            if (!itemBase || !itemBase.IsTakeable() || !item.GetInventory().CanRemoveEntity())
-                continue;
-
-            if (state.RequestMoveItem(item, destination))
-                requested = true;
-        }
-
-        return requested;
-    }
-
-    protected void TransferZResetVicinityRightDrag()
-    {
-        m_TransferZVicinityRightDragTracking = false;
-        m_TransferZVicinityRightDragStarted = false;
-        m_TransferZVicinityRightDragRepresentative = null;
-    }
-
-    protected bool TransferZBuildVicinityClassItems(EntityAI representative, notnull array<EntityAI> matches)
-    {
-        matches.Clear();
-        if (!representative)
-            return false;
-
-        string className = representative.GetType();
-        if (className == "")
-            return false;
-
-        ref array<EntityAI> visible = new array<EntityAI>();
-        TransferZSnapshotVisibleItems(visible);
-        bool representativeStillVisible = false;
-
-        foreach (EntityAI item : visible)
-        {
-            if (!item)
-                continue;
-            if (item == representative)
-                representativeStillVisible = true;
-            if (item.GetType() != className || item.GetInventory().GetCargo())
-                continue;
-
-            ItemBase itemBase = ItemBase.Cast(item);
-            if (!itemBase || !itemBase.IsTakeable() || !item.GetInventory().CanRemoveEntity())
-                continue;
-            matches.Insert(item);
-        }
-
-        return representativeStillVisible && matches.Count() > 0;
-    }
-
-    protected void TransferZStartVicinityRightDrag(Widget w)
-    {
-        TransferZResetVicinityRightDrag();
-        if (KeyState(KeyCode.KC_LCONTROL) || KeyState(KeyCode.KC_RCONTROL))
-            return;
-
-        EntityAI representative = TransferZResolveVicinityItem(w);
-        if (!representative)
-            return;
-
-        m_TransferZVicinityRightDragRepresentative = representative;
-        GetMousePos(m_TransferZVicinityRightDragStartX, m_TransferZVicinityRightDragStartY);
-        m_TransferZVicinityRightDragTracking = true;
-        GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(TransferZPollVicinityRightDrag, 16, false);
-    }
-
-    protected void TransferZPollVicinityRightDrag()
-    {
-        if (!m_TransferZVicinityRightDragTracking)
-            return;
-
-        bool rightDown = (GetMouseState(MouseState.RIGHT) & 0x80000000) != 0;
-        int mouseX;
-        int mouseY;
-        GetMousePos(mouseX, mouseY);
-
-        if (rightDown)
-        {
-            if (!m_TransferZVicinityRightDragStarted)
-            {
-                int dx = mouseX - m_TransferZVicinityRightDragStartX;
-                int dy = mouseY - m_TransferZVicinityRightDragStartY;
-                if (dx > 5 || dx < -5 || dy > 5 || dy < -5)
-                {
-                    ref array<EntityAI> matches = new array<EntityAI>();
-                    if (!TransferZBuildVicinityClassItems(m_TransferZVicinityRightDragRepresentative, matches))
-                    {
-                        TransferZResetVicinityRightDrag();
-                        return;
-                    }
-
-                    TransferZOperationDrag.BeginVicinity(TransferZOperation.TRANSFER, matches);
-                    TransferZHeaderControls.SetOperationDropTargetsVisible(true);
-                    m_TransferZVicinityRightDragStarted = true;
-                }
-            }
-
-            GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(TransferZPollVicinityRightDrag, 16, false);
-            return;
-        }
-
-        if (m_TransferZVicinityRightDragStarted)
-        {
-            Widget hovered = GetWidgetUnderCursor();
-            if (!TransferZHeaderControls.CompleteRightDragAtWidget(hovered))
-                TransferZHeaderControls.CancelOperationDrag();
-        }
-
-        TransferZResetVicinityRightDrag();
-    }
-
     override void MouseButtonDown(Widget w, int x, int y, int button)
     {
         m_TransferZModifierClickMode = TRANSFERZ_CLICK_NONE;
@@ -928,18 +821,10 @@ modded class VicinitySlotsContainer
         }
 
         super.MouseButtonDown(w, x, y, button);
-
-        if (button == MouseState.RIGHT)
-            TransferZStartVicinityRightDrag(w);
-        else if (button == MouseState.LEFT)
-            TransferZResetVicinityRightDrag();
     }
 
     override void MouseClick(Widget w, int x, int y, int button)
     {
-        if (button == MouseState.RIGHT && m_TransferZVicinityRightDragStarted)
-            return;
-
         int clickMode = m_TransferZModifierClickMode;
         m_TransferZModifierClickMode = TRANSFERZ_CLICK_NONE;
 
@@ -965,16 +850,11 @@ modded class VicinitySlotsContainer
 
     override void DoubleClick(Widget w, int x, int y, int button)
     {
-        if (!g_Game.IsLeftCtrlDown())
+        if (button == MouseState.LEFT && !g_Game.IsLeftCtrlDown())
         {
             ItemBase item = ItemBase.Cast(TransferZResolveVicinityItem(w));
-            if (item && item.IsTakeable() && item.GetInventory().CanRemoveEntity())
-            {
-                if (button == MouseState.LEFT && TransferZClientState.Get().TryRouteVicinityDoubleClick(item))
-                    return;
-                if (button == MouseState.RIGHT && TransferZRouteVicinityClassDoubleClick(item))
-                    return;
-            }
+            if (item && item.IsTakeable() && item.GetInventory().CanRemoveEntity() && TransferZClientState.Get().TryRouteVicinityDoubleClick(item))
+                return;
         }
 
         super.DoubleClick(w, x, y, button);
