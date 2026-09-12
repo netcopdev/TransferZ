@@ -45,16 +45,30 @@ PanelWidgetClass TransferZHeaderManageControls {
    priority 603
    style Empty
   }
-  ImageWidgetClass TransferZ_SortIcon {
+  ImageWidgetClass TransferZ_SortArrowTop {
    ignorepointer 1
    position 4 7
-   size 15 15
+   size 14 8
    hexactpos 1
    vexactpos 1
    hexactsize 1
    vexactsize 1
    priority 604
    mode blend
+   image0 "set:dayz_gui image:icon_arrow"
+  }
+  ImageWidgetClass TransferZ_SortArrowBottom {
+   ignorepointer 1
+   position 5 14
+   size 14 8
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 604
+   mode blend
+   "flip u" 1
+   image0 "set:dayz_gui image:icon_arrow"
   }
   ImageWidgetClass TransferZ_StackHover {
    visible 0
@@ -79,38 +93,41 @@ PanelWidgetClass TransferZHeaderManageControls {
    priority 603
    style Empty
   }
-  ImageWidgetClass TransferZ_StackIconTop {
+  ImageWidgetClass TransferZ_StackLayerBack {
    ignorepointer 1
-   position 27 8
-   size 11 3
+   position 28 6
+   size 10 10
    hexactpos 1
    vexactpos 1
    hexactsize 1
    vexactsize 1
    priority 604
    mode blend
+   image0 "set:dayz_gui image:InventoryGridEmpty_"
   }
-  ImageWidgetClass TransferZ_StackIconMiddle {
+  ImageWidgetClass TransferZ_StackLayerMiddle {
    ignorepointer 1
-   position 25 13
-   size 15 3
+   position 26 10
+   size 10 10
    hexactpos 1
    vexactpos 1
    hexactsize 1
    vexactsize 1
-   priority 604
+   priority 605
    mode blend
+   image0 "set:dayz_gui image:InventoryGridEmpty_"
   }
-  ImageWidgetClass TransferZ_StackIconBottom {
+  ImageWidgetClass TransferZ_StackLayerFront {
    ignorepointer 1
-   position 27 18
-   size 11 3
+   position 24 14
+   size 10 10
    hexactpos 1
    vexactpos 1
    hexactsize 1
    vexactsize 1
-   priority 604
+   priority 606
    mode blend
+   image0 "set:dayz_gui image:InventoryGridEmpty_"
   }
  }
 }
