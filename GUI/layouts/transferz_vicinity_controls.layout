@@ -37,14 +37,14 @@ PanelWidgetClass TransferZVicinityControls {
   ImageWidgetClass TransferZ_VicinityDestinationState {
    visible 0
    ignorepointer 1
-   position 1 2
-   size 21 25
+   position 4 23
+   size 15 3
    hexactpos 1
    vexactpos 1
    hexactsize 1
    vexactsize 1
    priority 601
-   mode additive
+   mode blend
   }
   ButtonWidgetClass TransferZ_VicinityDestination {
    ignorepointer 0
@@ -57,30 +57,15 @@ PanelWidgetClass TransferZVicinityControls {
    priority 603
    style Empty
   }
-  ImageWidgetClass TransferZ_VicinityDestinationIcon {
-   ignorepointer 1
-   position 4 7
-   size 15 15
-   hexactpos 1
-   vexactpos 1
-   hexactsize 1
-   vexactsize 1
-   priority 604
-   mode blend
-   image0 "set:dayz_gui image:icon_circle"
-  }
-  ImageWidgetClass TransferZ_VicinityDestinationDot {
-   ignorepointer 1
-   position 9 12
-   size 5 5
-   hexactpos 1
-   vexactpos 1
-   hexactsize 1
-   vexactsize 1
-   priority 605
-   mode blend
-   image0 "set:dayz_gui image:circle"
-  }
+  ImageWidgetClass TransferZ_VicinityDestinationIconOuter { ignorepointer 1 position 0 0 size 0 0 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend }
+  ImageWidgetClass TransferZ_VicinityDestinationIconInner { ignorepointer 1 position 0 0 size 0 0 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend }
+  ImageWidgetClass TransferZ_VicinityDestinationIconCenter { ignorepointer 1 position 0 0 size 0 0 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend }
+  ImageWidgetClass TransferZ_VicinityDestinationTop { ignorepointer 1 position 7 8 size 9 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+  ImageWidgetClass TransferZ_VicinityDestinationBottom { ignorepointer 1 position 7 18 size 9 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+  ImageWidgetClass TransferZ_VicinityDestinationLeft { ignorepointer 1 position 7 8 size 2 12 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+  ImageWidgetClass TransferZ_VicinityDestinationRight { ignorepointer 1 position 14 8 size 2 12 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+  ImageWidgetClass TransferZ_VicinityDestinationCenterMark { ignorepointer 1 position 10 13 size 3 3 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 605 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+
   ImageWidgetClass TransferZ_VicinityTransferHover {
    visible 0
    ignorepointer 1
@@ -96,14 +81,14 @@ PanelWidgetClass TransferZVicinityControls {
   ImageWidgetClass TransferZ_VicinityTransferStatus {
    visible 0
    ignorepointer 1
-   position 23 3
-   size 19 23
+   position 25 23
+   size 15 3
    hexactpos 1
    vexactpos 1
    hexactsize 1
    vexactsize 1
    priority 601
-   mode additive
+   mode blend
   }
   ButtonWidgetClass TransferZ_VicinityTransfer {
    ignorepointer 0
@@ -116,30 +101,17 @@ PanelWidgetClass TransferZVicinityControls {
    priority 603
    style Empty
   }
-  ImageWidgetClass TransferZ_VicinityTransferArrow {
-   ignorepointer 1
-   position 24 8
-   size 12 13
-   hexactpos 1
-   vexactpos 1
-   hexactsize 1
-   vexactsize 1
-   priority 604
-   mode blend
-   image0 "set:dayz_gui image:icon_arrow"
-  }
-  ImageWidgetClass TransferZ_VicinityTransferBox {
-   ignorepointer 1
-   position 34 10
-   size 7 9
-   hexactpos 1
-   vexactpos 1
-   hexactsize 1
-   vexactsize 1
-   priority 605
-   mode blend
-   image0 "set:dayz_gui image:InventoryGridEmpty_"
-  }
+  ImageWidgetClass TransferZ_VicinityTransferIcon { ignorepointer 1 position 0 0 size 0 0 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend }
+  ImageWidgetClass TransferZ_VicinityTransferShaft { ignorepointer 1 position 25 14 size 11 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+  ImageWidgetClass TransferZ_VicinityTransferHead1 { ignorepointer 1 position 31 10 size 2 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 605 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+  ImageWidgetClass TransferZ_VicinityTransferHead2 { ignorepointer 1 position 33 12 size 2 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 605 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+  ImageWidgetClass TransferZ_VicinityTransferHead3 { ignorepointer 1 position 35 14 size 2 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 605 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+  ImageWidgetClass TransferZ_VicinityTransferHead4 { ignorepointer 1 position 33 16 size 2 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 605 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+  ImageWidgetClass TransferZ_VicinityTransferHead5 { ignorepointer 1 position 31 18 size 2 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 605 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+  ImageWidgetClass TransferZ_VicinityTransferBoxTop { ignorepointer 1 position 36 8 size 5 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+  ImageWidgetClass TransferZ_VicinityTransferBoxRight { ignorepointer 1 position 39 8 size 2 13 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+  ImageWidgetClass TransferZ_VicinityTransferBoxBottom { ignorepointer 1 position 36 19 size 5 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+
   ImageWidgetClass TransferZ_VicinityUnpackHover {
    visible 0
    ignorepointer 1
@@ -155,14 +127,14 @@ PanelWidgetClass TransferZVicinityControls {
   ImageWidgetClass TransferZ_VicinityUnpackStatus {
    visible 0
    ignorepointer 1
-   position 44 3
-   size 19 23
+   position 46 23
+   size 15 3
    hexactpos 1
    vexactpos 1
    hexactsize 1
    vexactsize 1
    priority 601
-   mode additive
+   mode blend
   }
   ButtonWidgetClass TransferZ_VicinityUnpack {
    ignorepointer 0
@@ -175,29 +147,15 @@ PanelWidgetClass TransferZVicinityControls {
    priority 603
    style Empty
   }
-  ImageWidgetClass TransferZ_VicinityUnpackBox {
-   ignorepointer 1
-   position 45 10
-   size 7 9
-   hexactpos 1
-   vexactpos 1
-   hexactsize 1
-   vexactsize 1
-   priority 604
-   mode blend
-   image0 "set:dayz_gui image:InventoryGridEmpty_"
-  }
-  ImageWidgetClass TransferZ_VicinityUnpackArrow {
-   ignorepointer 1
-   position 51 8
-   size 11 13
-   hexactpos 1
-   vexactpos 1
-   hexactsize 1
-   vexactsize 1
-   priority 605
-   mode blend
-   image0 "set:dayz_gui image:icon_arrow"
-  }
+  ImageWidgetClass TransferZ_VicinityUnpackIcon { ignorepointer 1 position 0 0 size 0 0 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend }
+  ImageWidgetClass TransferZ_VicinityUnpackBoxTop { ignorepointer 1 position 45 8 size 5 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+  ImageWidgetClass TransferZ_VicinityUnpackBoxLeft { ignorepointer 1 position 45 8 size 2 13 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+  ImageWidgetClass TransferZ_VicinityUnpackBoxBottom { ignorepointer 1 position 45 19 size 5 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+  ImageWidgetClass TransferZ_VicinityUnpackShaft { ignorepointer 1 position 49 14 size 11 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+  ImageWidgetClass TransferZ_VicinityUnpackHead1 { ignorepointer 1 position 55 10 size 2 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 605 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+  ImageWidgetClass TransferZ_VicinityUnpackHead2 { ignorepointer 1 position 57 12 size 2 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 605 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+  ImageWidgetClass TransferZ_VicinityUnpackHead3 { ignorepointer 1 position 59 14 size 2 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 605 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+  ImageWidgetClass TransferZ_VicinityUnpackHead4 { ignorepointer 1 position 57 16 size 2 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 605 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
+  ImageWidgetClass TransferZ_VicinityUnpackHead5 { ignorepointer 1 position 55 18 size 2 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 605 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" }
  }
 }
