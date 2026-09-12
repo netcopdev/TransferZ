@@ -40,13 +40,19 @@ class TransferZMaintenanceClient
         if (!GetGame().IsMultiplayer())
         {
             if (operation == TransferZMaintenanceOperation.SORT)
+            {
                 TransferZMaintenanceService.Sort(player, source);
+            }
             else if (operation == TransferZMaintenanceOperation.STACK)
+            {
                 TransferZMaintenanceService.Stack(player, source);
+                player.UpdateInventoryMenu();
+            }
             else
+            {
                 return false;
+            }
 
-            player.UpdateInventoryMenu();
             return true;
         }
 
