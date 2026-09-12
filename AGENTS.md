@@ -25,7 +25,7 @@ Before modifying this repository, read this file and `docs/CODEX_PROJECT_RULES.m
 - `Shift + Left Drag` is a source-zone batch Transfer: from cargo it moves all direct cargo children; from vicinity it moves the shown eligible loose items.
 - `Alt + Left Drag` is an exact-class batch move using the dragged item's exact `GetType()`: from cargo it selects matching direct cargo children; from vicinity it selects matching shown eligible loose items.
 - Right-click interactions belong to vanilla DayZ. TransferZ must not assign RMB click, RMB drag, or RMB double-click gestures to routing operations.
-- Native stack splitting remains DayZ-owned. TransferZ may only influence the split destination for the established preferred-destination behavior: a stack directly in hands prefers `P*` when exact cargo space is available, otherwise vanilla fallback applies; a stack inside cargo below the held container keeps the established exact-source -> `P*` -> vanilla order.
+- Native stack splitting remains DayZ-owned. When `P*` is configured and can accept the new split entity, it overrides normal placement. Otherwise a stack inside cargo below the held container stays beside the original stack when exact source cargo has room, and all remaining cases fall back to vanilla DayZ behavior.
 - Container links are session-local unless a future specification explicitly makes them persistent.
 - Preferred personal destinations are stored by the ordered attachment-slot path from the player to the cargo-bearing target, not by item classname.
 - Nested attachment destinations such as `Belt > DumpPouch` are supported; direct worn containers are the one-hop form of the same model.
