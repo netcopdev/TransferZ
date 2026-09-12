@@ -178,7 +178,21 @@ class TransferZMaintenanceService
         }
     }
 
-    protected static bool AssignTargets(notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight)
+    protected static bool CollidesWithUserReservation(PlayerBase player, EntityAI source, TransferZSortRecord record, int row, int col)
+    {
+        if (!player || !source || !record || !record.item)
+            return true;
+
+        HumanInventory humanInventory = player.GetHumanInventory();
+        if (!humanInventory)
+            return false;
+
+        InventoryLocation destination = new InventoryLocation();
+        destination.SetCargo(source, record.item, record.cargoIndex, row, col, record.flip);
+        return humanInventory.FindCollidingUserReservedLocationIndex(record.item, destination) >= 0;
+    }
+
+    protected static bool AssignTargets(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight)
     {
         ref array<int> targetGrid = new array<int>();
         ResetGrid(targetGrid, cargoWidth * cargoHeight);
@@ -192,6 +206,8 @@ class TransferZMaintenanceService
                 for (int col = 0; col < cargoWidth; col++)
                 {
                     if (!RectFree(targetGrid, cargoWidth, cargoHeight, row, col, record.width, record.height))
+                        continue;
+                    if (CollidesWithUserReservation(player, source, record, row, col))
                         continue;
 
                     record.targetRow = row;
@@ -274,7 +290,7 @@ class TransferZMaintenanceService
         record.col = col;
     }
 
-    protected static bool SearchSortPlan(notnull array<ref TransferZSortRecord> records, notnull array<int> currentGrid, int cargoWidth, int cargoHeight, notnull array<ref TransferZSortMove> moves, notnull array<string> visitedStates, notnull array<int> visitedDepths, int depth, int maxDepth, inout int stateCount, int maxStates)
+    protected static bool SearchSortPlan(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, notnull array<int> currentGrid, int cargoWidth, int cargoHeight, notnull array<ref TransferZSortMove> moves, notnull array<string> visitedStates, notnull array<int> visitedDepths, int depth, int maxDepth, inout int stateCount, int maxStates)
     {
         if (AllRecordsAtTarget(records))
             return true;
@@ -303,13 +319,15 @@ class TransferZMaintenanceService
                 continue;
             if (!RectFree(currentGrid, cargoWidth, cargoHeight, targetRecord.targetRow, targetRecord.targetCol, targetRecord.width, targetRecord.height, targetIndex + 1))
                 continue;
+            if (CollidesWithUserReservation(player, source, targetRecord, targetRecord.targetRow, targetRecord.targetCol))
+                continue;
 
             int oldRow = targetRecord.row;
             int oldCol = targetRecord.col;
             AddPlannedMove(moves, targetRecord, targetRecord.targetRow, targetRecord.targetCol);
             MoveRecordInGrid(currentGrid, cargoWidth, targetRecord, targetIndex + 1, targetRecord.targetRow, targetRecord.targetCol);
 
-            if (SearchSortPlan(records, currentGrid, cargoWidth, cargoHeight, moves, visitedStates, visitedDepths, depth + 1, maxDepth, stateCount, maxStates))
+            if (SearchSortPlan(player, source, records, currentGrid, cargoWidth, cargoHeight, moves, visitedStates, visitedDepths, depth + 1, maxDepth, stateCount, maxStates))
                 return true;
 
             MoveRecordInGrid(currentGrid, cargoWidth, targetRecord, targetIndex + 1, oldRow, oldCol);
@@ -340,13 +358,15 @@ class TransferZMaintenanceService
                             continue;
                         if (!RectFree(currentGrid, cargoWidth, cargoHeight, tempRow, tempCol, record.width, record.height, recordIndex + 1))
                             continue;
+                        if (CollidesWithUserReservation(player, source, record, tempRow, tempCol))
+                            continue;
 
                         int tempOldRow = record.row;
                         int tempOldCol = record.col;
                         AddPlannedMove(moves, record, tempRow, tempCol);
                         MoveRecordInGrid(currentGrid, cargoWidth, record, recordIndex + 1, tempRow, tempCol);
 
-                        if (SearchSortPlan(records, currentGrid, cargoWidth, cargoHeight, moves, visitedStates, visitedDepths, depth + 1, maxDepth, stateCount, maxStates))
+                        if (SearchSortPlan(player, source, records, currentGrid, cargoWidth, cargoHeight, moves, visitedStates, visitedDepths, depth + 1, maxDepth, stateCount, maxStates))
                             return true;
 
                         MoveRecordInGrid(currentGrid, cargoWidth, record, recordIndex + 1, tempOldRow, tempOldCol);
@@ -362,12 +382,12 @@ class TransferZMaintenanceService
         return false;
     }
 
-    protected static bool BuildSortPlan(notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<ref TransferZSortMove> moves)
+    protected static bool BuildSortPlan(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<ref TransferZSortMove> moves)
     {
         moves.Clear();
-        if (!AssignTargets(records, cargoWidth, cargoHeight))
+        if (!AssignTargets(player, source, records, cargoWidth, cargoHeight))
         {
-            Print("[TransferZ] Sort planner failed: deterministic target layout could not be assigned");
+            Print("[TransferZ] Sort planner failed: deterministic target layout could not be assigned around active inventory reservations");
             return false;
         }
 
@@ -398,7 +418,7 @@ class TransferZMaintenanceService
         ref array<int> visitedDepths = new array<int>();
         int stateCount = 0;
 
-        if (SearchSortPlan(records, currentGrid, cargoWidth, cargoHeight, moves, visitedStates, visitedDepths, 0, maxDepth, stateCount, maxStates))
+        if (SearchSortPlan(player, source, records, currentGrid, cargoWidth, cargoHeight, moves, visitedStates, visitedDepths, 0, maxDepth, stateCount, maxStates))
         {
             Print("[TransferZ] Sort planner solved states=" + stateCount.ToString() + " moves=" + moves.Count().ToString());
             return true;
@@ -451,6 +471,14 @@ class TransferZMaintenanceService
 
         InventoryLocation dst = new InventoryLocation();
         dst.SetCargo(source, item, src.GetIdx(), row, col, flip);
+
+        HumanInventory humanInventory = player.GetHumanInventory();
+        if (humanInventory && humanInventory.FindCollidingUserReservedLocationIndex(item, dst) >= 0)
+        {
+            Print("[TransferZ] Sort move rejected: destination collides with DayZ user-reserved location item=" + item.GetType() + " dst=" + row.ToString() + "," + col.ToString());
+            return false;
+        }
+
         if (!GameInventory.CheckMoveToDstRequest(player, src, dst, GameInventory.c_MaxItemDistanceRadius))
         {
             Print("[TransferZ] Sort move rejected: CheckMoveToDstRequest=false item=" + item.GetType() + " src=" + src.GetRow().ToString() + "," + src.GetCol().ToString() + " dst=" + row.ToString() + "," + col.ToString() + " flip=" + flip.ToString());
@@ -496,7 +524,7 @@ class TransferZMaintenanceService
         }
 
         ref array<ref TransferZSortMove> moves = new array<ref TransferZSortMove>();
-        if (!BuildSortPlan(records, cargoWidth, cargoHeight, moves))
+        if (!BuildSortPlan(player, source, records, cargoWidth, cargoHeight, moves))
         {
             Print("[TransferZ] Sort skipped: no safe in-cargo rearrangement plan for " + source.GetType());
             return 0;
@@ -596,10 +624,13 @@ class TransferZMaintenanceService
             return;
 
         if (operation == TransferZMaintenanceOperation.SORT)
+        {
             Sort(player, source);
+        }
         else if (operation == TransferZMaintenanceOperation.STACK)
+        {
             Stack(player, source);
-
-        player.UpdateInventoryMenu();
+            player.UpdateInventoryMenu();
+        }
     }
 }
