@@ -12,6 +12,6 @@ Routing order is:
 
 The source and preferred checks use `FindFirstFreeLocationForNewEntity` because a split creates a new entity. The selected destination is then passed through DayZ's native `INPUT_UDT_ITEM_MANIPULATION` split path rather than recreating or manually copying stack state.
 
-The `ItemBase` hook lives in `Scripts/4_World`, the same script layer as `ItemBase`. It resolves `P*` from the preference data persisted at `$profile:TransferZ/preferences.json`, avoiding a dependency from World code on the Mission-layer `TransferZClientState`.
+The `ItemBase` hook lives in `Scripts/4_World`, the same script layer as `ItemBase`. An attempted Mission-layer hook failed DayZ compilation with `Unknown type 'ItemBase'`, so preferred routing is resolved in World code from the preference data persisted at `$profile:TransferZ/preferences.json`. This avoids a World-to-Mission dependency while retaining the same `P*` path semantics.
 
 This routing applies only to stack splits originating from cargo under the item currently in hands. Other DayZ split behavior remains untouched.
