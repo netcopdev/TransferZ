@@ -90,8 +90,9 @@ In particular, normal right-click stack splitting must remain available without 
 
 TransferZ may influence only the destination chosen for the native split in these established cases, while DayZ still owns the split quantity/state and item-manipulation protocol:
 
-- If the stack itself is currently in hands, try the resolved preferred destination (`P*`) first when that exact cargo has room. If it cannot accept the split, leave normal DayZ fallback behavior in control.
-- If the stack is in cargo at or below a container currently held in hands, first try the exact immediate source cargo, then `P*`, then vanilla DayZ fallback.
+- If a resolved preferred destination (`P*`) exists and its exact cargo can accept the new split entity, `P*` overrides normal placement.
+- If the stack is in cargo at or below a container currently held in hands and `P*` is not usable, keep the result in the exact immediate source cargo when space is available.
+- Otherwise leave normal DayZ fallback behavior in control.
 
 This destination selection is not a new RMB gesture and must not change whether or how DayZ decides that an item can be split.
 
@@ -168,22 +169,22 @@ Do not delete and recreate items to simulate transfer, sorting, or stacking.
 
 ## UI contract
 
-Cargo headers use compact icon controls. The transfer/navigation group remains on the left side of the header, after DayZ's native left-side preview/move controls. The maintenance group remains on the right side, before DayZ's native right-side controls.
+Cargo headers use compact controls. The transfer/navigation group remains on the left side of the header, after DayZ's native left-side preview/move controls. The maintenance group remains on the right side, before DayZ's native right-side controls.
 
 Left group:
 
-- Destination target icon: select/toggle this container as the active destination.
-- Transfer arrow icon: move direct cargo to the active destination; also draggable.
-- Unpack icon: extract leaf cargo from nested child containers while leaving direct loose cargo and nested containers in place; also draggable.
-- Link icon: start, complete, replace, or remove the single temporary link pair.
-- Preferred pin icon: store/toggle the attached cargo container's attachment-slot path as the preferred personal target.
+- `D`: select/toggle this container as the active Destination.
+- `T`: Transfer direct cargo to the active destination; also draggable.
+- `U`: Unpack leaf cargo from nested child containers while leaving direct loose cargo and nested containers in place; also draggable.
+- `L`: start, complete, replace, or remove the single temporary Link pair.
+- `P`: store/toggle the attached cargo container's attachment-slot path as the Preferred personal target.
 
 Right group:
 
-- Sort icon: compact/reorder this container's direct cargo in place.
-- Stack icon: merge compatible partial stacks in this container using DayZ's native combination rules.
+- Sort: three descending-width horizontal bars, with no arrow; compact/reorder this container's direct cargo in place.
+- Stack: three equal horizontal dashes; merge compatible partial stacks in this container using DayZ's native combination rules.
 
-`VICINITY` exposes only Destination, Transfer, and Unpack on the left because it has no single cargo grid to sort or stack.
+`VICINITY` exposes only `D`, `T`, and `U` on the left because it has no single cargo grid to sort or stack.
 
 TransferZ must preserve DayZ's native title geometry. Do not move or shrink the native header title to make room for TransferZ controls. Overlay TransferZ controls in available left/right header space while respecting DayZ's native preview, move, collapse, and other header controls.
 
@@ -193,7 +194,7 @@ Transfer/Unpack drag targets cover the visible destination container field rathe
 
 Hover tooltips must stay close to the hovered control, use a dark mostly-opaque background, and wrap onto additional lines instead of clipping longer messages. If state changes while a control remains hovered, rebuild both tooltip text and calculated geometry immediately rather than requiring mouse-out/mouse-in. Do not use the word `recursive` in player-facing tooltip text.
 
-The control blocks have a subdued common background with individual hover highlights. Active Destination, Link, and Preferred state is shown visually rather than by changing the icon label text. While Transfer or Unpack is hovered, preview the immediate expected result with a subdued translucent background:
+The control blocks have a subdued common background with individually visible button cells and brighter hover highlights. Active Destination, Link, and Preferred state is shown visually without changing the letter labels. While Transfer or Unpack is hovered, preview the immediate expected result with a subdued translucent background:
 
 - green: expected normal/full execution;
 - yellow: likely partial execution, such as insufficient destination capacity or only some currently eligible items;
