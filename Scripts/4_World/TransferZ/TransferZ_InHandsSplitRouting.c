@@ -54,11 +54,9 @@ class TransferZSplitPreferenceResolver
 
 modded class ItemBase
 {
-    protected bool TransferZResolveInHandsCargoSource(out EntityAI source)
+    protected bool TransferZResolveInHandsCargoSource(PlayerBase player, out EntityAI source)
     {
         source = null;
-
-        PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
         if (!player)
             return false;
 
@@ -144,7 +142,7 @@ modded class ItemBase
         return false;
     }
 
-    protected bool TransferZSplitFromInHandsCargo()
+    protected bool TransferZRouteNativeSplit()
     {
         if (!CanBeSplit() || GetDayZGame().IsLeftCtrlDown())
             return false;
@@ -153,15 +151,27 @@ modded class ItemBase
         if (!player || player.GetInventory().HasInventoryReservation(this, null))
             return false;
 
+        EntityAI hands = player.GetEntityInHands();
+        EntityAI preferred = TransferZSplitPreferenceResolver.Resolve(player);
+
+        // When the stack itself is in hands, prefer P*. If P* has no room,
+        // return false and let DayZ perform its normal split fallback.
+        if (hands == this)
+        {
+            if (preferred && TransferZExecuteSplitTo(preferred, true))
+                return true;
+            return false;
+        }
+
+        // For a stack inside cargo under the held container, preserve the
+        // established source -> P* -> vanilla fallback order.
         EntityAI source;
-        if (!TransferZResolveInHandsCargoSource(source))
+        if (!TransferZResolveInHandsCargoSource(player, source))
             return false;
 
-        // Exact source cargo -> P* -> vanilla DayZ fallback.
         if (TransferZExecuteSplitTo(source, false))
             return true;
 
-        EntityAI preferred = TransferZSplitPreferenceResolver.Resolve(player);
         if (preferred && preferred != source && TransferZExecuteSplitTo(preferred, true))
             return true;
 
@@ -170,7 +180,7 @@ modded class ItemBase
 
     override void OnRightClick()
     {
-        if (TransferZSplitFromInHandsCargo())
+        if (TransferZRouteNativeSplit())
             return;
 
         super.OnRightClick();
