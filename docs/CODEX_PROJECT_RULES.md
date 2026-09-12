@@ -43,6 +43,7 @@ Sort is a container-local maintenance operation. It never changes item ownership
 - Operate only on the source container's direct cargo children.
 - Build a complete target layout before executing the first move.
 - Use DayZ cargo dimensions and native inventory locations.
+- Treat DayZ user-reserved inventory locations as occupied so sorting cannot erase the placeholder for an item currently held in hands.
 - Move items only within the same cargo owner through validated native inventory moves.
 - Preserve the item's current orientation unless a future specification explicitly adds rotation-aware packing.
 - Prefer deterministic grouping/compaction over visual churn.
@@ -68,40 +69,31 @@ Normal unmodified left-button item drag remains vanilla behavior.
 
 TransferZ owns two left-button modifier drags:
 
-- `Shift + Left Drag`: equivalent to dragging the source zone's Transfer handle.
-- `Alt + Left Drag`: equivalent to dragging the source zone's Unpack handle.
+- `Shift + Left Drag`: move the source zone as a Transfer batch.
+- `Alt + Left Drag`: move the exact-class batch selected by the dragged representative item.
 
-For a direct cargo child, the source zone is its immediate cargo owner. Shift transfers that container's direct cargo children; Alt extracts only cargo contained inside that container's nested cargo-bearing children and leaves its direct loose cargo untouched.
+For a direct cargo child, the source zone is its immediate cargo owner. Shift selects all direct cargo children of that source. Alt selects only direct cargo children whose exact `GetType()` matches the dragged item.
 
-For an item shown in `VICINITY`, the source zone is the current vicinity list. Shift behaves like vicinity Transfer; Alt behaves like vicinity Unpack. These operations must work from vicinity to a container, from a container to vicinity, and between normal container targets. Shift from vicinity to vicinity is a no-op because loose vicinity items are already at that destination; Alt from vicinity to vicinity unpacks shown vicinity containers onto the ground.
+For an item shown in `VICINITY`, Shift selects the currently shown eligible loose vicinity items. Alt selects only shown eligible loose items whose exact `GetType()` matches the dragged item. Cargo-bearing vicinity containers are excluded from the exact-class loose-item batch.
 
-Do not assign `Ctrl + Drag` to TransferZ. Stock DayZ owns Ctrl-related inventory interactions and TransferZ must not compete with or suppress them.
-
-### Right-button exact-class drag
-
-Right-button drag is a first-class TransferZ gesture and is separate from DayZ's normal left-button drag system.
-
-A right drag must begin only after actual pointer movement beyond a small threshold so a normal RMB click remains available.
-
-For a cargo item:
-
-- the source is the item's immediate cargo owner;
-- the representative item selects an exact `GetType()` classname;
-- all direct cargo children of that source with the same exact `GetType()` are eligible;
-- dropping onto another open TransferZ cargo target moves those exact-class matches there;
-- dropping onto `VICINITY` moves those exact-class matches to the ground through the existing validated class-transfer-to-vicinity path.
-
-For an item shown in `VICINITY`:
-
-- the source is the currently shown loose vicinity list;
-- snapshot the shown vicinity items and filter to the representative item's exact `GetType()`;
-- only loose, takeable, removable non-container items participate in the RMB drag batch;
-- drop that filtered set onto an open TransferZ cargo target using the existing validated vicinity-transfer backend;
-- vicinity-to-vicinity is a no-op because those loose items are already there.
+Both modifier drags may target another visible cargo container. A cargo-source Shift or Alt drag may also target `VICINITY`; a vicinity-source Shift or Alt drag to vicinity is a no-op because those loose items are already there.
 
 Do not broaden exact-class matching into category matching, inheritance matching, ammo-family matching, or fuzzy similarity without an explicit new specification.
 
-Do not implement RMB drag by relying on DayZ's stock draggable-widget `DragQueue`: the stock queue is left-button driven. TransferZ's RMB gesture must keep its own short-lived tracking while the button is held and terminate cleanly on release/cancel.
+Do not assign `Ctrl + Drag` to TransferZ. Stock DayZ owns Ctrl-related inventory interactions and TransferZ must not compete with or suppress them.
+
+### Right-click and native stack splitting
+
+TransferZ does not assign any routing operation to right click, right drag, or double-right-click. Those gestures remain vanilla DayZ behavior.
+
+In particular, normal right-click stack splitting must remain available without TransferZ gesture detection competing for the same button.
+
+TransferZ may influence only the destination chosen for the native split in these established cases, while DayZ still owns the split quantity/state and item-manipulation protocol:
+
+- If the stack itself is currently in hands, try the resolved preferred destination (`P*`) first when that exact cargo has room. If it cannot accept the split, leave normal DayZ fallback behavior in control.
+- If the stack is in cargo at or below a container currently held in hands, first try the exact immediate source cargo, then `P*`, then vanilla DayZ fallback.
+
+This destination selection is not a new RMB gesture and must not change whether or how DayZ decides that an item can be split.
 
 ### Modifier item clicks
 
@@ -124,11 +116,12 @@ The `VICINITY` header exposes Destination, Transfer, and Unpack controls.
 - If a selected container destination is itself in vicinity, skip it as a source and allow it to receive the other items.
 - With vicinity itself selected, vicinity Transfer is a no-op because those loose items are already there; vicinity Unpack unpacks shown containers onto the ground.
 - Vicinity Transfer and Unpack may also be dragged onto a visible cargo container field for a one-off direct batch action.
-- Vicinity RMB drag filters shown loose vicinity items to the dragged item's exact `GetType()` and moves only that filtered set to the cargo drop target.
+- `Shift + Left Drag` from a vicinity item selects the shown eligible loose items for transfer.
+- `Alt + Left Drag` from a vicinity item selects shown eligible loose items of that exact class.
 
 ### Links and double-click routing
 
-Links are temporary client-session state. Pairing A and B gives deterministic A-to-B and B-to-A double-click routing for cargo icons. TransferZ keeps one active pair at a time.
+Links are temporary client-session state. Pairing A and B gives deterministic A-to-B and B-to-A double-left-click routing for cargo icons. TransferZ keeps one active pair at a time.
 
 Clicking Link on either participant removes the pair. Clicking Link on a different container while a pair exists removes the old pair and makes the clicked container the new pending anchor. A pending anchor is cancelled by clicking Link on it again.
 
@@ -143,9 +136,7 @@ Double-left-click routing precedence for a cargo item is:
 
 A source at or below the entity currently held in hands counts as an in-hand container for rule 2, even though its hierarchy root is the player.
 
-Double-right-click is the exact-class batch variant of the same TransferZ destination resolution: exact `GetType()` matches in the immediate source cargo are moved to an active link destination first, otherwise to the preferred destination.
-
-For vicinity, left double-click routes the selected item to the preferred destination. Right double-click routes all currently shown vicinity items of that exact class to the preferred destination.
+For vicinity, left double-click routes the selected item to the preferred destination. Right double-click is not owned by TransferZ.
 
 ### Preferred personal destination
 
@@ -198,9 +189,7 @@ TransferZ must preserve DayZ's native title geometry. Do not move or shrink the 
 
 DayZ may finish sizing header previews and cargo widgets after TransferZ's first setup call. Initial placement therefore uses bounded deferred GUI-layout correction after the immediate pass. Keep this initialization-only; do not introduce permanent per-frame layout polling.
 
-Transfer/Unpack drag targets cover the visible destination container field rather than only the header. The temporary drag overlay must forward mouse-wheel scrolling to the appropriate native inventory scroller.
-
-RMB class-drag uses the same visible TransferZ destination overlays but its gesture detection is independent from DayZ's stock left-button draggable-widget path.
+Transfer/Unpack drag targets cover the visible destination container field rather than only the header. The same destination overlays are reused by `Shift + Left Drag` and `Alt + Left Drag` item batches. The temporary drag overlay must forward mouse-wheel scrolling to the appropriate native inventory scroller.
 
 Hover tooltips must stay close to the hovered control, use a dark mostly-opaque background, and wrap onto additional lines instead of clipping longer messages. If state changes while a control remains hovered, rebuild both tooltip text and calculated geometry immediately rather than requiring mouse-out/mouse-in. Do not use the word `recursive` in player-facing tooltip text.
 
@@ -229,9 +218,9 @@ Therefore:
 
 ## Scope boundaries for 0.1
 
-- No arbitrary item-category filtering; exact-class matching is available through right-drag and double-right-click routing.
+- No arbitrary item-category filtering; exact-class matching is available through `Alt + Left Drag`.
 - No persistent world-container links.
-- No TransferZ-owned stack splitting; Stack only uses native DayZ merge semantics.
+- No TransferZ-owned stack splitting; DayZ owns split quantity/state and TransferZ only applies the documented preferred/source destination selection around native splits.
 - No automatic relocation of empty nested containers after Unpack.
 - No persistent preferred personal targets for containers nested in cargo rather than attached through slots.
 - No class allowlists for container support.
