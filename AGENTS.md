@@ -49,6 +49,7 @@ Before modifying this repository, read this file and `docs/CODEX_PROJECT_RULES.m
 - Avoid per-frame inventory scans and unnecessary RPC traffic.
 - Use dynamic inventory/cargo capability checks rather than allowlists of container classnames.
 - Do not introduce any additional mandatory third-party dependency without explicit approval.
+- Never auto-spawn diagnostic/test items from normal runtime code, including under `DIAG_DEVELOPER`. Test fixtures must be explicit, opt-in tooling invoked deliberately by the developer.
 - Header placement must preserve DayZ's native title geometry and native left/right controls. TransferZ overlays its transfer controls in the available left area and its Sort/Stack controls in the available right area without redefining the title layout.
 - DayZ can finalize header geometry after TransferZ's first setup call. Use bounded deferred GUI-layout correction when needed; never solve this with a permanent polling loop.
 
