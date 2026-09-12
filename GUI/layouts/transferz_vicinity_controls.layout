@@ -44,7 +44,7 @@ PanelWidgetClass TransferZVicinityControls {
    hexactsize 1
    vexactsize 1
    priority 601
-   mode blend
+   mode additive
   }
   ButtonWidgetClass TransferZ_VicinityDestination {
    ignorepointer 0
@@ -57,7 +57,7 @@ PanelWidgetClass TransferZVicinityControls {
    priority 603
    style Empty
   }
-  ImageWidgetClass TransferZ_VicinityDestinationIconOuter {
+  ImageWidgetClass TransferZ_VicinityDestinationIcon {
    ignorepointer 1
    position 4 7
    size 15 15
@@ -67,28 +67,19 @@ PanelWidgetClass TransferZVicinityControls {
    vexactsize 1
    priority 604
    mode blend
+   image0 "set:dayz_gui image:icon_circle"
   }
-  ImageWidgetClass TransferZ_VicinityDestinationIconInner {
+  ImageWidgetClass TransferZ_VicinityDestinationDot {
    ignorepointer 1
-   position 7 10
-   size 9 9
+   position 9 12
+   size 5 5
    hexactpos 1
    vexactpos 1
    hexactsize 1
    vexactsize 1
    priority 605
    mode blend
-  }
-  ImageWidgetClass TransferZ_VicinityDestinationIconCenter {
-   ignorepointer 1
-   position 10 13
-   size 3 3
-   hexactpos 1
-   vexactpos 1
-   hexactsize 1
-   vexactsize 1
-   priority 606
-   mode blend
+   image0 "set:dayz_gui image:circle"
   }
   ImageWidgetClass TransferZ_VicinityTransferHover {
    visible 0
@@ -112,7 +103,7 @@ PanelWidgetClass TransferZVicinityControls {
    hexactsize 1
    vexactsize 1
    priority 601
-   mode blend
+   mode additive
   }
   ButtonWidgetClass TransferZ_VicinityTransfer {
    ignorepointer 0
@@ -125,16 +116,29 @@ PanelWidgetClass TransferZVicinityControls {
    priority 603
    style Empty
   }
-  ImageWidgetClass TransferZ_VicinityTransferIcon {
+  ImageWidgetClass TransferZ_VicinityTransferArrow {
    ignorepointer 1
-   position 25 7
-   size 15 15
+   position 24 8
+   size 12 13
    hexactpos 1
    vexactpos 1
    hexactsize 1
    vexactsize 1
    priority 604
    mode blend
+   image0 "set:dayz_gui image:icon_arrow"
+  }
+  ImageWidgetClass TransferZ_VicinityTransferBox {
+   ignorepointer 1
+   position 34 10
+   size 7 9
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 605
+   mode blend
+   image0 "set:dayz_gui image:InventoryGridEmpty_"
   }
   ImageWidgetClass TransferZ_VicinityUnpackHover {
    visible 0
@@ -158,7 +162,7 @@ PanelWidgetClass TransferZVicinityControls {
    hexactsize 1
    vexactsize 1
    priority 601
-   mode blend
+   mode additive
   }
   ButtonWidgetClass TransferZ_VicinityUnpack {
    ignorepointer 0
@@ -171,16 +175,29 @@ PanelWidgetClass TransferZVicinityControls {
    priority 603
    style Empty
   }
-  ImageWidgetClass TransferZ_VicinityUnpackIcon {
+  ImageWidgetClass TransferZ_VicinityUnpackBox {
    ignorepointer 1
-   position 46 7
-   size 15 15
+   position 45 10
+   size 7 9
    hexactpos 1
    vexactpos 1
    hexactsize 1
    vexactsize 1
    priority 604
    mode blend
+   image0 "set:dayz_gui image:InventoryGridEmpty_"
+  }
+  ImageWidgetClass TransferZ_VicinityUnpackArrow {
+   ignorepointer 1
+   position 51 8
+   size 11 13
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   priority 605
+   mode blend
+   image0 "set:dayz_gui image:icon_arrow"
   }
  }
 }
