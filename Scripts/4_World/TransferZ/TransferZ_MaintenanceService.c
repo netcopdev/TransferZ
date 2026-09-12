@@ -210,32 +210,6 @@ class TransferZMaintenanceService
         return record.row == record.targetRow && record.col == record.targetCol;
     }
 
-    protected static bool RectOverlaps(int rowA, int colA, int widthA, int heightA, int rowB, int colB, int widthB, int heightB)
-    {
-        if (colA + widthA <= colB || colB + widthB <= colA)
-            return false;
-        if (rowA + heightA <= rowB || rowB + heightB <= rowA)
-            return false;
-        return true;
-    }
-
-    protected static bool TempRectTouchesPendingTarget(notnull array<ref TransferZSortRecord> records, int row, int col, int itemWidth, int itemHeight, int ignoreIndex)
-    {
-        for (int i = 0; i < records.Count(); i++)
-        {
-            if (i == ignoreIndex)
-                continue;
-
-            TransferZSortRecord record = records.Get(i);
-            if (RecordAtTarget(record))
-                continue;
-
-            if (RectOverlaps(row, col, itemWidth, itemHeight, record.targetRow, record.targetCol, record.width, record.height))
-                return true;
-        }
-        return false;
-    }
-
     protected static void AddPlannedMove(notnull array<ref TransferZSortMove> moves, TransferZSortRecord record, int row, int col)
     {
         ref TransferZSortMove move = new TransferZSortMove();
@@ -270,7 +244,7 @@ class TransferZMaintenanceService
             MarkRect(currentGrid, cargoWidth, record.row, record.col, record.width, record.height, i + 1);
         }
 
-        int moveLimit = Math.Max(32, records.Count() * records.Count() * 4);
+        int moveLimit = Math.Max(32, records.Count() * records.Count() * 6);
         while (moves.Count() < moveLimit)
         {
             bool allDone = true;
@@ -334,9 +308,12 @@ class TransferZMaintenanceService
                         continue;
                     if (tempRow == blocker.targetRow && tempCol == blocker.targetCol)
                         continue;
-                    if (TempRectTouchesPendingTarget(records, tempRow, tempCol, blocker.width, blocker.height, blockerIndex))
-                        continue;
 
+                    // A pending target is valid temporary parking. The previous
+                    // planner forbade this and could deadlock after the user moved
+                    // an already-sorted item because every useful free rectangle
+                    // was also somebody's future target. The planner is still
+                    // bounded and validates every physical move before execution.
                     AddPlannedMove(moves, blocker, tempRow, tempCol);
                     MoveRecordInGrid(currentGrid, cargoWidth, blocker, blockerIndex + 1, tempRow, tempCol);
                     tempFound = true;
