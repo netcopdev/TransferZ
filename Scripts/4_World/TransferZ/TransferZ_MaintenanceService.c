@@ -78,7 +78,10 @@ class TransferZMaintenanceService
         cargoWidth = cargo.GetWidth();
         cargoHeight = cargo.GetHeight();
         if (cargoWidth <= 0 || cargoHeight <= 0)
+        {
+            Print("[TransferZ] Sort snapshot failed: invalid cargo dimensions for " + source.GetType());
             return false;
+        }
 
         for (int i = 0; i < cargo.GetItemCount(); i++)
         {
@@ -86,18 +89,33 @@ class TransferZMaintenanceService
             if (!item)
                 continue;
 
-            int row;
-            int col;
-            int itemWidth;
-            int itemHeight;
-            if (!cargo.GetItemRowCol(i, row, col) || !cargo.GetItemSize(i, itemWidth, itemHeight))
-                return false;
-
             InventoryLocation location = new InventoryLocation();
             if (!item.GetInventory().GetCurrentInventoryLocation(location))
+            {
+                Print("[TransferZ] Sort snapshot failed: no inventory location for item index=" + i.ToString() + " type=" + item.GetType());
                 return false;
+            }
             if (location.GetType() != InventoryLocationType.CARGO || location.GetParent() != source)
+            {
+                Print("[TransferZ] Sort snapshot failed: item is not direct cargo index=" + i.ToString() + " type=" + item.GetType());
                 return false;
+            }
+
+            int row = location.GetRow();
+            int col = location.GetCol();
+            int itemWidth;
+            int itemHeight;
+
+            // Vanilla CargoContainer uses GetItemSize for its output values without
+            // treating the bool return as a validity gate. Position is already
+            // authoritative in InventoryLocation, so use that directly as well.
+            cargo.GetItemSize(i, itemWidth, itemHeight);
+
+            if (row < 0 || col < 0 || itemWidth <= 0 || itemHeight <= 0)
+            {
+                Print("[TransferZ] Sort snapshot failed: invalid geometry index=" + i.ToString() + " type=" + item.GetType() + " row=" + row.ToString() + " col=" + col.ToString() + " size=" + itemWidth.ToString() + "x" + itemHeight.ToString());
+                return false;
+            }
 
             ref TransferZSortRecord record = new TransferZSortRecord();
             record.item = item;
