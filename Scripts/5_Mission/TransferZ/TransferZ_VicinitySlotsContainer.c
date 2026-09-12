@@ -80,9 +80,7 @@ class TransferZVicinityHeaderControls
         m_UnpackStatus = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityUnpackStatus"));
         m_BlockBackground = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityBlockBackground"));
         m_DestinationHover = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityDestinationHover"));
-        m_TransferHover = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_TransferHover"));
-        if (!m_TransferHover)
-            m_TransferHover = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityTransferHover"));
+        m_TransferHover = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityTransferHover"));
         m_UnpackHover = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityUnpackHover"));
         m_DestinationState = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityDestinationState"));
 
@@ -184,6 +182,13 @@ class TransferZVicinityHeaderControls
     {
         if (s_Instance)
             s_Instance.SetDropTargetVisible(show);
+    }
+
+    // Kept only so the older header helper still compiles on this feature branch.
+    // No RMB event path calls it after right-click routing was removed.
+    static bool CompleteRightDragAtWidget(Widget widget)
+    {
+        return false;
     }
 
     protected void RegisterButton(ButtonWidget button, string clickFunction)
