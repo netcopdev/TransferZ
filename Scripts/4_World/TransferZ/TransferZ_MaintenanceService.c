@@ -107,9 +107,17 @@ class TransferZMaintenanceService
             int itemHeight;
             cargo.GetItemSize(i, itemWidth, itemHeight);
 
+            bool itemFlip = location.GetFlip();
+            if (itemFlip)
+            {
+                int orientationSwap = itemWidth;
+                itemWidth = itemHeight;
+                itemHeight = orientationSwap;
+            }
+
             if (row < 0 || col < 0 || itemWidth <= 0 || itemHeight <= 0)
             {
-                Print("[TransferZ] Sort snapshot failed: invalid geometry index=" + i.ToString() + " type=" + item.GetType() + " row=" + row.ToString() + " col=" + col.ToString() + " size=" + itemWidth.ToString() + "x" + itemHeight.ToString());
+                Print("[TransferZ] Sort snapshot failed: invalid geometry index=" + i.ToString() + " type=" + item.GetType() + " row=" + row.ToString() + " col=" + col.ToString() + " size=" + itemWidth.ToString() + "x" + itemHeight.ToString() + " flip=" + itemFlip.ToString());
                 return false;
             }
 
@@ -119,7 +127,7 @@ class TransferZMaintenanceService
             record.col = col;
             record.width = itemWidth;
             record.height = itemHeight;
-            record.flip = location.GetFlip();
+            record.flip = itemFlip;
             record.cargoIndex = location.GetIdx();
 
             string typeName = item.GetType();
@@ -370,7 +378,7 @@ class TransferZMaintenanceService
             TransferZSortRecord record = records.Get(i);
             if (!RectFree(currentGrid, cargoWidth, cargoHeight, record.row, record.col, record.width, record.height))
             {
-                Print("[TransferZ] Sort planner failed: current cargo geometry overlaps at record=" + i.ToString());
+                Print("[TransferZ] Sort planner failed: current cargo geometry overlaps at record=" + i.ToString() + " type=" + record.item.GetType() + " row=" + record.row.ToString() + " col=" + record.col.ToString() + " size=" + record.width.ToString() + "x" + record.height.ToString() + " flip=" + record.flip.ToString());
                 return false;
             }
             MarkRect(currentGrid, cargoWidth, record.row, record.col, record.width, record.height, i + 1);
@@ -403,25 +411,66 @@ class TransferZMaintenanceService
 
     protected static bool TryMoveWithinCargo(PlayerBase player, EntityAI source, EntityAI item, int row, int col, bool flip)
     {
-        if (!player || !source || !item || !TransferZServerService.IsReachable(player, source) || !TransferZServerService.IsReachable(player, item))
+        if (!player || !source || !item)
+        {
+            Print("[TransferZ] Sort move rejected: null player/source/item");
             return false;
-        if (!IsDirectCargoItem(source, item) || !item.GetInventory().CanRemoveEntity() || !source.CanReleaseCargo(item) || !source.CanReceiveItemIntoCargo(item))
+        }
+        if (!TransferZServerService.IsReachable(player, source) || !TransferZServerService.IsReachable(player, item))
+        {
+            Print("[TransferZ] Sort move rejected: unreachable item=" + item.GetType());
             return false;
+        }
+        if (!IsDirectCargoItem(source, item))
+        {
+            Print("[TransferZ] Sort move rejected: item no longer direct cargo item=" + item.GetType());
+            return false;
+        }
+        if (!item.GetInventory().CanRemoveEntity())
+        {
+            Print("[TransferZ] Sort move rejected: CanRemoveEntity=false item=" + item.GetType());
+            return false;
+        }
+        if (!source.CanReleaseCargo(item))
+        {
+            Print("[TransferZ] Sort move rejected: CanReleaseCargo=false item=" + item.GetType());
+            return false;
+        }
+        if (!source.CanReceiveItemIntoCargo(item))
+        {
+            Print("[TransferZ] Sort move rejected: CanReceiveItemIntoCargo=false item=" + item.GetType());
+            return false;
+        }
 
         InventoryLocation src = new InventoryLocation();
         if (!item.GetInventory().GetCurrentInventoryLocation(src))
+        {
+            Print("[TransferZ] Sort move rejected: current inventory location unavailable item=" + item.GetType());
             return false;
+        }
 
         InventoryLocation dst = new InventoryLocation();
         dst.SetCargo(source, item, src.GetIdx(), row, col, flip);
         if (!GameInventory.CheckMoveToDstRequest(player, src, dst, GameInventory.c_MaxItemDistanceRadius))
+        {
+            Print("[TransferZ] Sort move rejected: CheckMoveToDstRequest=false item=" + item.GetType() + " src=" + src.GetRow().ToString() + "," + src.GetCol().ToString() + " dst=" + row.ToString() + "," + col.ToString() + " flip=" + flip.ToString());
             return false;
+        }
         if (!GameInventory.LocationCanMoveEntity(src, dst))
+        {
+            Print("[TransferZ] Sort move rejected: LocationCanMoveEntity=false item=" + item.GetType() + " src=" + src.GetRow().ToString() + "," + src.GetCol().ToString() + " dst=" + row.ToString() + "," + col.ToString() + " flip=" + flip.ToString());
             return false;
+        }
 
+        bool moved;
         if (GetGame().IsMultiplayer())
-            return source.ServerTakeToDst(src, dst);
-        return source.LocalTakeToDst(src, dst);
+            moved = source.ServerTakeToDst(src, dst);
+        else
+            moved = source.LocalTakeToDst(src, dst);
+
+        if (!moved)
+            Print("[TransferZ] Sort move rejected: native TakeToDst returned false item=" + item.GetType() + " src=" + src.GetRow().ToString() + "," + src.GetCol().ToString() + " dst=" + row.ToString() + "," + col.ToString() + " flip=" + flip.ToString());
+        return moved;
     }
 
     static int Sort(PlayerBase player, EntityAI source)
