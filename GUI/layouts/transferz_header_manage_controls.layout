@@ -13,14 +13,14 @@ PanelWidgetClass TransferZHeaderManageControls {
  {
   ImageWidgetClass TransferZ_ManageBlockBackground { ignorepointer 1 position 0 1 size 44 27 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 598 mode blend }
 
-  ImageWidgetClass TransferZ_SortBase { ignorepointer 1 position 2 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 599 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" color 0.55 0.55 0.55 0.48 }
+  ImageWidgetClass TransferZ_SortBase { visible 0 ignorepointer 1 position 2 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 599 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" color 0.55 0.55 0.55 0.48 }
   ImageWidgetClass TransferZ_SortHover { visible 0 ignorepointer 1 position 2 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 600 mode blend }
   ButtonWidgetClass TransferZ_Sort { ignorepointer 0 position 2 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 603 style Empty }
   ImageWidgetClass TransferZ_SortBarTop { ignorepointer 1 position 4 9 size 15 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" color 0.92 0.92 0.92 1 }
   ImageWidgetClass TransferZ_SortBarMiddle { ignorepointer 1 position 4 14 size 12 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" color 0.92 0.92 0.92 1 }
   ImageWidgetClass TransferZ_SortBarBottom { ignorepointer 1 position 4 19 size 9 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" color 0.92 0.92 0.92 1 }
 
-  ImageWidgetClass TransferZ_StackBase { ignorepointer 1 position 23 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 599 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" color 0.55 0.55 0.55 0.48 }
+  ImageWidgetClass TransferZ_StackBase { visible 0 ignorepointer 1 position 23 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 599 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" color 0.55 0.55 0.55 0.48 }
   ImageWidgetClass TransferZ_StackHover { visible 0 ignorepointer 1 position 23 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 600 mode blend }
   ButtonWidgetClass TransferZ_Stack { ignorepointer 0 position 23 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 603 style Empty }
   ImageWidgetClass TransferZ_StackIconTop { ignorepointer 1 position 26 9 size 13 2 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" color 0.92 0.92 0.92 1 }
