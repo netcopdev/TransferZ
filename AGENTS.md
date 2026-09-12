@@ -22,9 +22,10 @@ Before modifying this repository, read this file and `docs/CODEX_PROJECT_RULES.m
 - Container `Unpack` moves non-container leaf items found inside cargo-bearing child containers while leaving the source's direct loose cargo and the nested containers themselves in place.
 - Vicinity `Unpack` operates on the shown cargo-bearing vicinity containers and ignores loose vicinity items.
 - `Shift + Click` routes one cargo/vicinity item to the active destination; `Alt + Click` routes one cargo/vicinity item to the resolved preferred destination.
-- `Shift + Left Drag` and `Alt + Left Drag` remain source-zone batch operations for Transfer and Unpack respectively.
-- `Right Drag` is an exact-class batch move. From cargo, use the immediate cargo owner as the source and exact `GetType()` matches among its direct cargo children. From vicinity, use the currently shown loose vicinity items and filter by exact `GetType()`.
-- A cargo-source right drag may target another container or `VICINITY`. A vicinity-source right drag targets a container; vicinity-to-vicinity is a no-op.
+- `Shift + Left Drag` is a source-zone batch Transfer: from cargo it moves all direct cargo children; from vicinity it moves the shown eligible loose items.
+- `Alt + Left Drag` is an exact-class batch move using the dragged item's exact `GetType()`: from cargo it selects matching direct cargo children; from vicinity it selects matching shown eligible loose items.
+- Right-click interactions belong to vanilla DayZ. TransferZ must not assign RMB click, RMB drag, or RMB double-click gestures to routing operations.
+- Native stack splitting remains DayZ-owned. TransferZ may only influence the split destination for the established preferred-destination behavior: a stack directly in hands prefers `P*` when exact cargo space is available, otherwise vanilla fallback applies; a stack inside cargo below the held container keeps the established exact-source -> `P*` -> vanilla order.
 - Container links are session-local unless a future specification explicitly makes them persistent.
 - Preferred personal destinations are stored by the ordered attachment-slot path from the player to the cargo-bearing target, not by item classname.
 - Nested attachment destinations such as `Belt > DumpPouch` are supported; direct worn containers are the one-hop form of the same model.
@@ -44,9 +45,8 @@ Before modifying this repository, read this file and `docs/CODEX_PROJECT_RULES.m
 
 - Prefer small `modded` hooks over replacement inventory UI classes.
 - If TransferZ does not own a click/double-click route for an item, fall back to vanilla behavior.
-- Preserve vanilla unmodified left drag and Ctrl interactions.
-- RMB exact-class drag must begin only after real pointer movement so a normal RMB click remains available.
-- Avoid per-frame inventory scans and unnecessary RPC traffic. Short-lived GUI polling used only while an RMB gesture is actively being resolved is acceptable; permanent inventory polling is not.
+- Preserve vanilla unmodified left drag, right-click, and Ctrl interactions.
+- Avoid per-frame inventory scans and unnecessary RPC traffic.
 - Use dynamic inventory/cargo capability checks rather than allowlists of container classnames.
 - Do not introduce any additional mandatory third-party dependency without explicit approval.
 - Header placement must preserve DayZ's native title geometry and native left/right controls. TransferZ overlays its transfer controls in the available left area and its Sort/Stack controls in the available right area without redefining the title layout.
