@@ -157,6 +157,7 @@ modded class ItemBase
         if (!TransferZResolveInHandsCargoSource(source))
             return false;
 
+        // Exact source cargo -> P* -> vanilla DayZ fallback.
         if (TransferZExecuteSplitTo(source, false))
             return true;
 
