@@ -114,6 +114,7 @@ Current behavior:
 - item type contributes to deterministic grouping after size priority;
 - each item's existing orientation is preserved;
 - nested containers are treated as ordinary direct cargo items and stay intact;
+- DayZ user-reserved cells, including the placeholder for an item currently held in hands, are treated as occupied;
 - all movement uses native DayZ inventory locations within the same cargo owner;
 - if no safe in-container move plan exists, the operation is skipped rather than moving items to the ground or another temporary container.
 
@@ -138,6 +139,10 @@ Stack does not:
 
 Unmodified left drag remains standard DayZ inventory dragging.
 
+### Right click
+
+Right click, right drag, and double-right-click are not assigned to TransferZ routing operations. DayZ retains its native right-click behavior, including stack splitting.
+
 ### `Shift + Click`
 
 Moves the clicked item to the active destination.
@@ -152,25 +157,19 @@ If no valid preferred target resolves, nothing is moved.
 
 ### `Shift + Left Drag`
 
-Runs the source zone's Transfer operation and lets you drop that operation onto another container.
+Moves the source zone as a Transfer batch and lets you drop that batch onto another container.
 
-- From a cargo item, the source zone is the item's immediate cargo owner.
-- From a vicinity item, the source zone is the currently shown vicinity list.
+- From a cargo item, the source zone is the item's immediate cargo owner and all direct cargo children are selected.
+- From a vicinity item, the currently shown eligible loose vicinity items are selected.
+- From a cargo source, dropping onto `VICINITY` moves the batch to the ground through DayZ's normal drop path.
 
 ### `Alt + Left Drag`
 
-Runs the source zone's Unpack operation and lets you drop that operation onto another container.
-
-- From a cargo item, Unpack operates on nested cargo under the item's immediate cargo owner.
-- From vicinity, it behaves like vicinity Unpack and unpacks the shown vicinity containers.
-
-### Right drag — exact-class batch move
-
-Right-dragging an item selects its **exact classname** as the batch selector.
+Selects an exact-class batch using the dragged item as the representative.
 
 From a cargo container:
 
-- the source is that item's immediate cargo owner;
+- the source is the dragged item's immediate cargo owner;
 - all direct source-cargo items with the same exact `GetType()` are selected;
 - drop onto another open container to move those matches there;
 - drop onto `VICINITY` to move those matches to the ground.
@@ -180,15 +179,24 @@ From vicinity:
 - the source is the currently shown loose vicinity list;
 - only shown loose, takeable, removable non-container items with the same exact `GetType()` are selected;
 - drop onto an open container to move those matches there;
-- vicinity-to-vicinity is a no-op because the items are already there.
-
-A right drag begins only after actual mouse movement. A normal right click therefore remains available for DayZ/TransferZ click behavior.
+- vicinity-to-vicinity is a no-op because those items are already there.
 
 Exact class means exact class. Similar ammunition, magazines, food variants, or other related items are not grouped unless they share the same actual `GetType()`.
 
 ### `Ctrl`
 
 TransferZ does not claim Ctrl click/drag gestures. Vanilla DayZ behavior remains in control.
+
+## Native stack splitting and preferred destination
+
+TransferZ does not implement its own stack split. DayZ still decides whether an item can be split, the split amount, resulting item state, and the item-manipulation protocol.
+
+TransferZ only influences destination selection in the following cases:
+
+- If the stack itself is currently in hands, the split result first tries the resolved preferred destination (`P*`) when that exact cargo has room. If `P*` cannot accept it, DayZ's normal fallback handles the split.
+- If the stack is in cargo at or below a container currently held in hands, the split result first tries the exact immediate source cargo, then `P*`, then DayZ's normal fallback.
+
+This preserves native right-click behavior while making `P*` useful for hand-held splitting.
 
 ## Double-click routing
 
@@ -202,19 +210,11 @@ TransferZ routing priority is:
 
 Items in normal worn/attached player inventory therefore retain familiar vanilla double-click-to-hands behavior when no TransferZ route owns the action.
 
-### Cargo: double-right-click
+### Vicinity: double-left-click
 
-Double-right-click is the exact-class batch form of the same route resolution.
+Double-left-click on a shown vicinity item routes it to the preferred target when available. Otherwise vanilla behavior remains in control.
 
-TransferZ attempts to move matching direct source-cargo items with the same exact `GetType()` to:
-
-1. the linked partner, if the source is linked;
-2. otherwise the preferred target.
-
-### Vicinity double-click
-
-- Double-left-click routes the selected shown item to the preferred target.
-- Double-right-click routes the currently shown items of that exact class to the preferred target.
+TransferZ does not assign double-right-click routing.
 
 ## Vicinity controls
 
@@ -260,10 +260,18 @@ TransferZ does not delete and recreate items to simulate movement, sorting, or s
 
 ## Common examples
 
-### Move all loose contents of a crate to a barrel
+### Move all direct contents of a crate to a barrel
+
+Either:
 
 1. Select the Barrel with Destination.
 2. Click Transfer on the Crate.
+
+Or hold `Shift` and left-drag any item from the Crate onto the Barrel.
+
+### Move every item of one exact ammo classname from a crate
+
+Hold `Alt` and left-drag one representative stack of that exact classname from the Crate onto the destination container.
 
 ### Empty pouches inside a backpack but leave the pouches in the backpack
 
@@ -272,31 +280,27 @@ TransferZ does not delete and recreate items to simulate movement, sorting, or s
 
 ### Repack a messy container
 
-Click Sort on the right side of that container's header. TransferZ attempts a deterministic in-place compaction using only that container's cargo grid.
+Click Sort on the right side of that container's header. TransferZ attempts a deterministic in-place compaction using only that container's cargo grid and preserves active DayZ reserved locations.
 
 ### Consolidate partial stacks
 
 Click Stack on the right side of that container's header. Only pairs DayZ considers natively combinable are merged.
 
-### Move every item of one exact ammo classname from a crate
-
-Right-drag one representative round/stack of that exact classname from the Crate onto the destination container.
-
 ### Pick up all shown loose vicinity items
 
 1. Select a receiving container with Destination.
-2. Click vicinity Transfer.
+2. Click vicinity Transfer, or hold `Shift` and left-drag one vicinity item onto the destination.
 
 ### Move all shown vicinity items of one exact class
 
-Right-drag one representative vicinity item of that class onto the destination container.
+Hold `Alt` and left-drag one representative vicinity item of that class onto the destination container.
 
 ### Create a fast two-container workflow
 
 1. Click Link on container A.
 2. Click Link on container B.
 3. Double-left-click items in either container to route them to the other.
-4. Double-right-click an item to route all exact-class matches in that source container.
+4. Use `Alt + Left Drag` when you want to move every exact-class match as a batch.
 
 ## Dependency
 
