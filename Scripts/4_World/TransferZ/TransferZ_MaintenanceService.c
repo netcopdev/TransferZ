@@ -351,28 +351,48 @@ class TransferZMaintenanceService
         if (!GameInventory.LocationCanMoveEntity(src, dst))
             return false;
 
-        InventoryMode moveMode = InventoryMode.SERVER;
-        if (!GetGame().IsMultiplayer())
-            moveMode = InventoryMode.LOCAL;
-
-        return player.GetInventory().TakeToDst(moveMode, src, dst);
+        // Sorting is a server-authoritative rearrangement inside one cargo grid.
+        // Use the container's own GameInventory here. EntityAI::ServerTakeToDst
+        // performs the synchronous location move and sends the inventory sync
+        // command; routing this through DayZPlayerInventory can defer the move,
+        // which breaks a multi-step sort plan that depends on each prior move
+        // having completed before the next one is validated.
+        if (GetGame().IsMultiplayer())
+            return source.ServerTakeToDst(src, dst);
+        return source.LocalTakeToDst(src, dst);
     }
 
     static int Sort(PlayerBase player, EntityAI source)
     {
         if (!player || !source || !TransferZServerService.IsReachable(player, source) || !source.GetInventory().GetCargo())
+        {
+            Print("[TransferZ] Sort rejected: invalid or unreachable cargo source");
             return 0;
+        }
 
         ref array<ref TransferZSortRecord> records = new array<ref TransferZSortRecord>();
         int cargoWidth;
         int cargoHeight;
-        if (!SnapshotSortRecords(source, records, cargoWidth, cargoHeight) || records.Count() < 2)
+        if (!SnapshotSortRecords(source, records, cargoWidth, cargoHeight))
+        {
+            Print("[TransferZ] Sort rejected: cargo snapshot failed for " + source.GetType());
             return 0;
+        }
+        if (records.Count() < 2)
+        {
+            Print("[TransferZ] Sort skipped: fewer than two direct cargo items in " + source.GetType());
+            return 0;
+        }
 
         ref array<ref TransferZSortMove> moves = new array<ref TransferZSortMove>();
         if (!BuildSortPlan(records, cargoWidth, cargoHeight, moves))
         {
             Print("[TransferZ] Sort skipped: no safe in-cargo rearrangement plan for " + source.GetType());
+            return 0;
+        }
+        if (moves.Count() == 0)
+        {
+            Print("[TransferZ] Sort skipped: cargo already matches target order for " + source.GetType());
             return 0;
         }
 
@@ -383,7 +403,7 @@ class TransferZMaintenanceService
                 continue;
             if (!TryMoveWithinCargo(player, source, move.item, move.row, move.col, move.flip))
             {
-                Print("[TransferZ] Sort stopped after native move validation failed for " + source.GetType());
+                Print("[TransferZ] Sort stopped after native move validation failed for " + source.GetType() + " at move " + moved.ToString() + "/" + moves.Count().ToString());
                 break;
             }
             moved++;
