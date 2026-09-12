@@ -486,9 +486,19 @@ class TransferZHeaderControls
         {
             EntityAI linked = state.GetLinkedDestination(m_Entity);
             if (linked)
-                return "Linked -> " + DisplayName(linked) + " (double-click moves items)";
+                return "Linked -> " + DisplayName(linked);
             if (state.IsLinkAnchor(m_Entity))
                 return "Link anchor: choose another container";
+
+            if (s_Instances)
+            {
+                for (int i = s_Instances.Count() - 1; i >= 0; i--)
+                {
+                    TransferZHeaderControls controls = s_Instances.Get(i);
+                    if (controls && controls.m_Entity && controls.m_Entity != m_Entity && state.IsLinkAnchor(controls.m_Entity))
+                        return "Link to " + DisplayName(controls.m_Entity);
+                }
+            }
             return "Link this container";
         }
         if (w == m_PreferredButton)
