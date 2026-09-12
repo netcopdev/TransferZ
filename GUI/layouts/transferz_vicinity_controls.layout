@@ -37,8 +37,8 @@ PanelWidgetClass TransferZVicinityControls {
   ImageWidgetClass TransferZ_VicinityDestinationState {
    visible 0
    ignorepointer 1
-   position 2 3
-   size 19 23
+   position 1 2
+   size 21 25
    hexactpos 1
    vexactpos 1
    hexactsize 1
