@@ -288,8 +288,6 @@ class TransferZMaintenanceService
         }
         stateCount++;
 
-        // Prefer moves that put an item directly into its final deterministic slot.
-        // These branches are still backtracked if locking that slot prevents a solution.
         for (int targetIndex = 0; targetIndex < records.Count(); targetIndex++)
         {
             TransferZSortRecord targetRecord = records.Get(targetIndex);
@@ -310,11 +308,6 @@ class TransferZMaintenanceService
             moves.Remove(moves.Count() - 1);
         }
 
-        // When no direct path works, create space. The first blocker of the first
-        // unresolved target is explored first, then every other unresolved item.
-        // Temporary locations are tried from the bottom-right backwards because
-        // final targets are packed from the top-left; this strongly biases search
-        // toward using the natural free tail of the cargo as scratch space.
         int priorityBlocker = FindPriorityBlocker(records, currentGrid, cargoWidth);
         for (int pass = 0; pass < 2; pass++)
         {
@@ -340,15 +333,15 @@ class TransferZMaintenanceService
                         if (!RectFree(currentGrid, cargoWidth, cargoHeight, tempRow, tempCol, record.width, record.height, recordIndex + 1))
                             continue;
 
-                        int oldRow = record.row;
-                        int oldCol = record.col;
+                        int tempOldRow = record.row;
+                        int tempOldCol = record.col;
                         AddPlannedMove(moves, record, tempRow, tempCol);
                         MoveRecordInGrid(currentGrid, cargoWidth, record, recordIndex + 1, tempRow, tempCol);
 
                         if (SearchSortPlan(records, currentGrid, cargoWidth, cargoHeight, moves, visitedStates, visitedDepths, depth + 1, maxDepth, stateCount, maxStates))
                             return true;
 
-                        MoveRecordInGrid(currentGrid, cargoWidth, record, recordIndex + 1, oldRow, oldCol);
+                        MoveRecordInGrid(currentGrid, cargoWidth, record, recordIndex + 1, tempOldRow, tempOldCol);
                         moves.Remove(moves.Count() - 1);
 
                         if (stateCount >= maxStates)
