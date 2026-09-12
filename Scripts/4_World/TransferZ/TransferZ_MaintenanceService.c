@@ -105,10 +105,6 @@ class TransferZMaintenanceService
             int col = location.GetCol();
             int itemWidth;
             int itemHeight;
-
-            // Vanilla CargoContainer uses GetItemSize for its output values without
-            // treating the bool return as a validity gate. Position is already
-            // authoritative in InventoryLocation, so use that directly as well.
             cargo.GetItemSize(i, itemWidth, itemHeight);
 
             if (row < 0 || col < 0 || itemWidth <= 0 || itemHeight <= 0)
@@ -210,6 +206,48 @@ class TransferZMaintenanceService
         return record.row == record.targetRow && record.col == record.targetCol;
     }
 
+    protected static bool AllRecordsAtTarget(notnull array<ref TransferZSortRecord> records)
+    {
+        for (int i = 0; i < records.Count(); i++)
+        {
+            if (!RecordAtTarget(records.Get(i)))
+                return false;
+        }
+        return true;
+    }
+
+    protected static string BuildSortStateKey(notnull array<ref TransferZSortRecord> records)
+    {
+        string key = "";
+        for (int i = 0; i < records.Count(); i++)
+        {
+            TransferZSortRecord record = records.Get(i);
+            key += record.row.ToString() + "," + record.col.ToString() + ";";
+        }
+        return key;
+    }
+
+    protected static int FindPriorityBlocker(notnull array<ref TransferZSortRecord> records, notnull array<int> currentGrid, int cargoWidth)
+    {
+        for (int pendingIndex = 0; pendingIndex < records.Count(); pendingIndex++)
+        {
+            TransferZSortRecord pending = records.Get(pendingIndex);
+            if (RecordAtTarget(pending))
+                continue;
+
+            for (int y = pending.targetRow; y < pending.targetRow + pending.height; y++)
+            {
+                for (int x = pending.targetCol; x < pending.targetCol + pending.width; x++)
+                {
+                    int value = currentGrid.Get(y * cargoWidth + x);
+                    if (value != 0 && value != pendingIndex + 1)
+                        return value - 1;
+                }
+            }
+        }
+        return -1;
+    }
+
     protected static void AddPlannedMove(notnull array<ref TransferZSortMove> moves, TransferZSortRecord record, int row, int col)
     {
         ref TransferZSortMove move = new TransferZSortMove();
@@ -228,11 +266,109 @@ class TransferZMaintenanceService
         record.col = col;
     }
 
+    protected static bool SearchSortPlan(notnull array<ref TransferZSortRecord> records, notnull array<int> currentGrid, int cargoWidth, int cargoHeight, notnull array<ref TransferZSortMove> moves, notnull array<string> visitedStates, notnull array<int> visitedDepths, int depth, int maxDepth, inout int stateCount, int maxStates)
+    {
+        if (AllRecordsAtTarget(records))
+            return true;
+        if (depth >= maxDepth || stateCount >= maxStates)
+            return false;
+
+        string stateKey = BuildSortStateKey(records);
+        int seenIndex = visitedStates.Find(stateKey);
+        if (seenIndex >= 0)
+        {
+            if (visitedDepths.Get(seenIndex) <= depth)
+                return false;
+            visitedDepths.Set(seenIndex, depth);
+        }
+        else
+        {
+            visitedStates.Insert(stateKey);
+            visitedDepths.Insert(depth);
+        }
+        stateCount++;
+
+        // Prefer moves that put an item directly into its final deterministic slot.
+        // These branches are still backtracked if locking that slot prevents a solution.
+        for (int targetIndex = 0; targetIndex < records.Count(); targetIndex++)
+        {
+            TransferZSortRecord targetRecord = records.Get(targetIndex);
+            if (RecordAtTarget(targetRecord))
+                continue;
+            if (!RectFree(currentGrid, cargoWidth, cargoHeight, targetRecord.targetRow, targetRecord.targetCol, targetRecord.width, targetRecord.height, targetIndex + 1))
+                continue;
+
+            int oldRow = targetRecord.row;
+            int oldCol = targetRecord.col;
+            AddPlannedMove(moves, targetRecord, targetRecord.targetRow, targetRecord.targetCol);
+            MoveRecordInGrid(currentGrid, cargoWidth, targetRecord, targetIndex + 1, targetRecord.targetRow, targetRecord.targetCol);
+
+            if (SearchSortPlan(records, currentGrid, cargoWidth, cargoHeight, moves, visitedStates, visitedDepths, depth + 1, maxDepth, stateCount, maxStates))
+                return true;
+
+            MoveRecordInGrid(currentGrid, cargoWidth, targetRecord, targetIndex + 1, oldRow, oldCol);
+            moves.Remove(moves.Count() - 1);
+        }
+
+        // When no direct path works, create space. The first blocker of the first
+        // unresolved target is explored first, then every other unresolved item.
+        // Temporary locations are tried from the bottom-right backwards because
+        // final targets are packed from the top-left; this strongly biases search
+        // toward using the natural free tail of the cargo as scratch space.
+        int priorityBlocker = FindPriorityBlocker(records, currentGrid, cargoWidth);
+        for (int pass = 0; pass < 2; pass++)
+        {
+            for (int recordIndex = 0; recordIndex < records.Count(); recordIndex++)
+            {
+                if (pass == 0 && recordIndex != priorityBlocker)
+                    continue;
+                if (pass == 1 && recordIndex == priorityBlocker)
+                    continue;
+
+                TransferZSortRecord record = records.Get(recordIndex);
+                if (RecordAtTarget(record))
+                    continue;
+
+                for (int tempRow = cargoHeight - record.height; tempRow >= 0; tempRow--)
+                {
+                    for (int tempCol = cargoWidth - record.width; tempCol >= 0; tempCol--)
+                    {
+                        if (tempRow == record.row && tempCol == record.col)
+                            continue;
+                        if (tempRow == record.targetRow && tempCol == record.targetCol)
+                            continue;
+                        if (!RectFree(currentGrid, cargoWidth, cargoHeight, tempRow, tempCol, record.width, record.height, recordIndex + 1))
+                            continue;
+
+                        int oldRow = record.row;
+                        int oldCol = record.col;
+                        AddPlannedMove(moves, record, tempRow, tempCol);
+                        MoveRecordInGrid(currentGrid, cargoWidth, record, recordIndex + 1, tempRow, tempCol);
+
+                        if (SearchSortPlan(records, currentGrid, cargoWidth, cargoHeight, moves, visitedStates, visitedDepths, depth + 1, maxDepth, stateCount, maxStates))
+                            return true;
+
+                        MoveRecordInGrid(currentGrid, cargoWidth, record, recordIndex + 1, oldRow, oldCol);
+                        moves.Remove(moves.Count() - 1);
+
+                        if (stateCount >= maxStates)
+                            return false;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
     protected static bool BuildSortPlan(notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<ref TransferZSortMove> moves)
     {
         moves.Clear();
         if (!AssignTargets(records, cargoWidth, cargoHeight))
+        {
+            Print("[TransferZ] Sort planner failed: deterministic target layout could not be assigned");
             return false;
+        }
 
         ref array<int> currentGrid = new array<int>();
         ResetGrid(currentGrid, cargoWidth * cargoHeight);
@@ -240,91 +376,35 @@ class TransferZMaintenanceService
         {
             TransferZSortRecord record = records.Get(i);
             if (!RectFree(currentGrid, cargoWidth, cargoHeight, record.row, record.col, record.width, record.height))
+            {
+                Print("[TransferZ] Sort planner failed: current cargo geometry overlaps at record=" + i.ToString());
                 return false;
+            }
             MarkRect(currentGrid, cargoWidth, record.row, record.col, record.width, record.height, i + 1);
         }
 
-        int moveLimit = Math.Max(32, records.Count() * records.Count() * 6);
-        while (moves.Count() < moveLimit)
+        if (AllRecordsAtTarget(records))
+            return true;
+
+        int maxDepth = records.Count() * 4 + 12;
+        int maxStates = records.Count() * records.Count() * 32;
+        if (maxStates < 4096)
+            maxStates = 4096;
+        if (maxStates > 16000)
+            maxStates = 16000;
+
+        ref array<string> visitedStates = new array<string>();
+        ref array<int> visitedDepths = new array<int>();
+        int stateCount = 0;
+
+        if (SearchSortPlan(records, currentGrid, cargoWidth, cargoHeight, moves, visitedStates, visitedDepths, 0, maxDepth, stateCount, maxStates))
         {
-            bool allDone = true;
-            bool progressed = false;
-
-            for (int targetIndex = 0; targetIndex < records.Count(); targetIndex++)
-            {
-                TransferZSortRecord targetRecord = records.Get(targetIndex);
-                if (RecordAtTarget(targetRecord))
-                    continue;
-
-                allDone = false;
-                if (!RectFree(currentGrid, cargoWidth, cargoHeight, targetRecord.targetRow, targetRecord.targetCol, targetRecord.width, targetRecord.height, targetIndex + 1))
-                    continue;
-
-                AddPlannedMove(moves, targetRecord, targetRecord.targetRow, targetRecord.targetCol);
-                MoveRecordInGrid(currentGrid, cargoWidth, targetRecord, targetIndex + 1, targetRecord.targetRow, targetRecord.targetCol);
-                progressed = true;
-            }
-
-            if (allDone)
-                return true;
-            if (progressed)
-                continue;
-
-            int blockedIndex = -1;
-            int blockerIndex = -1;
-            for (int pendingIndex = 0; pendingIndex < records.Count() && blockerIndex < 0; pendingIndex++)
-            {
-                TransferZSortRecord pending = records.Get(pendingIndex);
-                if (RecordAtTarget(pending))
-                    continue;
-
-                blockedIndex = pendingIndex;
-                for (int y = pending.targetRow; y < pending.targetRow + pending.height && blockerIndex < 0; y++)
-                {
-                    for (int x = pending.targetCol; x < pending.targetCol + pending.width; x++)
-                    {
-                        int value = currentGrid.Get(y * cargoWidth + x);
-                        if (value != 0 && value != pendingIndex + 1)
-                        {
-                            blockerIndex = value - 1;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (blockedIndex < 0 || blockerIndex < 0)
-                return false;
-
-            TransferZSortRecord blocker = records.Get(blockerIndex);
-            bool tempFound = false;
-            for (int tempRow = 0; tempRow < cargoHeight && !tempFound; tempRow++)
-            {
-                for (int tempCol = 0; tempCol < cargoWidth; tempCol++)
-                {
-                    if (!RectFree(currentGrid, cargoWidth, cargoHeight, tempRow, tempCol, blocker.width, blocker.height, blockerIndex + 1))
-                        continue;
-                    if (tempRow == blocker.row && tempCol == blocker.col)
-                        continue;
-                    if (tempRow == blocker.targetRow && tempCol == blocker.targetCol)
-                        continue;
-
-                    // A pending target is valid temporary parking. The previous
-                    // planner forbade this and could deadlock after the user moved
-                    // an already-sorted item because every useful free rectangle
-                    // was also somebody's future target. The planner is still
-                    // bounded and validates every physical move before execution.
-                    AddPlannedMove(moves, blocker, tempRow, tempCol);
-                    MoveRecordInGrid(currentGrid, cargoWidth, blocker, blockerIndex + 1, tempRow, tempCol);
-                    tempFound = true;
-                    break;
-                }
-            }
-
-            if (!tempFound)
-                return false;
+            Print("[TransferZ] Sort planner solved states=" + stateCount.ToString() + " moves=" + moves.Count().ToString());
+            return true;
         }
 
+        moves.Clear();
+        Print("[TransferZ] Sort planner exhausted search states=" + stateCount.ToString() + "/" + maxStates.ToString() + " depth=" + maxDepth.ToString());
         return false;
     }
 
@@ -346,12 +426,6 @@ class TransferZMaintenanceService
         if (!GameInventory.LocationCanMoveEntity(src, dst))
             return false;
 
-        // Sorting is a server-authoritative rearrangement inside one cargo grid.
-        // Use the container's own GameInventory here. EntityAI::ServerTakeToDst
-        // performs the synchronous location move and sends the inventory sync
-        // command; routing this through DayZPlayerInventory can defer the move,
-        // which breaks a multi-step sort plan that depends on each prior move
-        // having completed before the next one is validated.
         if (GetGame().IsMultiplayer())
             return source.ServerTakeToDst(src, dst);
         return source.LocalTakeToDst(src, dst);
