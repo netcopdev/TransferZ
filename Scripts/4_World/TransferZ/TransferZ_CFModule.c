@@ -3,6 +3,7 @@ class TransferZCFModule : CF_ModuleWorld
 {
 #ifdef DIAG_DEVELOPER
     protected ref array<PlayerBase> m_TransferZDiagSeededPlayers;
+    protected bool m_TransferZDiagOfflineSeeded;
 #endif
 
     override void OnInit()
@@ -13,6 +14,7 @@ class TransferZCFModule : CF_ModuleWorld
 #ifdef DIAG_DEVELOPER
         m_TransferZDiagSeededPlayers = new array<PlayerBase>();
         EnableClientReady();
+        EnableUpdate();
 #endif
     }
 
@@ -50,6 +52,21 @@ class TransferZCFModule : CF_ModuleWorld
     }
 
 #ifdef DIAG_DEVELOPER
+    override void OnUpdate(Class sender, CF_EventArgs args)
+    {
+        super.OnUpdate(sender, args);
+
+        if (m_TransferZDiagOfflineSeeded || GetGame().IsMultiplayer())
+            return;
+
+        PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
+        if (!player)
+            return;
+
+        m_TransferZDiagOfflineSeeded = true;
+        SeedDiagnosticAmmo(player);
+    }
+
     override void OnClientReady(Class sender, CF_EventArgs args)
     {
         super.OnClientReady(sender, args);
@@ -72,14 +89,19 @@ class TransferZCFModule : CF_ModuleWorld
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(SeedDiagnosticAmmo, 750, false, player);
     }
 
-    protected void CreateDiagnosticAmmoStack(PlayerBase player, int quantity)
+    protected bool CreateDiagnosticAmmoStack(PlayerBase player, int quantity)
     {
         if (!player)
-            return;
+            return false;
 
         ItemBase ammo = ItemBase.Cast(player.GetInventory().CreateInInventory("Ammo_556x45"));
-        if (ammo)
-            ammo.SetQuantity(quantity);
+        if (!ammo)
+            ammo = ItemBase.Cast(GetGame().CreateObjectEx("Ammo_556x45", player.GetPosition(), ECE_PLACE_ON_SURFACE));
+        if (!ammo)
+            return false;
+
+        ammo.SetQuantity(quantity);
+        return true;
     }
 
     protected void SeedDiagnosticAmmo(PlayerBase player)
@@ -87,14 +109,20 @@ class TransferZCFModule : CF_ModuleWorld
         if (!player)
             return;
 
-        CreateDiagnosticAmmoStack(player, 3);
-        CreateDiagnosticAmmoStack(player, 5);
-        CreateDiagnosticAmmoStack(player, 7);
-        CreateDiagnosticAmmoStack(player, 9);
-        CreateDiagnosticAmmoStack(player, 11);
+        int created = 0;
+        if (CreateDiagnosticAmmoStack(player, 3))
+            created++;
+        if (CreateDiagnosticAmmoStack(player, 5))
+            created++;
+        if (CreateDiagnosticAmmoStack(player, 7))
+            created++;
+        if (CreateDiagnosticAmmoStack(player, 9))
+            created++;
+        if (CreateDiagnosticAmmoStack(player, 11))
+            created++;
 
         player.UpdateInventoryMenu();
-        Print("[TransferZ] DIAG: seeded five partial Ammo_556x45 stacks for Stack testing");
+        Print("[TransferZ] DIAG: seeded " + created.ToString() + "/5 partial Ammo_556x45 stacks for Stack testing");
     }
 #endif
 }
