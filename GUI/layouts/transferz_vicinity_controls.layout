@@ -19,13 +19,13 @@ PanelWidgetClass TransferZVicinityControls {
 
   ImageWidgetClass TransferZ_VicinityTransferBase { visible 0 ignorepointer 1 position 23 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 599 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" color 0.55 0.55 0.55 0.48 }
   ImageWidgetClass TransferZ_VicinityTransferHover { visible 0 ignorepointer 1 position 23 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 600 mode blend }
-  ImageWidgetClass TransferZ_VicinityTransferStatus { visible 0 ignorepointer 1 position 25 23 size 15 3 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 601 mode blend }
+  ImageWidgetClass TransferZ_VicinityTransferStatus { visible 0 ignorepointer 1 position 24 22 size 17 4 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 601 mode blend }
   ButtonWidgetClass TransferZ_VicinityTransfer { ignorepointer 0 position 23 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 603 style Empty }
   TextWidgetClass TransferZ_VicinityTransferLabel { ignorepointer 1 position 23 3 size 19 22 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 text "T" font "gui/fonts/sdf_MetronBook24" "exact text" 1 "exact text size" 14 "text color" 0.92 0.92 0.92 1 "text halign" center "text valign" center }
 
   ImageWidgetClass TransferZ_VicinityUnpackBase { visible 0 ignorepointer 1 position 44 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 599 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" color 0.55 0.55 0.55 0.48 }
   ImageWidgetClass TransferZ_VicinityUnpackHover { visible 0 ignorepointer 1 position 44 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 600 mode blend }
-  ImageWidgetClass TransferZ_VicinityUnpackStatus { visible 0 ignorepointer 1 position 46 23 size 15 3 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 601 mode blend }
+  ImageWidgetClass TransferZ_VicinityUnpackStatus { visible 0 ignorepointer 1 position 45 22 size 17 4 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 601 mode blend }
   ButtonWidgetClass TransferZ_VicinityUnpack { ignorepointer 0 position 44 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 603 style Empty }
   TextWidgetClass TransferZ_VicinityUnpackLabel { ignorepointer 1 position 44 3 size 19 22 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 text "U" font "gui/fonts/sdf_MetronBook24" "exact text" 1 "exact text size" 14 "text color" 0.92 0.92 0.92 1 "text halign" center "text valign" center }
  }
