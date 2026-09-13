@@ -11,8 +11,6 @@ PanelWidgetClass TransferZVicinityControls {
  priority 600
  style blank
  {
-  ImageWidgetClass TransferZ_VicinityBlockBackground { ignorepointer 1 position 0 1 size 65 27 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 598 mode blend }
-
   ImageWidgetClass TransferZ_VicinityDestinationBase { visible 0 ignorepointer 1 position 2 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 599 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" color 0.55 0.55 0.55 0.48 }
   ImageWidgetClass TransferZ_VicinityDestinationState { visible 0 ignorepointer 1 position 2 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 599 mode blend }
   ImageWidgetClass TransferZ_VicinityDestinationHover { visible 0 ignorepointer 1 position 2 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 600 mode blend }
