@@ -2,29 +2,27 @@
 
 TransferZ does not implement its own stack-splitting semantics and does not assign any routing operation to right click. DayZ still owns whether an item can be split, the split quantity, resulting state, and the native item-manipulation protocol.
 
-TransferZ only influences destination selection for native splits in hand-related cases.
+TransferZ only influences the destination chosen for a native split.
 
-## Preferred destination override
+## Routing priority
 
-When a valid preferred destination (`P*`) is configured and its exact cargo has room for the newly created split entity, that destination takes priority over normal same-source placement.
+The split destination is resolved in this order:
 
-If `P*` is missing, invalid, or cannot accept the split, TransferZ does not force it.
+1. **Active destination (`D*`)** — when a valid transient destination is selected, it is the explicit split target. A container destination means that container's exact cargo. A `VICINITY` destination means DayZ's normal ground placement around the player.
+2. **Preferred destination (`P*`)** — when no `D*` is active and a preferred destination is configured, use its exact cargo.
+3. **Immediate source cargo** — only when neither `D*` nor `P*` is selected, keep a cargo stack in the same immediate container when that cargo has room for the newly created split entity.
+4. **Vanilla DayZ fallback** — use DayZ's normal behavior in every remaining case.
 
-## Stack itself in hands
+An explicitly selected route is not silently replaced by another TransferZ route. If active `D*` cannot accept the split, TransferZ falls back to vanilla rather than trying `P*` or the source. Likewise, if `P*` is configured but cannot currently resolve or accept the split, TransferZ falls back to vanilla rather than moving the result back into the source container.
 
-When the stack being split is the entity currently held in hands:
+## Source-local splitting
 
-1. **Preferred destination (`P*`)** — use it when it can accept the new split stack.
-2. **Vanilla DayZ fallback** — otherwise leave the split operation entirely to DayZ.
+When no `D*` or `P*` is selected and the stack is already in cargo, TransferZ asks the immediate cargo owner for a free location for the new split entity. If a valid location exists, the new stack remains beside the original stack in that same container.
 
-## Stack inside a held container
+This applies to normal cargo containers generally; it is not limited to containers currently held in hands. A stack itself in hands, an attachment, or an item on the ground has no immediate cargo source for this rule and therefore uses vanilla fallback when no explicit destination is selected.
 
-When the stack is a cargo item whose source is at or below the container currently held in hands:
+## Native execution
 
-1. **Preferred destination (`P*`)** — when configured and usable, it overrides normal placement.
-2. **Exact source cargo** — otherwise keep the newly created split stack beside the original stack when that immediate source cargo has a valid free location.
-3. **Vanilla DayZ fallback** — when neither TransferZ destination is usable, leave normal DayZ split fallback in control.
+Cargo destination checks use `FindFirstFreeLocationForNewEntity` because splitting creates a new entity. `VICINITY` uses DayZ's native ground-position resolution. The chosen destination is then passed through DayZ's native `INPUT_UDT_ITEM_MANIPULATION` split path rather than recreating an item or manually copying quantity/state.
 
-The source and preferred checks use `FindFirstFreeLocationForNewEntity` because a split creates a new entity. The selected destination is then passed through DayZ's native `INPUT_UDT_ITEM_MANIPULATION` split path rather than recreating or manually copying stack state.
-
-The preferred path is read from the same `$profile:TransferZ/preferences.json` data used by the mission-side preferred-destination feature. No arbitrary player-inventory fallback is introduced by TransferZ.
+The transient `D*` state is supplied to the lower-level split hook only for the duration of the current `OnRightClick` call. The split layer does not keep a second persistent destination cache. Preferred state continues to come from the same `$profile:TransferZ/preferences.json` data used by the normal preferred-destination feature.

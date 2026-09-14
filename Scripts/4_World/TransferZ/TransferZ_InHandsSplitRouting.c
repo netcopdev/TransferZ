@@ -13,8 +13,9 @@ class TransferZSplitPreferenceResolver
 {
     static const string PREFERENCES_PATH = "$profile:TransferZ/preferences.json";
 
-    static EntityAI Resolve(PlayerBase player)
+    static EntityAI Resolve(PlayerBase player, out bool configured)
     {
+        configured = false;
         if (!player || !FileExist(PREFERENCES_PATH))
             return null;
 
@@ -25,6 +26,7 @@ class TransferZSplitPreferenceResolver
 
         if (preferences.preferred_path && preferences.preferred_path.Count() > 0)
         {
+            configured = true;
             EntityAI current = player;
             for (int i = 0; i < preferences.preferred_path.Count(); i++)
             {
@@ -45,6 +47,7 @@ class TransferZSplitPreferenceResolver
         if (preferences.preferred_slot == "")
             return null;
 
+        configured = true;
         EntityAI legacyDestination = player.FindAttachmentBySlotName(preferences.preferred_slot);
         if (!legacyDestination || !legacyDestination.GetInventory().GetCargo())
             return null;
@@ -52,17 +55,52 @@ class TransferZSplitPreferenceResolver
     }
 }
 
+class TransferZSplitDestinationBridge
+{
+    protected static EntityAI s_Destination;
+    protected static bool s_DestinationVicinity;
+
+    static void Clear()
+    {
+        s_Destination = null;
+        s_DestinationVicinity = false;
+    }
+
+    static void SetCargo(EntityAI destination)
+    {
+        s_Destination = destination;
+        s_DestinationVicinity = false;
+    }
+
+    static void SetVicinity()
+    {
+        s_Destination = null;
+        s_DestinationVicinity = true;
+    }
+
+    static bool HasDestination()
+    {
+        return s_DestinationVicinity || s_Destination != null;
+    }
+
+    static bool IsVicinity()
+    {
+        return s_DestinationVicinity;
+    }
+
+    static EntityAI GetCargo()
+    {
+        if (s_DestinationVicinity)
+            return null;
+        return s_Destination;
+    }
+}
+
 modded class ItemBase
 {
-    protected bool TransferZResolveInHandsCargoSource(PlayerBase player, out EntityAI source)
+    protected bool TransferZResolveCargoSource(out EntityAI source)
     {
         source = null;
-        if (!player)
-            return false;
-
-        EntityAI hands = player.GetEntityInHands();
-        if (!hands || hands == this)
-            return false;
 
         InventoryLocation currentLocation = new InventoryLocation();
         if (!GetInventory().GetCurrentInventoryLocation(currentLocation))
@@ -72,18 +110,12 @@ modded class ItemBase
 
         source = currentLocation.GetParent();
         if (!source || !source.GetInventory().GetCargo())
-            return false;
-
-        EntityAI current = source;
-        while (current && current != player)
         {
-            if (current == hands)
-                return true;
-            current = current.GetHierarchyParent();
+            source = null;
+            return false;
         }
 
-        source = null;
-        return false;
+        return true;
     }
 
     protected bool TransferZFindSplitLocation(EntityAI destinationEntity, bool verifyReceive, out InventoryLocation destination)
@@ -103,14 +135,10 @@ modded class ItemBase
         return true;
     }
 
-    protected bool TransferZExecuteSplitTo(EntityAI destinationEntity, bool verifyReceive)
+    protected bool TransferZExecuteSplitAtLocation(notnull InventoryLocation destination)
     {
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
-        if (!player)
-            return false;
-
-        InventoryLocation destination;
-        if (!TransferZFindSplitLocation(destinationEntity, verifyReceive, destination))
+        if (!player || !destination.IsValid())
             return false;
 
         if (g_Game.IsClient())
@@ -142,6 +170,29 @@ modded class ItemBase
         return false;
     }
 
+    protected bool TransferZExecuteSplitTo(EntityAI destinationEntity, bool verifyReceive)
+    {
+        InventoryLocation destination;
+        if (!TransferZFindSplitLocation(destinationEntity, verifyReceive, destination))
+            return false;
+        return TransferZExecuteSplitAtLocation(destination);
+    }
+
+    protected bool TransferZExecuteSplitToVicinity()
+    {
+        PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
+        if (!player)
+            return false;
+
+        InventoryLocation destination = new InventoryLocation();
+        if (!GameInventory.SetGroundPosByOwner(player, this, destination))
+            return false;
+        if (!destination.IsValid() || destination.GetType() != InventoryLocationType.GROUND)
+            return false;
+
+        return TransferZExecuteSplitAtLocation(destination);
+    }
+
     protected bool TransferZRouteNativeSplit()
     {
         if (!CanBeSplit() || GetDayZGame().IsLeftCtrlDown())
@@ -151,28 +202,42 @@ modded class ItemBase
         if (!player || player.GetInventory().HasInventoryReservation(this, null))
             return false;
 
-        EntityAI hands = player.GetEntityInHands();
-        EntityAI preferred = TransferZSplitPreferenceResolver.Resolve(player);
+        // The transient active D is the most explicit routing choice. If it is
+        // selected but cannot accept the split, do not silently choose P or source.
+        if (TransferZSplitDestinationBridge.HasDestination())
+        {
+            if (TransferZSplitDestinationBridge.IsVicinity())
+            {
+                if (TransferZExecuteSplitToVicinity())
+                    return true;
+                return false;
+            }
 
-        // An explicitly configured P* overrides normal same-source placement.
-        // If P* cannot accept the split, preserve the source/vanilla fallback.
-        if (preferred && TransferZExecuteSplitTo(preferred, true))
-            return true;
-
-        // A stack itself in hands has no cargo parent to preserve. With no usable
-        // P*, leave the operation entirely to vanilla DayZ.
-        if (hands == this)
+            EntityAI destination = TransferZSplitDestinationBridge.GetCargo();
+            if (destination && TransferZExecuteSplitTo(destination, true))
+                return true;
             return false;
+        }
 
-        // DayZ can otherwise lose the same-container placement for cargo under a
-        // held container. Keep the split beside the original stack when possible.
+        // P is the next explicit route. A configured but temporarily unresolved
+        // or full P must not cause an implicit move back to the source container.
+        bool preferredConfigured;
+        EntityAI preferred = TransferZSplitPreferenceResolver.Resolve(player, preferredConfigured);
+        if (preferredConfigured)
+        {
+            if (preferred && TransferZExecuteSplitTo(preferred, true))
+                return true;
+            return false;
+        }
+
+        // With neither D nor P selected, keep a cargo stack in its immediate
+        // source container whenever there is room for the newly created entity.
         EntityAI source;
-        if (!TransferZResolveInHandsCargoSource(player, source))
-            return false;
-
-        if (source != preferred && TransferZExecuteSplitTo(source, false))
+        if (TransferZResolveCargoSource(source) && TransferZExecuteSplitTo(source, false))
             return true;
 
+        // A stack in hands/attachments/on the ground, or cargo with no room,
+        // remains entirely under vanilla DayZ fallback behavior.
         return false;
     }
 
