@@ -19,13 +19,13 @@ PanelWidgetClass TransferZHeaderControls {
 
   ImageWidgetClass TransferZ_TransferBase { visible 0 ignorepointer 1 position 23 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 599 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" color 0.55 0.55 0.55 0.48 }
   ImageWidgetClass TransferZ_TransferHover { visible 0 ignorepointer 1 position 23 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 600 mode blend }
-  ImageWidgetClass TransferZ_TransferStatus { visible 0 ignorepointer 1 position 24 22 size 17 4 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 601 mode blend }
+  ImageWidgetClass TransferZ_TransferStatus { visible 0 ignorepointer 1 position 23 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 601 mode blend }
   ButtonWidgetClass TransferZ_Transfer { ignorepointer 0 position 23 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 603 style Empty }
   TextWidgetClass TransferZ_TransferLabel { ignorepointer 1 position 23 3 size 19 22 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 text "T" font "gui/fonts/sdf_MetronBook24" "exact text" 1 "exact text size" 14 "text color" 0.92 0.92 0.92 1 "text halign" center "text valign" center }
 
   ImageWidgetClass TransferZ_UnpackBase { visible 0 ignorepointer 1 position 44 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 599 mode blend image0 "#(argb,8,8,3)color(1,1,1,1,ca)" color 0.55 0.55 0.55 0.48 }
   ImageWidgetClass TransferZ_UnpackHover { visible 0 ignorepointer 1 position 44 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 600 mode blend }
-  ImageWidgetClass TransferZ_UnpackStatus { visible 0 ignorepointer 1 position 45 22 size 17 4 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 601 mode blend }
+  ImageWidgetClass TransferZ_UnpackStatus { visible 0 ignorepointer 1 position 44 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 601 mode blend }
   ButtonWidgetClass TransferZ_Unpack { ignorepointer 0 position 44 3 size 19 23 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 603 style Empty }
   TextWidgetClass TransferZ_UnpackLabel { ignorepointer 1 position 44 3 size 19 22 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 priority 604 text "U" font "gui/fonts/sdf_MetronBook24" "exact text" 1 "exact text size" 14 "text color" 0.92 0.92 0.92 1 "text halign" center "text valign" center }
 
