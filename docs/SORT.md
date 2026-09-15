@@ -21,4 +21,4 @@ Every executed move is revalidated with DayZ inventory APIs. If planning or nati
 
 ## UI feedback
 
-A failed Sort request is reported back to the requesting client. The Sort button's full background flashes red for one second and is cleared by a scheduled GUI callback, rather than depending on a later inventory update tick. An already-sorted container or a container with fewer than two direct cargo items is a successful no-op and does not show the failure flash.
+A failed Sort request is reported back to the requesting client. The Sort button's full background flashes red for 500 ms and is cleared by a scheduled GUI callback, rather than depending on a later inventory update tick. An already-sorted container or a container with fewer than two direct cargo items is a successful no-op and does not show the failure flash.
