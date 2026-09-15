@@ -1,5 +1,27 @@
 modded class TransferZMaintenanceService
 {
+    override static bool SortBefore(TransferZSortRecord left, TransferZSortRecord right)
+    {
+        int leftArea = left.width * left.height;
+        int rightArea = right.width * right.height;
+        if (leftArea != rightArea)
+            return leftArea > rightArea;
+
+        // For equal footprints, place wider items first. With fixed orientation this
+        // creates a broad free staging band underneath them as sorting progresses,
+        // instead of starting with tall items that can require a large contiguous
+        // temporary slot that does not yet exist in fragmented cargo.
+        if (left.width != right.width)
+            return left.width > right.width;
+        if (left.height != right.height)
+            return left.height > right.height;
+        if (left.typeHash != right.typeHash)
+            return left.typeHash < right.typeHash;
+        if (left.row != right.row)
+            return left.row < right.row;
+        return left.col < right.col;
+    }
+
     override static bool EnsureRecordAtTarget(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, notnull array<int> currentGrid, notnull array<int> targetGrid, int cargoWidth, int cargoHeight, notnull array<ref TransferZSortMove> moves, notnull array<int> activeRecords, int recordIndex, inout int stepCount, int maxSteps)
     {
         TransferZSortRecord record = records.Get(recordIndex);
@@ -27,37 +49,25 @@ modded class TransferZMaintenanceService
                 return false;
             }
 
-            bool blockerCleared = false;
-
-            // The target order is largest-first. When a later/lower-priority item blocks
-            // an earlier target, do not chase that smaller item's own final target first.
-            // Park it directly in safe free space, clear the higher-priority target, then
-            // place the parked item later when its turn comes. This avoids dependency
-            // chains where small items repeatedly occupy the staging space needed by a
-            // large item at the top of the cargo grid.
-            if (blockerIndex > recordIndex)
+            bool blockerCleared = ParkRecord(player, source, records, currentGrid, targetGrid, cargoWidth, cargoHeight, moves, blockerIndex, recordIndex, false, stepCount, maxSteps);
+            if (blockerCleared)
             {
-                blockerCleared = ParkRecord(player, source, records, currentGrid, targetGrid, cargoWidth, cargoHeight, moves, blockerIndex, recordIndex, false, stepCount, maxSteps);
-                if (blockerCleared)
-                    Print("[TransferZ] Sort planner priority-park blocker=" + blockerIndex.ToString() + " for target=" + recordIndex.ToString());
+                Print("[TransferZ] Sort planner parked blocker=" + blockerIndex.ToString() + " for target=" + recordIndex.ToString());
+            }
+            else if (activeRecords.Get(blockerIndex) != 0)
+            {
+                blockerCleared = BreakActiveCycle(player, source, records, currentGrid, targetGrid, cargoWidth, cargoHeight, moves, activeRecords, blockerIndex, recordIndex, stepCount, maxSteps);
+            }
+            else
+            {
+                blockerCleared = EnsureRecordAtTarget(player, source, records, currentGrid, targetGrid, cargoWidth, cargoHeight, moves, activeRecords, blockerIndex, stepCount, maxSteps);
+                if (!blockerCleared)
+                    blockerCleared = ParkRecord(player, source, records, currentGrid, targetGrid, cargoWidth, cargoHeight, moves, blockerIndex, recordIndex, false, stepCount, maxSteps);
             }
 
             if (!blockerCleared)
             {
-                if (activeRecords.Get(blockerIndex) != 0)
-                {
-                    blockerCleared = BreakActiveCycle(player, source, records, currentGrid, targetGrid, cargoWidth, cargoHeight, moves, activeRecords, blockerIndex, recordIndex, stepCount, maxSteps);
-                }
-                else
-                {
-                    blockerCleared = EnsureRecordAtTarget(player, source, records, currentGrid, targetGrid, cargoWidth, cargoHeight, moves, activeRecords, blockerIndex, stepCount, maxSteps);
-                    if (!blockerCleared)
-                        blockerCleared = ParkRecord(player, source, records, currentGrid, targetGrid, cargoWidth, cargoHeight, moves, blockerIndex, recordIndex, false, stepCount, maxSteps);
-                }
-            }
-
-            if (!blockerCleared)
-            {
+                Print("[TransferZ] Sort planner could not relocate blocker=" + blockerIndex.ToString() + " for target=" + recordIndex.ToString());
                 activeRecords.Set(recordIndex, 0);
                 return false;
             }
