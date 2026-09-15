@@ -201,7 +201,7 @@ class TransferZMaintenanceService
         return humanInventory.FindCollidingUserReservedLocationIndex(record.item, destination) >= 0;
     }
 
-    protected static bool AssignTargetsLayout(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, bool putSmallItemsLow)
+    protected static bool AssignTargets(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight)
     {
         ref array<int> targetGrid = new array<int>();
         ResetGrid(targetGrid, cargoWidth * cargoHeight);
@@ -210,45 +210,21 @@ class TransferZMaintenanceService
         {
             TransferZSortRecord record = records.Get(targetIndex);
             bool placed = false;
-            int recordArea = record.width * record.height;
-            bool placeFromBottom = putSmallItemsLow && recordArea <= 4;
 
-            if (placeFromBottom)
+            for (int targetRow = 0; targetRow < cargoHeight && !placed; targetRow++)
             {
-                for (int lowRow = cargoHeight - record.height; lowRow >= 0 && !placed; lowRow--)
+                for (int targetCol = 0; targetCol < cargoWidth; targetCol++)
                 {
-                    for (int lowCol = 0; lowCol < cargoWidth; lowCol++)
-                    {
-                        if (!RectFree(targetGrid, cargoWidth, cargoHeight, lowRow, lowCol, record.width, record.height))
-                            continue;
-                        if (CollidesWithUserReservation(player, source, record, lowRow, lowCol))
-                            continue;
+                    if (!RectFree(targetGrid, cargoWidth, cargoHeight, targetRow, targetCol, record.width, record.height))
+                        continue;
+                    if (CollidesWithUserReservation(player, source, record, targetRow, targetCol))
+                        continue;
 
-                        record.targetRow = lowRow;
-                        record.targetCol = lowCol;
-                        MarkRect(targetGrid, cargoWidth, lowRow, lowCol, record.width, record.height, targetIndex + 1);
-                        placed = true;
-                        break;
-                    }
-                }
-            }
-            else
-            {
-                for (int highRow = 0; highRow < cargoHeight && !placed; highRow++)
-                {
-                    for (int highCol = 0; highCol < cargoWidth; highCol++)
-                    {
-                        if (!RectFree(targetGrid, cargoWidth, cargoHeight, highRow, highCol, record.width, record.height))
-                            continue;
-                        if (CollidesWithUserReservation(player, source, record, highRow, highCol))
-                            continue;
-
-                        record.targetRow = highRow;
-                        record.targetCol = highCol;
-                        MarkRect(targetGrid, cargoWidth, highRow, highCol, record.width, record.height, targetIndex + 1);
-                        placed = true;
-                        break;
-                    }
+                    record.targetRow = targetRow;
+                    record.targetCol = targetCol;
+                    MarkRect(targetGrid, cargoWidth, targetRow, targetCol, record.width, record.height, targetIndex + 1);
+                    placed = true;
+                    break;
                 }
             }
 
@@ -257,15 +233,6 @@ class TransferZMaintenanceService
         }
 
         return true;
-    }
-
-    protected static bool AssignTargets(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight)
-    {
-        if (AssignTargetsLayout(player, source, records, cargoWidth, cargoHeight, true))
-            return true;
-
-        Print("[TransferZ] Sort target layout retry: size-banded layout did not fit; retrying compact top-down layout");
-        return AssignTargetsLayout(player, source, records, cargoWidth, cargoHeight, false);
     }
 
     protected static void BuildTargetGrid(notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<int> targetGrid)
