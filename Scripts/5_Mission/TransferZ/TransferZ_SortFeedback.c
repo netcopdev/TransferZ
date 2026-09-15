@@ -20,8 +20,14 @@ modded class TransferZHeaderControls
         if (!m_SortHover)
             return;
 
-        m_SortHover.SetColor(ARGB(190, 142, 46, 43));
+        m_SortHover.SetColor(ARGB(220, 142, 46, 43));
         m_SortHover.Show(true);
+    }
+
+    protected void TransferZTriggerSortFailureVisual()
+    {
+        m_TransferZSortFailureUntil = GetGame().GetTime() + 1000;
+        TransferZShowSortFailureVisual();
     }
 
     protected void TransferZConsumeMaintenanceResult()
@@ -33,13 +39,17 @@ modded class TransferZHeaderControls
         m_TransferZSeenMaintenanceResult = sequence;
         if (TransferZMaintenanceResultState.GetOperation() != TransferZMaintenanceOperation.SORT)
             return;
-        if (TransferZMaintenanceResultState.WasSuccessful())
-            return;
         if (!TransferZMaintenanceResultState.MatchesSource(m_Entity))
             return;
 
-        m_TransferZSortFailureUntil = GetGame().GetTime() + 1000;
-        TransferZShowSortFailureVisual();
+        if (TransferZMaintenanceResultState.WasSuccessful())
+        {
+            Print("[TransferZ] Sort UI result: success");
+            return;
+        }
+
+        Print("[TransferZ] Sort UI result: failure");
+        TransferZTriggerSortFailureVisual();
     }
 
     override void SetEntity(EntityAI entity)
@@ -69,5 +79,33 @@ modded class TransferZHeaderControls
         }
 
         TransferZResetSortFailureVisual();
+    }
+
+    override bool OnButtonMouseLeave(Widget w, Widget enter_w, int x, int y)
+    {
+        bool handled = super.OnButtonMouseLeave(w, enter_w, x, y);
+        if (w == m_SortButton && m_TransferZSortFailureUntil > GetGame().GetTime())
+            TransferZShowSortFailureVisual();
+        return handled;
+    }
+
+    override void OnSort(Widget w, int x, int y, int button)
+    {
+        if (button != MouseState.LEFT || !m_Entity)
+            return;
+
+        Print("[TransferZ] Sort UI click source=" + m_Entity.GetType());
+        bool accepted = TransferZMaintenanceClient.RequestSort(m_Entity);
+
+        // Single-player/DayZDiag resolves synchronously, so consume the result immediately.
+        // Multiplayer resolves later through the maintenance result RPC and UpdateControls().
+        TransferZConsumeMaintenanceResult();
+        if (!accepted)
+        {
+            Print("[TransferZ] Sort UI request rejected locally");
+            TransferZTriggerSortFailureVisual();
+        }
+
+        ShowTooltip(w);
     }
 }
