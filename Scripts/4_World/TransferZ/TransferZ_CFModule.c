@@ -14,19 +14,23 @@ class TransferZCFModule : CF_ModuleWorld
 
     override int GetRPCMax()
     {
-        return TransferZMaintenanceRPC.REQUEST + 1;
+        return TransferZMaintenanceRPC.RESULT;
     }
 
     override void OnRPC(Class sender, CF_EventArgs args)
     {
         super.OnRPC(sender, args);
 
-        if (!GetGame().IsServer())
-            return;
-
         CF_EventRPCArgs rpc = CF_EventRPCArgs.Cast(args);
         if (!rpc)
             return;
+
+        if (!GetGame().IsServer())
+        {
+            if (rpc.ID == TransferZMaintenanceRPC.RESULT)
+                TransferZMaintenanceResultState.HandleRPC(rpc.Context);
+            return;
+        }
 
         PlayerBase player = PlayerBase.Cast(rpc.Target);
         if (!player)

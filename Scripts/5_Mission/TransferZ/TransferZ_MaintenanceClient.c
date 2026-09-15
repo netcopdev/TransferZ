@@ -34,26 +34,30 @@ class TransferZMaintenanceClient
     protected static bool Request(int operation, EntityAI source)
     {
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
-        if (!player || !IsReachableContainer(source) || IsDuplicate(operation, source))
+        if (!player || !IsReachableContainer(source))
+        {
+            if (operation == TransferZMaintenanceOperation.SORT)
+                TransferZMaintenanceResultState.PublishLocal(operation, source, false);
+            return false;
+        }
+        if (IsDuplicate(operation, source))
             return false;
 
         if (!GetGame().IsMultiplayer())
         {
             if (operation == TransferZMaintenanceOperation.SORT)
             {
-                TransferZMaintenanceService.Sort(player, source);
+                int sortResult = TransferZMaintenanceService.Sort(player, source);
+                TransferZMaintenanceResultState.PublishLocal(operation, source, sortResult >= 0);
+                return sortResult >= 0;
             }
-            else if (operation == TransferZMaintenanceOperation.STACK)
+            if (operation == TransferZMaintenanceOperation.STACK)
             {
                 TransferZMaintenanceService.Stack(player, source);
                 player.UpdateInventoryMenu();
+                return true;
             }
-            else
-            {
-                return false;
-            }
-
-            return true;
+            return false;
         }
 
         int sourceLow;

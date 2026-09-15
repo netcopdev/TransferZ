@@ -7,4 +7,5 @@ enum TransferZMaintenanceOperation
 class TransferZMaintenanceRPC
 {
     static const int REQUEST = 84627103;
+    static const int RESULT = 84627104;
 }
