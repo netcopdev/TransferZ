@@ -54,9 +54,9 @@ modded class TransferZHeaderControls
 
     protected void TransferZTriggerSortFailureVisual()
     {
-        m_TransferZSortFailureUntil = GetGame().GetTime() + 1000;
+        m_TransferZSortFailureUntil = GetGame().GetTime() + 500;
         TransferZShowSortFailureVisual();
-        GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(TransferZExpireSortFailureVisual, 1000, false);
+        GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(TransferZExpireSortFailureVisual, 500, false);
     }
 
     protected void TransferZConsumeMaintenanceResult()
