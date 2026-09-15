@@ -37,10 +37,26 @@ modded class TransferZHeaderControls
         background.Show(true);
     }
 
+    protected void TransferZExpireSortFailureVisual()
+    {
+        if (m_TransferZSortFailureUntil <= 0)
+            return;
+
+        int remaining = m_TransferZSortFailureUntil - GetGame().GetTime();
+        if (remaining > 0)
+        {
+            GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(TransferZExpireSortFailureVisual, remaining, false);
+            return;
+        }
+
+        TransferZResetSortFailureVisual();
+    }
+
     protected void TransferZTriggerSortFailureVisual()
     {
         m_TransferZSortFailureUntil = GetGame().GetTime() + 1000;
         TransferZShowSortFailureVisual();
+        GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(TransferZExpireSortFailureVisual, 1000, false);
     }
 
     protected void TransferZConsumeMaintenanceResult()
