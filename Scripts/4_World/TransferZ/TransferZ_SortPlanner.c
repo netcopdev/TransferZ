@@ -1,5 +1,23 @@
 modded class TransferZMaintenanceService
 {
+    override static bool SortBefore(TransferZSortRecord left, TransferZSortRecord right)
+    {
+        int leftArea = left.width * left.height;
+        int rightArea = right.width * right.height;
+        if (leftArea != rightArea)
+            return leftArea > rightArea;
+
+        if (left.width != right.width)
+            return left.width > right.width;
+        if (left.height != right.height)
+            return left.height > right.height;
+        if (left.typeHash != right.typeHash)
+            return left.typeHash < right.typeHash;
+        if (left.row != right.row)
+            return left.row < right.row;
+        return left.col < right.col;
+    }
+
     override static bool EnsureRecordAtTarget(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, notnull array<int> currentGrid, notnull array<int> targetGrid, int cargoWidth, int cargoHeight, notnull array<ref TransferZSortMove> moves, notnull array<int> activeRecords, int recordIndex, inout int stepCount, int maxSteps)
     {
         if (recordIndex == 0 && stepCount == 0)
@@ -32,9 +50,6 @@ modded class TransferZMaintenanceService
 
             bool blockerCleared = false;
 
-            // Always prefer direct parking for the item currently occupying this target.
-            // This keeps the active target moving forward and avoids recursive dependency
-            // chains consuming the staging space needed by large items.
             blockerCleared = ParkRecord(player, source, records, currentGrid, targetGrid, cargoWidth, cargoHeight, moves, blockerIndex, recordIndex, false, stepCount, maxSteps);
             if (blockerCleared)
             {
@@ -43,8 +58,6 @@ modded class TransferZMaintenanceService
                 continue;
             }
 
-            // If the blocker itself cannot be parked, try to settle it through its own
-            // target dependency. Active cycles still use the bounded cycle breaker.
             if (activeRecords.Get(blockerIndex) != 0)
             {
                 blockerCleared = BreakActiveCycle(player, source, records, currentGrid, targetGrid, cargoWidth, cargoHeight, moves, activeRecords, blockerIndex, recordIndex, stepCount, maxSteps);
