@@ -8,7 +8,7 @@ The target layout is deterministic and keeps each item's current orientation.
 
 - Items are ordered primarily by footprint, largest first.
 - The final layout is packed from the top of the cargo grid downward.
-- Smaller items follow larger items immediately and may fill earlier gaps where they fit; there is no dedicated lower-zone placement for small items.
+- Smaller items follow larger items immediately and fill the earliest available gaps where they fit; there is no dedicated bottom zone for small items.
 - Type is used as a stable secondary ordering within equal-size items.
 - DayZ user-reserved inventory cells are treated as unavailable.
 
