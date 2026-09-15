@@ -37,17 +37,26 @@ class TransferZMaintenanceClient
         if (!player || !IsReachableContainer(source))
         {
             if (operation == TransferZMaintenanceOperation.SORT)
+            {
+                Print("[TransferZ] Sort client rejected: source is not reachable cargo");
                 TransferZMaintenanceResultState.PublishLocal(operation, source, false);
+            }
             return false;
         }
         if (IsDuplicate(operation, source))
+        {
+            if (operation == TransferZMaintenanceOperation.SORT)
+                Print("[TransferZ] Sort client rejected: duplicate request debounce");
             return false;
+        }
 
         if (!GetGame().IsMultiplayer())
         {
             if (operation == TransferZMaintenanceOperation.SORT)
             {
+                Print("[TransferZ] Sort client executing local DayZDiag/single-player request");
                 int sortResult = TransferZMaintenanceService.Sort(player, source);
+                Print("[TransferZ] Sort client local result=" + sortResult.ToString());
                 TransferZMaintenanceResultState.PublishLocal(operation, source, sortResult >= 0);
                 return sortResult >= 0;
             }
@@ -63,6 +72,9 @@ class TransferZMaintenanceClient
         int sourceLow;
         int sourceHigh;
         TransferZNet.GetEntityNetworkId(source, sourceLow, sourceHigh);
+
+        if (operation == TransferZMaintenanceOperation.SORT)
+            Print("[TransferZ] Sort client sending RPC source=" + source.GetType() + " net=" + sourceLow.ToString() + ":" + sourceHigh.ToString());
 
         ScriptRPC rpc = new ScriptRPC();
         rpc.Write(operation);
