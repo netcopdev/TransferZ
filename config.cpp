@@ -7,7 +7,9 @@ class CfgPatches
         requiredVersion = 0.1;
         requiredAddons[] =
         {
-            "DZ_Data"
+            "DZ_Data",
+            "DZ_Scripts",
+            "JM_CF_Scripts"
         };
     };
 };
