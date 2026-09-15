@@ -3,29 +3,38 @@ modded class TransferZHeaderControls
     protected int m_TransferZSeenMaintenanceResult;
     protected int m_TransferZSortFailureUntil;
     protected EntityAI m_TransferZFeedbackEntity;
+    protected ImageWidget m_TransferZSortFailureBackground;
+
+    protected ImageWidget TransferZGetSortFailureBackground()
+    {
+        if (!m_TransferZSortFailureBackground && m_ManageRoot)
+            m_TransferZSortFailureBackground = ImageWidget.Cast(m_ManageRoot.FindAnyWidget("TransferZ_SortBase"));
+        return m_TransferZSortFailureBackground;
+    }
 
     protected void TransferZResetSortFailureVisual()
     {
         m_TransferZSortFailureUntil = 0;
-        if (m_SortButton)
-            m_SortButton.SetColor(ARGB(255, 255, 255, 255));
-        if (!m_SortHover)
-            return;
 
-        m_SortHover.SetColor(ARGB(55, 255, 255, 255));
-        if (m_HoveredTooltipButton != m_SortButton)
-            m_SortHover.Show(false);
+        ImageWidget background = TransferZGetSortFailureBackground();
+        if (background)
+        {
+            background.SetColor(ARGB(0, 0, 0, 0));
+            background.Show(false);
+        }
     }
 
     protected void TransferZShowSortFailureVisual()
     {
-        if (m_SortButton)
-            m_SortButton.SetColor(ARGB(255, 142, 46, 43));
-        if (!m_SortHover)
+        ImageWidget background = TransferZGetSortFailureBackground();
+        if (!background)
+        {
+            Print("[TransferZ] Sort UI failure background widget not found");
             return;
+        }
 
-        m_SortHover.SetColor(ARGB(235, 142, 46, 43));
-        m_SortHover.Show(true);
+        background.SetColor(ARGB(235, 142, 46, 43));
+        background.Show(true);
     }
 
     protected void TransferZTriggerSortFailureVisual()
