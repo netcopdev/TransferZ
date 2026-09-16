@@ -6,13 +6,15 @@ TransferZ Sort is a server-authoritative, container-local rearrangement of direc
 
 The target layout is deterministic and keeps each item's current orientation.
 
-- Items are ordered primarily by footprint, largest first.
-- For equal footprints, wider items are ordered before taller items.
-- For items with identical dimensions, current spatial order is preserved before the type tie-break.
+- The target packer scans the cargo from the first free cell at the top-left downward.
+- At each free anchor it selects the largest remaining item that actually fits there; equal-area candidates prefer wider shapes, then taller shapes.
+- This lets medium and small items fill otherwise wasted top gaps instead of blindly following a fixed item list.
 - Equivalent-size target assignments are optimized before movement so interchangeable shapes do not create unnecessary identity swaps.
-- The final layout is packed from the top of the cargo grid downward.
-- Smaller items follow larger items immediately and fill the earliest available gaps where they fit; there is no dedicated bottom zone for small items.
+- Final targets are then ordered top-down for execution.
+- The final layout remains largest-first in practice, but compactness of the upper rows takes priority over preserving a rigid item ordering.
+- Smaller items still follow larger items immediately where they fit; there is no dedicated bottom zone for small items.
 - DayZ user-reserved inventory cells are treated as unavailable.
+- If the compact anchor packer cannot assign every item, Sort falls back to the deterministic first-fit target layout rather than failing solely because of the packing heuristic.
 
 ## Move planning
 
