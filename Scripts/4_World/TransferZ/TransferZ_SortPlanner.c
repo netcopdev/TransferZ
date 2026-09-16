@@ -10,11 +10,11 @@ class TransferZSortPlanner : TransferZMaintenanceService
             return left.width > right.width;
         if (left.height != right.height)
             return left.height > right.height;
-        if (left.typeHash != right.typeHash)
-            return left.typeHash < right.typeHash;
         if (left.row != right.row)
             return left.row < right.row;
-        return left.col < right.col;
+        if (left.col != right.col)
+            return left.col < right.col;
+        return left.typeHash < right.typeHash;
     }
 
     protected static void SortRecordsV2(notnull array<ref TransferZSortRecord> records)
@@ -29,6 +29,78 @@ class TransferZSortPlanner : TransferZMaintenanceService
                 previousIndex--;
             }
             records.Set(previousIndex + 1, current);
+        }
+    }
+
+    protected static int CountForeignCurrentOverlapsV2(notnull array<ref TransferZSortRecord> records, int recordIndex, int targetRow, int targetCol)
+    {
+        TransferZSortRecord record = records.Get(recordIndex);
+        int overlapCount = 0;
+
+        for (int otherIndex = 0; otherIndex < records.Count(); otherIndex++)
+        {
+            if (otherIndex == recordIndex)
+                continue;
+
+            TransferZSortRecord other = records.Get(otherIndex);
+            if (RectOverlaps(targetRow, targetCol, record.width, record.height, other.row, other.col, other.width, other.height))
+                overlapCount++;
+        }
+
+        return overlapCount;
+    }
+
+    protected static int TargetAssignmentCostV2(notnull array<ref TransferZSortRecord> records, int recordIndex, int targetRow, int targetCol)
+    {
+        TransferZSortRecord record = records.Get(recordIndex);
+        int foreignOverlap = CountForeignCurrentOverlapsV2(records, recordIndex, targetRow, targetCol);
+        int distance = Math.AbsInt(record.row - targetRow) + Math.AbsInt(record.col - targetCol);
+        return foreignOverlap * 10000 + distance;
+    }
+
+    protected static void OptimizeEquivalentTargetAssignmentsV2(notnull array<ref TransferZSortRecord> records)
+    {
+        bool changed = true;
+        int passCount = 0;
+        int passLimit = records.Count() * records.Count() + 1;
+
+        while (changed && passCount < passLimit)
+        {
+            changed = false;
+            passCount++;
+
+            for (int leftIndex = 0; leftIndex < records.Count(); leftIndex++)
+            {
+                TransferZSortRecord left = records.Get(leftIndex);
+                for (int rightIndex = leftIndex + 1; rightIndex < records.Count(); rightIndex++)
+                {
+                    TransferZSortRecord right = records.Get(rightIndex);
+                    if (left.width != right.width || left.height != right.height)
+                        continue;
+
+                    int currentCost = TargetAssignmentCostV2(records, leftIndex, left.targetRow, left.targetCol) + TargetAssignmentCostV2(records, rightIndex, right.targetRow, right.targetCol);
+                    int swappedCost = TargetAssignmentCostV2(records, leftIndex, right.targetRow, right.targetCol) + TargetAssignmentCostV2(records, rightIndex, left.targetRow, left.targetCol);
+                    if (swappedCost >= currentCost)
+                        continue;
+
+                    int swapRow = left.targetRow;
+                    int swapCol = left.targetCol;
+                    left.targetRow = right.targetRow;
+                    left.targetCol = right.targetCol;
+                    right.targetRow = swapRow;
+                    right.targetCol = swapCol;
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    protected static void LogTargetsV2(notnull array<ref TransferZSortRecord> records)
+    {
+        for (int recordIndex = 0; recordIndex < records.Count(); recordIndex++)
+        {
+            TransferZSortRecord record = records.Get(recordIndex);
+            Print("[TransferZ] Sort planner V2 target record=" + recordIndex.ToString() + " type=" + record.item.GetType() + " from=" + record.row.ToString() + "," + record.col.ToString() + " to=" + record.targetRow.ToString() + "," + record.targetCol.ToString() + " size=" + record.width.ToString() + "x" + record.height.ToString());
         }
     }
 
@@ -107,6 +179,9 @@ class TransferZSortPlanner : TransferZMaintenanceService
             Print("[TransferZ] Sort planner V2 failed: target layout assignment");
             return false;
         }
+
+        OptimizeEquivalentTargetAssignmentsV2(records);
+        LogTargetsV2(records);
 
         ref array<int> currentGrid = new array<int>();
         ResetGrid(currentGrid, cargoWidth * cargoHeight);
