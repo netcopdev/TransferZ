@@ -96,7 +96,7 @@ class TransferZMaintenanceClient
             if (operation == TransferZMaintenanceOperation.SORT)
             {
                 Print("[TransferZ] Sort client executing local DayZDiag/single-player request");
-                int sortResult = TransferZMaintenanceService.Sort(player, source);
+                int sortResult = TransferZSortPlanner.Sort(player, source);
                 Print("[TransferZ] Sort client local result=" + sortResult.ToString());
                 TransferZMaintenanceResultState.PublishLocal(operation, source, sortResult >= 0);
                 return sortResult >= 0;
