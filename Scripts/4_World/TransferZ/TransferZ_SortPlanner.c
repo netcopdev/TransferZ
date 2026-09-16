@@ -1,3 +1,22 @@
+class TransferZSortPlannerState
+{
+    PlayerBase player;
+    EntityAI source;
+    ref array<ref TransferZSortRecord> records;
+    ref array<int> currentGrid;
+    ref array<int> targetGrid;
+    ref array<int> lockedRecords;
+    ref array<int> activeParking;
+    ref array<ref TransferZSortMove> moves;
+    int cargoWidth;
+    int cargoHeight;
+    int maxDepth;
+    int maxSteps;
+    int maxSearch;
+    int stepCount;
+    int searchCount;
+}
+
 class TransferZSortPlanner : TransferZMaintenanceService
 {
     protected static bool SortBeforeV3(TransferZSortRecord left, TransferZSortRecord right)
@@ -153,41 +172,41 @@ class TransferZSortPlanner : TransferZMaintenanceService
         return blockers.Count() > 0;
     }
 
-    protected static bool ParkRecordRecursiveV3(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, notnull array<int> currentGrid, notnull array<int> targetGrid, notnull array<int> lockedRecords, notnull array<int> activeParking, int cargoWidth, int cargoHeight, notnull array<ref TransferZSortMove> moves, int recordIndex, int protectedTargetIndex, int depth, int maxDepth, inout int stepCount, int maxSteps, inout int searchCount, int maxSearch)
+    protected static bool ParkRecordRecursiveV3(notnull TransferZSortPlannerState state, int recordIndex, int protectedTargetIndex, int depth)
     {
-        if (recordIndex < 0 || recordIndex >= records.Count())
+        if (recordIndex < 0 || recordIndex >= state.records.Count())
             return false;
-        if (lockedRecords.Get(recordIndex) != 0 || activeParking.Get(recordIndex) != 0)
+        if (state.lockedRecords.Get(recordIndex) != 0 || state.activeParking.Get(recordIndex) != 0)
             return false;
-        if (depth > maxDepth || stepCount >= maxSteps || searchCount >= maxSearch)
+        if (depth > state.maxDepth || state.stepCount >= state.maxSteps || state.searchCount >= state.maxSearch)
             return false;
 
-        searchCount++;
-        activeParking.Set(recordIndex, 1);
+        state.searchCount++;
+        state.activeParking.Set(recordIndex, 1);
 
         int directRow;
         int directCol;
-        if (FindTemporaryPlacement(player, source, records, currentGrid, targetGrid, cargoWidth, cargoHeight, recordIndex, protectedTargetIndex, false, directRow, directCol))
+        if (FindTemporaryPlacement(state.player, state.source, state.records, state.currentGrid, state.targetGrid, state.cargoWidth, state.cargoHeight, recordIndex, protectedTargetIndex, false, directRow, directCol))
         {
-            TransferZSortRecord directRecord = records.Get(recordIndex);
-            AddPlannedMove(moves, directRecord, directRow, directCol);
-            MoveRecordInGrid(currentGrid, cargoWidth, directRecord, recordIndex + 1, directRow, directCol);
-            stepCount++;
-            activeParking.Set(recordIndex, 0);
+            TransferZSortRecord directRecord = state.records.Get(recordIndex);
+            AddPlannedMove(state.moves, directRecord, directRow, directCol);
+            MoveRecordInGrid(state.currentGrid, state.cargoWidth, directRecord, recordIndex + 1, directRow, directCol);
+            state.stepCount++;
+            state.activeParking.Set(recordIndex, 0);
             Print("[TransferZ] Sort planner V3 parked record=" + recordIndex.ToString() + " direct=" + directRow.ToString() + "," + directCol.ToString());
             return true;
         }
 
-        TransferZSortRecord record = records.Get(recordIndex);
+        TransferZSortRecord record = state.records.Get(recordIndex);
         TransferZSortRecord protectedTarget;
         if (protectedTargetIndex >= 0)
-            protectedTarget = records.Get(protectedTargetIndex);
+            protectedTarget = state.records.Get(protectedTargetIndex);
 
-        for (int candidateRow = cargoHeight - record.height; candidateRow >= 0; candidateRow--)
+        for (int candidateRow = state.cargoHeight - record.height; candidateRow >= 0; candidateRow--)
         {
-            for (int candidateCol = cargoWidth - record.width; candidateCol >= 0; candidateCol--)
+            for (int candidateCol = state.cargoWidth - record.width; candidateCol >= 0; candidateCol--)
             {
-                if (searchCount >= maxSearch || stepCount >= maxSteps)
+                if (state.searchCount >= state.maxSearch || state.stepCount >= state.maxSteps)
                     break;
                 if (candidateRow == record.row && candidateCol == record.col)
                     continue;
@@ -195,79 +214,79 @@ class TransferZSortPlanner : TransferZMaintenanceService
                     continue;
                 if (protectedTarget && RectOverlaps(candidateRow, candidateCol, record.width, record.height, protectedTarget.targetRow, protectedTarget.targetCol, protectedTarget.width, protectedTarget.height))
                     continue;
-                if (CollidesWithUserReservation(player, source, record, candidateRow, candidateCol))
+                if (CollidesWithUserReservation(state.player, state.source, record, candidateRow, candidateCol))
                     continue;
 
                 ref array<int> blockers = new array<int>();
-                CollectBlockersV3(currentGrid, cargoWidth, candidateRow, candidateCol, record.width, record.height, recordIndex + 1, blockers);
+                CollectBlockersV3(state.currentGrid, state.cargoWidth, candidateRow, candidateCol, record.width, record.height, recordIndex + 1, blockers);
                 bool candidateBlockedByLocked = false;
                 bool candidateBlockedByActive = false;
                 foreach (int blockerIndex : blockers)
                 {
-                    if (lockedRecords.Get(blockerIndex) != 0)
+                    if (state.lockedRecords.Get(blockerIndex) != 0)
                         candidateBlockedByLocked = true;
-                    if (activeParking.Get(blockerIndex) != 0)
+                    if (state.activeParking.Get(blockerIndex) != 0)
                         candidateBlockedByActive = true;
                 }
                 if (candidateBlockedByLocked || candidateBlockedByActive)
                     continue;
 
-                int savedMoveCount = moves.Count();
-                int savedStepCount = stepCount;
+                int savedMoveCount = state.moves.Count();
+                int savedStepCount = state.stepCount;
                 ref array<int> savedRows = new array<int>();
                 ref array<int> savedCols = new array<int>();
-                CapturePositionsV3(records, savedRows, savedCols);
+                CapturePositionsV3(state.records, savedRows, savedCols);
 
                 bool cleared = true;
                 foreach (int recursiveBlocker : blockers)
                 {
-                    if (!ParkRecordRecursiveV3(player, source, records, currentGrid, targetGrid, lockedRecords, activeParking, cargoWidth, cargoHeight, moves, recursiveBlocker, protectedTargetIndex, depth + 1, maxDepth, stepCount, maxSteps, searchCount, maxSearch))
+                    if (!ParkRecordRecursiveV3(state, recursiveBlocker, protectedTargetIndex, depth + 1))
                     {
                         cleared = false;
                         break;
                     }
                 }
 
-                if (cleared && RectFree(currentGrid, cargoWidth, cargoHeight, candidateRow, candidateCol, record.width, record.height, recordIndex + 1))
+                if (cleared && RectFree(state.currentGrid, state.cargoWidth, state.cargoHeight, candidateRow, candidateCol, record.width, record.height, recordIndex + 1))
                 {
-                    AddPlannedMove(moves, record, candidateRow, candidateCol);
-                    MoveRecordInGrid(currentGrid, cargoWidth, record, recordIndex + 1, candidateRow, candidateCol);
-                    stepCount++;
-                    activeParking.Set(recordIndex, 0);
+                    AddPlannedMove(state.moves, record, candidateRow, candidateCol);
+                    MoveRecordInGrid(state.currentGrid, state.cargoWidth, record, recordIndex + 1, candidateRow, candidateCol);
+                    state.stepCount++;
+                    state.activeParking.Set(recordIndex, 0);
                     Print("[TransferZ] Sort planner V3 recursively parked record=" + recordIndex.ToString() + " at=" + candidateRow.ToString() + "," + candidateCol.ToString() + " depth=" + depth.ToString());
                     return true;
                 }
 
-                RestorePlannerStateV3(records, currentGrid, cargoWidth, cargoHeight, moves, savedMoveCount, savedRows, savedCols);
-                stepCount = savedStepCount;
+                RestorePlannerStateV3(state.records, state.currentGrid, state.cargoWidth, state.cargoHeight, state.moves, savedMoveCount, savedRows, savedCols);
+                state.stepCount = savedStepCount;
             }
         }
 
-        activeParking.Set(recordIndex, 0);
+        state.activeParking.Set(recordIndex, 0);
         return false;
     }
 
-    protected static bool EnsureRecordAtTargetV3(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, notnull array<int> currentGrid, notnull array<int> targetGrid, notnull array<int> lockedRecords, notnull array<int> activeParking, int cargoWidth, int cargoHeight, notnull array<ref TransferZSortMove> moves, int recordIndex, int maxDepth, inout int stepCount, int maxSteps, inout int searchCount, int maxSearch)
+    protected static bool EnsureRecordAtTargetV3(notnull TransferZSortPlannerState state, int recordIndex)
     {
-        TransferZSortRecord record = records.Get(recordIndex);
+        TransferZSortRecord record = state.records.Get(recordIndex);
         if (RecordAtTarget(record))
         {
-            lockedRecords.Set(recordIndex, 1);
+            state.lockedRecords.Set(recordIndex, 1);
             return true;
         }
 
         int clearGuard = 0;
-        int clearGuardLimit = records.Count() * 8 + 16;
-        while (!RectFree(currentGrid, cargoWidth, cargoHeight, record.targetRow, record.targetCol, record.width, record.height, recordIndex + 1))
+        int clearGuardLimit = state.records.Count() * 8 + 16;
+        while (!RectFree(state.currentGrid, state.cargoWidth, state.cargoHeight, record.targetRow, record.targetCol, record.width, record.height, recordIndex + 1))
         {
-            if (clearGuard >= clearGuardLimit || stepCount >= maxSteps || searchCount >= maxSearch)
+            if (clearGuard >= clearGuardLimit || state.stepCount >= state.maxSteps || state.searchCount >= state.maxSearch)
                 return false;
 
-            int blockerIndex = FindBlockerForTarget(records, currentGrid, cargoWidth, recordIndex);
-            if (blockerIndex < 0 || lockedRecords.Get(blockerIndex) != 0)
+            int blockerIndex = FindBlockerForTarget(state.records, state.currentGrid, state.cargoWidth, recordIndex);
+            if (blockerIndex < 0 || state.lockedRecords.Get(blockerIndex) != 0)
                 return false;
 
-            if (!ParkRecordRecursiveV3(player, source, records, currentGrid, targetGrid, lockedRecords, activeParking, cargoWidth, cargoHeight, moves, blockerIndex, recordIndex, 0, maxDepth, stepCount, maxSteps, searchCount, maxSearch))
+            if (!ParkRecordRecursiveV3(state, blockerIndex, recordIndex, 0))
             {
                 Print("[TransferZ] Sort planner V3 could not evacuate blocker=" + blockerIndex.ToString() + " for target=" + recordIndex.ToString());
                 return false;
@@ -275,13 +294,13 @@ class TransferZSortPlanner : TransferZMaintenanceService
             clearGuard++;
         }
 
-        if (CollidesWithUserReservation(player, source, record, record.targetRow, record.targetCol))
+        if (CollidesWithUserReservation(state.player, state.source, record, record.targetRow, record.targetCol))
             return false;
 
-        AddPlannedMove(moves, record, record.targetRow, record.targetCol);
-        MoveRecordInGrid(currentGrid, cargoWidth, record, recordIndex + 1, record.targetRow, record.targetCol);
-        stepCount++;
-        lockedRecords.Set(recordIndex, 1);
+        AddPlannedMove(state.moves, record, record.targetRow, record.targetCol);
+        MoveRecordInGrid(state.currentGrid, state.cargoWidth, record, recordIndex + 1, record.targetRow, record.targetCol);
+        state.stepCount++;
+        state.lockedRecords.Set(recordIndex, 1);
         Print("[TransferZ] Sort planner V3 locked record=" + recordIndex.ToString() + " at=" + record.targetRow.ToString() + "," + record.targetCol.ToString());
         return true;
     }
@@ -298,53 +317,60 @@ class TransferZSortPlanner : TransferZMaintenanceService
         OptimizeEquivalentTargetAssignmentsV3(records);
         LogTargetsV3(records);
 
-        ref array<int> currentGrid = new array<int>();
-        ResetGrid(currentGrid, cargoWidth * cargoHeight);
+        ref TransferZSortPlannerState state = new TransferZSortPlannerState();
+        state.player = player;
+        state.source = source;
+        state.records = records;
+        state.currentGrid = new array<int>();
+        state.targetGrid = new array<int>();
+        state.lockedRecords = new array<int>();
+        state.activeParking = new array<int>();
+        state.moves = moves;
+        state.cargoWidth = cargoWidth;
+        state.cargoHeight = cargoHeight;
+
+        ResetGrid(state.currentGrid, cargoWidth * cargoHeight);
         for (int currentIndex = 0; currentIndex < records.Count(); currentIndex++)
         {
             TransferZSortRecord currentRecord = records.Get(currentIndex);
-            if (!RectFree(currentGrid, cargoWidth, cargoHeight, currentRecord.row, currentRecord.col, currentRecord.width, currentRecord.height))
+            if (!RectFree(state.currentGrid, cargoWidth, cargoHeight, currentRecord.row, currentRecord.col, currentRecord.width, currentRecord.height))
             {
                 Print("[TransferZ] Sort planner V3 failed: overlapping current cargo geometry at record=" + currentIndex.ToString());
                 return false;
             }
-            MarkRect(currentGrid, cargoWidth, currentRecord.row, currentRecord.col, currentRecord.width, currentRecord.height, currentIndex + 1);
+            MarkRect(state.currentGrid, cargoWidth, currentRecord.row, currentRecord.col, currentRecord.width, currentRecord.height, currentIndex + 1);
         }
 
         if (AllRecordsAtTarget(records))
             return true;
 
-        ref array<int> targetGrid = new array<int>();
-        BuildTargetGrid(records, cargoWidth, cargoHeight, targetGrid);
+        BuildTargetGrid(records, cargoWidth, cargoHeight, state.targetGrid);
+        ResetGrid(state.lockedRecords, records.Count());
+        ResetGrid(state.activeParking, records.Count());
 
-        ref array<int> lockedRecords = new array<int>();
-        ref array<int> activeParking = new array<int>();
-        ResetGrid(lockedRecords, records.Count());
-        ResetGrid(activeParking, records.Count());
+        state.maxSteps = records.Count() * 32 + 128;
+        if (state.maxSteps < 192)
+            state.maxSteps = 192;
+        if (state.maxSteps > 1024)
+            state.maxSteps = 1024;
 
-        int maxSteps = records.Count() * 32 + 128;
-        if (maxSteps < 192)
-            maxSteps = 192;
-        if (maxSteps > 1024)
-            maxSteps = 1024;
+        state.maxSearch = records.Count() * records.Count() * 8 + 64;
+        if (state.maxSearch < 256)
+            state.maxSearch = 256;
+        if (state.maxSearch > 2048)
+            state.maxSearch = 2048;
 
-        int maxSearch = records.Count() * records.Count() * 8 + 64;
-        if (maxSearch < 256)
-            maxSearch = 256;
-        if (maxSearch > 2048)
-            maxSearch = 2048;
-
-        int maxDepth = records.Count() + 4;
-        int stepCount = 0;
-        int searchCount = 0;
-        Print("[TransferZ] Sort planner V3 active records=" + records.Count().ToString() + " maxSteps=" + maxSteps.ToString() + " maxSearch=" + maxSearch.ToString());
+        state.maxDepth = records.Count() + 4;
+        state.stepCount = 0;
+        state.searchCount = 0;
+        Print("[TransferZ] Sort planner V3 active records=" + records.Count().ToString() + " maxSteps=" + state.maxSteps.ToString() + " maxSearch=" + state.maxSearch.ToString());
 
         for (int planIndex = 0; planIndex < records.Count(); planIndex++)
         {
-            if (!EnsureRecordAtTargetV3(player, source, records, currentGrid, targetGrid, lockedRecords, activeParking, cargoWidth, cargoHeight, moves, planIndex, maxDepth, stepCount, maxSteps, searchCount, maxSearch))
+            if (!EnsureRecordAtTargetV3(state, planIndex))
             {
                 moves.Clear();
-                Print("[TransferZ] Sort planner V3 stopped: target=" + planIndex.ToString() + " steps=" + stepCount.ToString() + "/" + maxSteps.ToString() + " search=" + searchCount.ToString() + "/" + maxSearch.ToString());
+                Print("[TransferZ] Sort planner V3 stopped: target=" + planIndex.ToString() + " steps=" + state.stepCount.ToString() + "/" + state.maxSteps.ToString() + " search=" + state.searchCount.ToString() + "/" + state.maxSearch.ToString());
                 return false;
             }
         }
@@ -356,7 +382,7 @@ class TransferZSortPlanner : TransferZMaintenanceService
             return false;
         }
 
-        Print("[TransferZ] Sort planner V3 solved moves=" + moves.Count().ToString() + " steps=" + stepCount.ToString() + " search=" + searchCount.ToString());
+        Print("[TransferZ] Sort planner V3 solved moves=" + moves.Count().ToString() + " steps=" + state.stepCount.ToString() + " search=" + state.searchCount.ToString());
         return true;
     }
 
