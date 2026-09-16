@@ -8,9 +8,10 @@ The target layout is deterministic and keeps each item's current orientation.
 
 - Items are ordered primarily by footprint, largest first.
 - For equal footprints, wider items are ordered before taller items. Because Sort preserves orientation, this reduces early vertical fragmentation and tends to create usable staging space as large items settle.
+- For items with identical dimensions, current spatial order is preserved before the type tie-break. This avoids unnecessary same-size swap cycles when no equally large temporary staging rectangle exists.
 - The final layout is packed from the top of the cargo grid downward.
 - Smaller items follow larger items immediately and fill the earliest available gaps where they fit; there is no dedicated bottom zone for small items.
-- Type is used as a stable tie-break after footprint and shape.
+- Type is used only as the final stable tie-break after footprint, shape, and current spatial order.
 - DayZ user-reserved inventory cells are treated as unavailable.
 
 ## Move planning
