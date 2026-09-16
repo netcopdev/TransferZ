@@ -51,6 +51,127 @@ class TransferZSortPlanner : TransferZMaintenanceService
         }
     }
 
+    protected static bool TargetBeforeV3(TransferZSortRecord left, TransferZSortRecord right)
+    {
+        if (left.targetRow != right.targetRow)
+            return left.targetRow < right.targetRow;
+        if (left.targetCol != right.targetCol)
+            return left.targetCol < right.targetCol;
+
+        int leftArea = left.width * left.height;
+        int rightArea = right.width * right.height;
+        if (leftArea != rightArea)
+            return leftArea > rightArea;
+        if (left.width != right.width)
+            return left.width > right.width;
+        return left.typeHash < right.typeHash;
+    }
+
+    protected static void SortRecordsByTargetV3(notnull array<ref TransferZSortRecord> records)
+    {
+        for (int recordIndex = 1; recordIndex < records.Count(); recordIndex++)
+        {
+            ref TransferZSortRecord current = records.Get(recordIndex);
+            int previousIndex = recordIndex - 1;
+            while (previousIndex >= 0 && TargetBeforeV3(current, records.Get(previousIndex)))
+            {
+                records.Set(previousIndex + 1, records.Get(previousIndex));
+                previousIndex--;
+            }
+            records.Set(previousIndex + 1, current);
+        }
+    }
+
+    protected static int FindFirstTargetAnchorV3(notnull array<int> targetGrid, int cargoWidth, int cargoHeight)
+    {
+        for (int row = 0; row < cargoHeight; row++)
+        {
+            for (int col = 0; col < cargoWidth; col++)
+            {
+                if (targetGrid.Get(row * cargoWidth + col) == 0)
+                    return row * cargoWidth + col;
+            }
+        }
+        return -1;
+    }
+
+    protected static bool BetterAnchorCandidateV3(TransferZSortRecord candidate, TransferZSortRecord best)
+    {
+        if (!best)
+            return true;
+
+        int candidateArea = candidate.width * candidate.height;
+        int bestArea = best.width * best.height;
+        if (candidateArea != bestArea)
+            return candidateArea > bestArea;
+        if (candidate.width != best.width)
+            return candidate.width > best.width;
+        if (candidate.height != best.height)
+            return candidate.height > best.height;
+        if (candidate.row != best.row)
+            return candidate.row < best.row;
+        if (candidate.col != best.col)
+            return candidate.col < best.col;
+        return candidate.typeHash < best.typeHash;
+    }
+
+    protected static bool AssignCompactTargetsV3(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight)
+    {
+        ref array<int> targetGrid = new array<int>();
+        ref array<int> assigned = new array<int>();
+        ResetGrid(targetGrid, cargoWidth * cargoHeight);
+        ResetGrid(assigned, records.Count());
+
+        int assignedCount = 0;
+        int skippedCells = 0;
+        while (assignedCount < records.Count())
+        {
+            int anchor = FindFirstTargetAnchorV3(targetGrid, cargoWidth, cargoHeight);
+            if (anchor < 0)
+                return false;
+
+            int anchorRow = anchor / cargoWidth;
+            int anchorCol = anchor - anchorRow * cargoWidth;
+            int bestIndex = -1;
+            TransferZSortRecord bestRecord;
+
+            for (int candidateIndex = 0; candidateIndex < records.Count(); candidateIndex++)
+            {
+                if (assigned.Get(candidateIndex) != 0)
+                    continue;
+
+                TransferZSortRecord candidate = records.Get(candidateIndex);
+                if (!RectFree(targetGrid, cargoWidth, cargoHeight, anchorRow, anchorCol, candidate.width, candidate.height))
+                    continue;
+                if (CollidesWithUserReservation(player, source, candidate, anchorRow, anchorCol))
+                    continue;
+                if (!BetterAnchorCandidateV3(candidate, bestRecord))
+                    continue;
+
+                bestIndex = candidateIndex;
+                bestRecord = candidate;
+            }
+
+            if (bestIndex < 0)
+            {
+                targetGrid.Set(anchor, -1);
+                skippedCells++;
+                if (skippedCells > cargoWidth * cargoHeight)
+                    return false;
+                continue;
+            }
+
+            bestRecord.targetRow = anchorRow;
+            bestRecord.targetCol = anchorCol;
+            MarkRect(targetGrid, cargoWidth, anchorRow, anchorCol, bestRecord.width, bestRecord.height, bestIndex + 1);
+            assigned.Set(bestIndex, 1);
+            assignedCount++;
+        }
+
+        Print("[TransferZ] Sort planner V3 compact target packing assigned=" + assignedCount.ToString() + " skippedCells=" + skippedCells.ToString());
+        return true;
+    }
+
     protected static int CountForeignCurrentOverlapsV3(notnull array<ref TransferZSortRecord> records, int recordIndex, int targetRow, int targetCol)
     {
         TransferZSortRecord record = records.Get(recordIndex);
@@ -308,13 +429,18 @@ class TransferZSortPlanner : TransferZMaintenanceService
     protected static bool BuildSortPlanV3(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<ref TransferZSortMove> moves)
     {
         moves.Clear();
-        if (!AssignTargets(player, source, records, cargoWidth, cargoHeight))
+        if (!AssignCompactTargetsV3(player, source, records, cargoWidth, cargoHeight))
         {
-            Print("[TransferZ] Sort planner V3 failed: compact target layout assignment");
-            return false;
+            Print("[TransferZ] Sort planner V3 compact target packing failed; retrying deterministic first-fit targets");
+            if (!AssignTargets(player, source, records, cargoWidth, cargoHeight))
+            {
+                Print("[TransferZ] Sort planner V3 failed: target layout assignment");
+                return false;
+            }
         }
 
         OptimizeEquivalentTargetAssignmentsV3(records);
+        SortRecordsByTargetV3(records);
         LogTargetsV3(records);
 
         ref TransferZSortPlannerState state = new TransferZSortPlannerState();
