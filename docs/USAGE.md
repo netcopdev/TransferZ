@@ -112,10 +112,11 @@ Current behavior:
 
 - larger direct cargo items are placed first;
 - item type contributes to deterministic grouping after size priority;
-- each item's existing orientation is preserved;
+- non-square items may use either cargo orientation when the alternate orientation improves fit or makes a safe in-container rearrangement possible;
+- when two orientations are otherwise equivalent, Sort prefers to keep the item's current orientation to avoid unnecessary visual churn;
 - nested containers are treated as ordinary direct cargo items and stay intact;
 - DayZ user-reserved cells, including the placeholder for an item currently held in hands, are treated as occupied;
-- all movement uses native DayZ inventory locations within the same cargo owner;
+- all movement uses native DayZ inventory locations within the same cargo owner, including the selected orientation/flip;
 - if no safe in-container move plan exists, the operation is skipped rather than moving items to the ground or another temporary container.
 
 Sort never deletes/recreates items.
@@ -280,7 +281,7 @@ Hold `Alt` and left-drag one representative stack of that exact classname from t
 
 ### Repack a messy container
 
-Click Sort on the right side of that container's header. TransferZ attempts a deterministic in-place compaction using only that container's cargo grid and preserves active DayZ reserved locations.
+Click Sort on the right side of that container's header. TransferZ attempts a deterministic in-place compaction using only that container's cargo grid, may rotate non-square items where that improves packing, and preserves active DayZ reserved locations.
 
 ### Consolidate partial stacks
 
