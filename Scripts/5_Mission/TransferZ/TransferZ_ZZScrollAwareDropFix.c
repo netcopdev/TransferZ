@@ -49,10 +49,7 @@ modded class TransferZHeaderControls
         if (right <= left || bottom <= top)
             return false;
 
-        bool inside = mouseX >= left && mouseX <= right && mouseY >= top && mouseY <= bottom;
-        if (inside)
-            Print("[TransferZ][DragDiag] SCROLL_HIT widget=" + widget.GetName() + " rawY=" + y.ToString() + " scroll=" + scrollOffset.ToString() + " visibleY=" + top.ToString() + ".." + bottom.ToString());
-        return inside;
+        return mouseX >= left && mouseX <= right && mouseY >= top && mouseY <= bottom;
     }
 
     override void UpdateDropTargetPosition()
