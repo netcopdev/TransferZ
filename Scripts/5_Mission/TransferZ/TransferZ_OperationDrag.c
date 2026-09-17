@@ -172,3 +172,35 @@ class TransferZOperationDrag
             s_VicinityItems.Clear();
     }
 }
+
+modded class WidgetEventHandler
+{
+    protected void TransferZRefreshDropTargetsAfterScroll()
+    {
+        if (TransferZOperationDrag.IsActive())
+            TransferZHeaderControls.SetOperationDropTargetsVisible(true);
+    }
+
+    override bool OnMouseWheel(Widget w, int x, int y, int wheel)
+    {
+        if (w && TransferZOperationDrag.IsActive() && w.GetName() == "TransferZHeaderDropTarget")
+        {
+            // TransferZ's overlay handlers already negate the wheel value before
+            // calling VScrollStep. Feed the opposite value here so the resulting
+            // scroll direction matches vanilla DayZ.
+            bool handled = super.OnMouseWheel(w, x, y, -wheel);
+
+            // The overlays are detached top-level widgets. Scrolling moves their
+            // underlying container widgets, so refresh every drop target rather
+            // than only the overlay that received the wheel event. Repeat after
+            // layout settles so a later mouse release cannot resolve to the
+            // container that occupied this screen rectangle before the scroll.
+            TransferZRefreshDropTargetsAfterScroll();
+            GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(TransferZRefreshDropTargetsAfterScroll, 0, false);
+            GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(TransferZRefreshDropTargetsAfterScroll, 30, false);
+            return handled;
+        }
+
+        return super.OnMouseWheel(w, x, y, wheel);
+    }
+}
