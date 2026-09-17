@@ -15,17 +15,25 @@ The target layout is deterministic and rotation-aware.
 - DayZ user-reserved inventory cells are treated as unavailable.
 - If the compact anchor packer cannot assign every item, Sort falls back to a deterministic rotation-aware first-fit target layout rather than failing solely because of the packing heuristic.
 
-## Execution and temporary staging
+## Transactional execution
 
-Sort computes the complete final layout before executing the first move. Items already at their final row, column and orientation remain in place.
+Sort snapshots the exact original row, column and orientation of every direct cargo child before any move. It computes the complete target layout before execution and is a no-op when that layout already matches the snapshot.
 
-Every other direct cargo child is temporarily staged before final placement. For an external source container, TransferZ first tries free cargo space in the requesting player's inventory. If no suitable player cargo location is available, or the source itself is inside the player's inventory hierarchy, TransferZ uses DayZ's normal vicinity/ground drop path around the requesting player.
+When movement is required, Sort temporarily stages every tracked direct cargo item through DayZ's normal vicinity/ground drop path. Staging the complete set deliberately empties the source cargo, which removes in-cargo move cycles and makes both final placement and rollback deterministic. Player inventory is not used as an implicit staging area.
 
-After staging, the same item entities are moved back into the source cargo at their exact final target locations and orientations through validated native inventory moves. Because staging removes the need to solve cycles inside a nearly full cargo grid, execution is linear rather than an exponentially branching rearrangement search.
+With the source empty, Sort preflights every exact target move before committing the first target placement. The same original item entities are then moved back into the source at their exact target rows, columns and orientations through validated native inventory moves. No weapon, magazine, container or other item is copied or reconstructed.
 
-Temporary staging can trigger normal DayZ inventory enter/exit or drop callbacks because the items genuinely move through those locations. It does not copy item state or reconstruct weapons, magazines, nested containers, attachments, chamber contents, or mod-defined variables.
+Success is reported only after every tracked item is verified at its target location. If staging, target preflight, target placement, or final verification fails, Sort enters synchronous rollback:
 
-If staging or final placement fails, Sort reports failure and makes a best-effort attempt to return any still-staged items to free space in the source cargo. No item is deliberately deleted, recreated, or converted into a replacement entity.
+- any tracked item currently in the source at a non-original location is evacuated again;
+- every tracked item is restored to its exact original row, column and orientation from the snapshot;
+- rollback is verified before the failed operation returns;
+- no tracked item is intentionally left in vicinity;
+- if DayZ unexpectedly refuses an exact rollback move after repeated recovery passes, TransferZ performs a final containment attempt back into the source and emits a `CRITICAL rollback incomplete` diagnostic. This is treated as a hard invariant violation, not a successful or acceptable partial sort.
+
+The rollback design means a normal failed Sort should leave the source exactly as it was before the button was pressed. Absolute recovery still depends on DayZ's native inventory API accepting the reverse moves; TransferZ does not bypass or corrupt native inventory state to force a move.
+
+Temporary staging can trigger normal DayZ inventory/drop callbacks because the same entities genuinely move through vicinity. Chamber contents, attachments and mod-defined entity state are preserved by object identity rather than manually serialized and recreated.
 
 ## UI feedback
 
