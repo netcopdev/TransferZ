@@ -1,7 +1,7 @@
-// ScrollWidget children report their logical content-space screen position even
-// after the inventory pane has scrolled. TransferZ drop overlays are detached
-// top-level widgets, so both hit-testing and overlay placement must explicitly
-// apply the owning scroll widget's vertical offset.
+// Widget.GetScreenPos() already reports the current on-screen position after a
+// ScrollWidget has moved its content. Detached TransferZ drop overlays therefore
+// copy that live screen rectangle and only clip it to the owning scroll viewport;
+// applying GetVScrollPos() again shifts targets upward into the next container.
 modded class TransferZHeaderControls
 {
     override static bool TransferZPointInsideClippedWidget(Widget widget, ScrollWidget scroll, int mouseX, int mouseY)
@@ -18,14 +18,10 @@ modded class TransferZHeaderControls
         if (w <= 0.0 || h <= 0.0)
             return false;
 
-        float scrollOffset = 0.0;
-        if (scroll && scroll.IsVisibleHierarchy())
-            scrollOffset = scroll.GetVScrollPos();
-
         float left = x;
-        float top = y - scrollOffset;
-        float right = left + w;
-        float bottom = top + h;
+        float top = y;
+        float right = x + w;
+        float bottom = y + h;
 
         if (scroll && scroll.IsVisibleHierarchy())
         {
@@ -49,7 +45,7 @@ modded class TransferZHeaderControls
         if (right <= left || bottom <= top)
             return false;
 
-        return mouseX >= left && mouseX <= right && mouseY >= top && mouseY <= bottom;
+        return mouseX >= left && mouseX < right && mouseY >= top && mouseY < bottom;
     }
 
     override void UpdateDropTargetPosition()
@@ -67,8 +63,6 @@ modded class TransferZHeaderControls
         ScrollWidget scroll = FindScrollWidget();
         if (scroll && scroll.IsVisibleHierarchy())
         {
-            y -= scroll.GetVScrollPos();
-
             float sx;
             float sy;
             float sw;
