@@ -1,6 +1,6 @@
 # Sort behavior
 
-TransferZ Sort is a server-authoritative, container-local rearrangement of direct cargo children. It never recreates items and never uses another container or the ground as temporary storage.
+TransferZ Sort is a server-authoritative rearrangement of a container's direct cargo children. It never deletes or recreates sorted items: the same `EntityAI` objects are moved through DayZ's native inventory system from their current location to temporary staging and then back into the source cargo.
 
 ## Layout policy
 
@@ -11,20 +11,21 @@ The target layout is deterministic and rotation-aware.
 - Equal-quality choices prefer the item's current orientation so Sort does not rotate items without a packing benefit.
 - This lets long weapons, cases, bandages, magazines, and other rectangular items use either orientation when that improves fit and overall packing.
 - Equivalent-size target assignments are optimized before movement so interchangeable shapes do not create unnecessary identity swaps.
-- Final target execution prioritizes larger target rectangles before small fillers. This preserves free working space while the difficult moves are settled and reduces fragmentation during rearrangement.
-- Smaller items still fill otherwise wasted gaps in the compact target layout; there is no dedicated bottom zone for small items.
+- Smaller items fill otherwise wasted gaps in the compact target layout; there is no dedicated bottom zone for small items.
 - DayZ user-reserved inventory cells are treated as unavailable.
 - If the compact anchor packer cannot assign every item, Sort falls back to a deterministic rotation-aware first-fit target layout rather than failing solely because of the packing heuristic.
 
-## Move planning
+## Execution and temporary staging
 
-Sort first computes the complete final layout, then finds a legal in-container sequence to reach it. Once an item reaches a completed final target it is locked and is not disturbed again.
+Sort computes the complete final layout before executing the first move. Items already at their final row, column and orientation remain in place.
 
-When a final target is occupied, the blocking item is evacuated inside the same cargo. The planner first tries direct free space, biased toward lower cargo rows and considering both orientations. If no suitable rectangle is currently free, it recursively clears a temporary rectangle by moving its blockers first. Candidate temporary rectangles with fewer blockers are explored first.
+Every other direct cargo child is temporarily staged before final placement. For an external source container, TransferZ first tries free cargo space in the requesting player's inventory. If no suitable player cargo location is available, or the source itself is inside the player's inventory hierarchy, TransferZ uses DayZ's normal vicinity/ground drop path around the requesting player.
 
-Recursive evacuation is bounded by move, search, and depth limits. Failed search branches restore the virtual cargo state before another candidate is tried, so speculative planning does not leak partial moves. The planner memoizes failed recursive parking states, preventing equivalent cargo arrangements from being rediscovered repeatedly. While a temporary rectangle is being cleared, V6 reserves that rectangle through the entire nested evacuation branch so recursive blocker moves cannot park back into the space their parent is trying to free. Nested reservations are included in failed-state identity. Speculative parking branches are not individually logged; only useful planner summaries and failures are emitted, avoiding diagnostic logging itself becoming a performance cost.
+After staging, the same item entities are moved back into the source cargo at their exact final target locations and orientations through validated native inventory moves. Because staging removes the need to solve cycles inside a nearly full cargo grid, execution is linear rather than an exponentially branching rearrangement search.
 
-Every planned move is executed later through DayZ native inventory APIs and revalidated at execution time. If bounded planning or native move validation fails, Sort reports failure rather than moving items outside the container, recreating items, or dropping them.
+Temporary staging can trigger normal DayZ inventory enter/exit or drop callbacks because the items genuinely move through those locations. It does not copy item state or reconstruct weapons, magazines, nested containers, attachments, chamber contents, or mod-defined variables.
+
+If staging or final placement fails, Sort reports failure and makes a best-effort attempt to return any still-staged items to free space in the source cargo. No item is deliberately deleted, recreated, or converted into a replacement entity.
 
 ## UI feedback
 
