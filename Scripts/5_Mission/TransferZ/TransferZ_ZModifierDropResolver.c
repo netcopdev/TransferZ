@@ -76,7 +76,6 @@ modded class TransferZHeaderControls
         int mouseX;
         int mouseY;
         GetMousePos(mouseX, mouseY);
-        Print("[TransferZ][DragDiag] RESOLVE mouse=" + mouseX.ToString() + "," + mouseY.ToString());
 
         EntityAI source = TransferZOperationDrag.GetSource();
         TransferZHeaderControls best;
@@ -107,9 +106,7 @@ modded class TransferZHeaderControls
                 controls.m_DropHost.GetScreenSize(w, h);
 
                 ScrollWidget scroll = controls.FindScrollWidget();
-                bool inside = TransferZPointInsideClippedWidget(controls.m_DropHost, scroll, mouseX, mouseY);
-                Print("[TransferZ][DragDiag] CANDIDATE entity=" + controls.m_Entity.GetType() + " pos=" + x.ToString() + "," + y.ToString() + " size=" + w.ToString() + "x" + h.ToString() + " inside=" + inside.ToString());
-                if (!inside)
+                if (!TransferZPointInsideClippedWidget(controls.m_DropHost, scroll, mouseX, mouseY))
                     continue;
 
                 float area = w * h;
@@ -123,7 +120,6 @@ modded class TransferZHeaderControls
 
         if (best)
         {
-            Print("[TransferZ][DragDiag] RESOLVE_CHOSEN cargo=" + best.m_Entity.GetType());
             bool handled = TransferZOperationDrag.Complete(best.m_Entity);
             TransferZOperationDrag.ClearWheelCapture();
             SetOperationDropTargetsVisible(false);
@@ -131,7 +127,6 @@ modded class TransferZHeaderControls
             return handled;
         }
 
-        Print("[TransferZ][DragDiag] RESOLVE_NO_CARGO trying vicinity");
         bool vicinityHandled = TransferZVicinityHeaderControls.CompleteModifierDragAtMousePosition(mouseX, mouseY);
         TransferZOperationDrag.ClearWheelCapture();
         return vicinityHandled;
@@ -141,13 +136,6 @@ modded class TransferZHeaderControls
     {
         if (TransferZOperationDrag.ShouldResolveWheelCapturedDropAtMouse())
         {
-            string captured = "<none>";
-            if (m_Entity)
-                captured = m_Entity.GetType();
-            int mouseX;
-            int mouseY;
-            GetMousePos(mouseX, mouseY);
-            Print("[TransferZ][DragDiag] REGISTERED_DROP captured=" + captured + " event=" + x.ToString() + "," + y.ToString() + " actual=" + mouseX.ToString() + "," + mouseY.ToString());
             CompleteModifierDragAtMousePosition();
             return;
         }
@@ -209,7 +197,6 @@ modded class TransferZVicinityHeaderControls
         if (mouseX < left || mouseX > right || mouseY < top || mouseY > bottom)
             return false;
 
-        Print("[TransferZ][DragDiag] RESOLVE_CHOSEN vicinity");
         bool handled = TransferZOperationDrag.CompleteToVicinity();
         TransferZHeaderControls.SetOperationDropTargetsVisible(false);
         TransferZHeaderControls.RefreshAll();
@@ -217,11 +204,8 @@ modded class TransferZVicinityHeaderControls
     }
 }
 
-// This file intentionally sorts after TransferZ_OperationDrag.c. The earlier
-// WidgetEventHandler layer keeps the modifier session alive across native Icon
-// teardown. This outer layer resolves the final destination from live screen
-// geometry and also intercepts the registered drop callback when mouse capture
-// remains stuck on the first overlay that handled the wheel.
+// Loaded after TransferZ_OperationDrag.c. Keep modifier batch state alive across
+// native Icon teardown and resolve the final destination from live screen geometry.
 modded class WidgetEventHandler
 {
     override bool OnMouseWheel(Widget w, int x, int y, int wheel)
@@ -236,13 +220,6 @@ modded class WidgetEventHandler
     {
         if (button == MouseState.LEFT && TransferZOperationDrag.IsModifierItemDrag())
         {
-            string widgetName = "<null>";
-            if (w)
-                widgetName = w.GetName();
-            int mouseX;
-            int mouseY;
-            GetMousePos(mouseX, mouseY);
-            Print("[TransferZ][DragDiag] MOUSE_UP widget=" + widgetName + " event=" + x.ToString() + "," + y.ToString() + " actual=" + mouseX.ToString() + "," + mouseY.ToString());
             TransferZHeaderControls.CompleteModifierDragAtMousePosition();
             return true;
         }
