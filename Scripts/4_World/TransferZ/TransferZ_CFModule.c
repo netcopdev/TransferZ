@@ -5,7 +5,7 @@ class TransferZCFModule : CF_ModuleWorld
     {
         super.OnInit();
         EnableRPC();
-        Print("[TransferZ] BUILD MARKER SORT-V5-20260917-A");
+        Print("[TransferZ] BUILD MARKER SORT-V6-20260917-A");
     }
 
     override int GetRPCMin()
@@ -42,6 +42,6 @@ class TransferZCFModule : CF_ModuleWorld
         else if (rpc.ID == TransferZNestedUnpackRPC.REQUEST)
             TransferZNestedUnpackService.HandleRequest(player, rpc.Sender, rpc.Context);
         else if (rpc.ID == TransferZMaintenanceRPC.REQUEST)
-            TransferZSortPlannerV5.HandleRequest(player, rpc.Sender, rpc.Context);
+            TransferZSortPlannerV6.HandleRequest(player, rpc.Sender, rpc.Context);
     }
 }
