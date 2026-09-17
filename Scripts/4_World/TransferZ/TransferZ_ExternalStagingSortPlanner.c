@@ -1,137 +1,100 @@
 class TransferZExternalStagingSortPlanner : TransferZSortPlanner
 {
-    protected static bool TryStageInPlayerCargo(PlayerBase player, EntityAI source, EntityAI item)
+    protected static bool RecordAtCargoLocation(EntityAI source, TransferZSortRecord record, int row, int col, bool flip)
     {
-        if (!player || !source || !item)
+        if (!source || !record || !record.item)
             return false;
 
-        EntityAI sourceRoot = source.GetHierarchyRoot();
-        if (!sourceRoot)
-            sourceRoot = source;
-
-        // When sorting a container already inside the player's hierarchy,
-        // FindFreeLocationFor may simply resolve back into the source itself.
-        // Use vicinity staging for that case until explicit alternate-container enumeration exists.
-        if (sourceRoot == player)
+        InventoryLocation current = new InventoryLocation();
+        if (!record.item.GetInventory().GetCurrentInventoryLocation(current))
             return false;
 
-        if (!TransferZServerService.IsReachable(player, item))
-            return false;
-        if (!item.GetInventory().CanRemoveEntity())
-            return false;
-
-        InventoryLocation src = new InventoryLocation();
-        if (!item.GetInventory().GetCurrentInventoryLocation(src))
-            return false;
-
-        EntityAI sourceParent = src.GetParent();
-        if (sourceParent && src.GetType() == InventoryLocationType.CARGO && !sourceParent.CanReleaseCargo(item))
-            return false;
-
-        InventoryLocation dst = new InventoryLocation();
-        if (!player.GetInventory().FindFreeLocationFor(item, FindInventoryLocationType.CARGO, dst))
-            return false;
-        if (!dst.IsValid() || dst.GetType() != InventoryLocationType.CARGO)
-            return false;
-
-        EntityAI destinationParent = dst.GetParent();
-        if (!destinationParent)
-            return false;
-        if (destinationParent == source || TransferZServerService.IsDescendantOf(destinationParent, source))
-            return false;
-
-        EntityAI destinationRoot = destinationParent.GetHierarchyRoot();
-        if (!destinationRoot)
-            destinationRoot = destinationParent;
-        if (destinationRoot != player)
-            return false;
-
-        if (!destinationParent.CanReceiveItemIntoCargo(item))
-            return false;
-
-        HumanInventory humanInventory = player.GetHumanInventory();
-        if (humanInventory && humanInventory.FindCollidingUserReservedLocationIndex(item, dst) >= 0)
-            return false;
-
-        if (!GameInventory.CheckMoveToDstRequest(player, src, dst, GameInventory.c_MaxItemDistanceRadius))
-            return false;
-        if (!GameInventory.LocationCanMoveEntity(src, dst))
-            return false;
-
-        InventoryMode moveMode = InventoryMode.SERVER;
-        if (!GetGame().IsMultiplayer())
-            moveMode = InventoryMode.LOCAL;
-
-        return player.GetInventory().TakeToDst(moveMode, src, dst);
+        return current.GetType() == InventoryLocationType.CARGO && current.GetParent() == source && current.GetRow() == row && current.GetCol() == col && current.GetFlip() == flip;
     }
 
-    protected static bool TryStageExternally(PlayerBase player, EntityAI source, EntityAI item, out bool usedPlayerCargo)
+    protected static bool RecordAtOriginalLocation(EntityAI source, TransferZSortRecord record)
     {
-        usedPlayerCargo = false;
+        return RecordAtCargoLocation(source, record, record.row, record.col, record.flip);
+    }
 
-        if (TryStageInPlayerCargo(player, source, item))
+    protected static bool RecordAtTargetLocation(EntityAI source, TransferZSortRecord record, int recordIndex, notnull array<int> targetFlips)
+    {
+        bool targetFlip = targetFlips.Get(recordIndex) != 0;
+        return RecordAtCargoLocation(source, record, record.targetRow, record.targetCol, targetFlip);
+    }
+
+    protected static bool VerifyOriginalLayout(EntityAI source, notnull array<ref TransferZSortRecord> records)
+    {
+        for (int recordIndex = 0; recordIndex < records.Count(); recordIndex++)
         {
-            usedPlayerCargo = true;
-            return true;
+            if (!RecordAtOriginalLocation(source, records.Get(recordIndex)))
+                return false;
         }
-
-        return TransferZServerService.TryMoveToVicinity(player, item);
+        return true;
     }
 
-    protected static bool TryMoveToExactSortTarget(PlayerBase player, EntityAI source, TransferZSortRecord record, int row, int col, bool flip)
+    protected static bool VerifyTargetLayout(EntityAI source, notnull array<ref TransferZSortRecord> records, notnull array<int> targetFlips)
     {
+        for (int recordIndex = 0; recordIndex < records.Count(); recordIndex++)
+        {
+            if (!RecordAtTargetLocation(source, records.Get(recordIndex), recordIndex, targetFlips))
+                return false;
+        }
+        return true;
+    }
+
+    protected static bool ValidateExactCargoMove(PlayerBase player, EntityAI source, TransferZSortRecord record, int row, int col, bool flip, out InventoryLocation src, out InventoryLocation dst)
+    {
+        src = null;
+        dst = null;
+
         if (!player || !source || !record || !record.item)
             return false;
 
         EntityAI item = record.item;
         if (!TransferZServerService.IsReachable(player, source) || !TransferZServerService.IsReachable(player, item))
-        {
-            Print("[TransferZ] Sort external target rejected: unreachable item=" + item.GetType());
             return false;
-        }
         if (!item.GetInventory().CanRemoveEntity())
-        {
-            Print("[TransferZ] Sort external target rejected: CanRemoveEntity=false item=" + item.GetType());
             return false;
-        }
         if (!source.CanReceiveItemIntoCargo(item))
-        {
-            Print("[TransferZ] Sort external target rejected: source refuses cargo item=" + item.GetType());
             return false;
-        }
 
-        InventoryLocation src = new InventoryLocation();
+        src = new InventoryLocation();
         if (!item.GetInventory().GetCurrentInventoryLocation(src))
-        {
-            Print("[TransferZ] Sort external target rejected: source location unavailable item=" + item.GetType());
             return false;
-        }
 
         EntityAI sourceParent = src.GetParent();
         if (sourceParent && src.GetType() == InventoryLocationType.CARGO && !sourceParent.CanReleaseCargo(item))
-        {
-            Print("[TransferZ] Sort external target rejected: current cargo refuses release item=" + item.GetType());
             return false;
-        }
 
-        InventoryLocation dst = new InventoryLocation();
+        dst = new InventoryLocation();
         dst.SetCargo(source, item, record.cargoIndex, row, col, flip);
 
         HumanInventory humanInventory = player.GetHumanInventory();
         if (humanInventory && humanInventory.FindCollidingUserReservedLocationIndex(item, dst) >= 0)
-        {
-            Print("[TransferZ] Sort external target rejected: destination reserved item=" + item.GetType());
             return false;
-        }
-
         if (!GameInventory.CheckMoveToDstRequest(player, src, dst, GameInventory.c_MaxItemDistanceRadius))
-        {
-            Print("[TransferZ] Sort external target rejected: CheckMoveToDstRequest=false item=" + item.GetType());
             return false;
-        }
         if (!GameInventory.LocationCanMoveEntity(src, dst))
+            return false;
+
+        return true;
+    }
+
+    protected static bool CanMoveToExactCargoLocation(PlayerBase player, EntityAI source, TransferZSortRecord record, int row, int col, bool flip)
+    {
+        InventoryLocation src;
+        InventoryLocation dst;
+        return ValidateExactCargoMove(player, source, record, row, col, flip, src, dst);
+    }
+
+    protected static bool TryMoveToExactCargoLocation(PlayerBase player, EntityAI source, TransferZSortRecord record, int row, int col, bool flip, string phase)
+    {
+        InventoryLocation src;
+        InventoryLocation dst;
+        if (!ValidateExactCargoMove(player, source, record, row, col, flip, src, dst))
         {
-            Print("[TransferZ] Sort external target rejected: LocationCanMoveEntity=false item=" + item.GetType());
+            Print("[TransferZ] Sort transactional " + phase + " validation failed item=" + record.item.GetType() + " dst=" + row.ToString() + "," + col.ToString() + " flip=" + flip.ToString());
             return false;
         }
 
@@ -141,46 +104,102 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
 
         bool moved = player.GetInventory().TakeToDst(moveMode, src, dst);
         if (!moved)
-            Print("[TransferZ] Sort external target rejected: TakeToDst=false item=" + item.GetType());
+            Print("[TransferZ] Sort transactional " + phase + " TakeToDst failed item=" + record.item.GetType() + " dst=" + row.ToString() + "," + col.ToString() + " flip=" + flip.ToString());
         return moved;
     }
 
-    protected static int RecoverStagedItems(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, notnull array<int> staged)
+    protected static bool StageToVicinity(PlayerBase player, EntityAI item, string phase)
     {
-        int recovered = 0;
-        for (int recordIndex = 0; recordIndex < records.Count(); recordIndex++)
-        {
-            if (staged.Get(recordIndex) == 0)
-                continue;
+        if (TransferZServerService.TryMoveToVicinity(player, item))
+            return true;
 
-            TransferZSortRecord record = records.Get(recordIndex);
-            if (!record || !record.item)
-                continue;
-
-            if (IsDirectCargoItem(source, record.item))
-            {
-                staged.Set(recordIndex, 0);
-                recovered++;
-                continue;
-            }
-
-            if (TransferZServerService.TryMoveToExactCargo(player, record.item, source))
-            {
-                staged.Set(recordIndex, 0);
-                recovered++;
-            }
-        }
-        return recovered;
+        string itemName = "<null>";
+        if (item)
+            itemName = item.GetType();
+        Print("[TransferZ] Sort transactional " + phase + " vicinity staging failed item=" + itemName);
+        return false;
     }
 
-    protected static bool BuildExternalTargetLayout(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips)
+    protected static bool RestoreOriginalLayout(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records)
+    {
+        Print("[TransferZ] Sort transactional rollback begin items=" + records.Count().ToString());
+
+        int passLimit = 8;
+        for (int passIndex = 0; passIndex < passLimit; passIndex++)
+        {
+            if (VerifyOriginalLayout(source, records))
+            {
+                Print("[TransferZ] Sort transactional rollback verified pass=" + passIndex.ToString());
+                return true;
+            }
+
+            bool progress = false;
+
+            // Clear any item that is currently in the source but not at its exact
+            // original slot. Items already restored never move again.
+            for (int clearIndex = 0; clearIndex < records.Count(); clearIndex++)
+            {
+                TransferZSortRecord clearRecord = records.Get(clearIndex);
+                if (RecordAtOriginalLocation(source, clearRecord))
+                    continue;
+                if (!IsDirectCargoItem(source, clearRecord.item))
+                    continue;
+
+                if (StageToVicinity(player, clearRecord.item, "rollback-clear"))
+                    progress = true;
+            }
+
+            // The original snapshot was a valid non-overlapping layout, so after
+            // wrong placements are evacuated every original rectangle is independent.
+            for (int restoreIndex = 0; restoreIndex < records.Count(); restoreIndex++)
+            {
+                TransferZSortRecord restoreRecord = records.Get(restoreIndex);
+                if (RecordAtOriginalLocation(source, restoreRecord))
+                    continue;
+
+                if (TryMoveToExactCargoLocation(player, source, restoreRecord, restoreRecord.row, restoreRecord.col, restoreRecord.flip, "rollback-restore"))
+                    progress = true;
+            }
+
+            if (VerifyOriginalLayout(source, records))
+            {
+                Print("[TransferZ] Sort transactional rollback verified pass=" + (passIndex + 1).ToString());
+                return true;
+            }
+
+            if (!progress)
+                break;
+        }
+
+        // Final containment attempt: no tracked item should intentionally remain in
+        // vicinity even if DayZ refuses one of the exact rollback locations.
+        int contained = 0;
+        for (int containIndex = 0; containIndex < records.Count(); containIndex++)
+        {
+            TransferZSortRecord containRecord = records.Get(containIndex);
+            if (IsDirectCargoItem(source, containRecord.item))
+            {
+                contained++;
+                continue;
+            }
+
+            if (TransferZServerService.TryMoveToExactCargo(player, containRecord.item, source))
+                contained++;
+        }
+
+        bool exact = VerifyOriginalLayout(source, records);
+        Print("[TransferZ] Sort transactional CRITICAL rollback incomplete exact=" + exact.ToString() + " contained=" + contained.ToString() + "/" + records.Count().ToString());
+        return exact;
+    }
+
+    protected static bool BuildTransactionalTargetLayout(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips)
     {
         if (!AssignCompactTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
         {
-            Print("[TransferZ] Sort external compact target packing failed; retrying rotation-aware first-fit targets");
+            Print("[TransferZ] Sort transactional compact target packing failed; retrying rotation-aware first-fit targets");
             if (!AssignFirstFitTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
             {
-                Print("[TransferZ] Sort external failed: target layout assignment");
+                Print("[TransferZ] Sort transactional failed: target layout assignment");
                 return false;
             }
         }
@@ -191,11 +210,34 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
         return true;
     }
 
+    protected static bool PreflightTargetMoves(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, notnull array<int> targetFlips)
+    {
+        CargoBase cargo = source.GetInventory().GetCargo();
+        if (!cargo || cargo.GetItemCount() != 0)
+        {
+            Print("[TransferZ] Sort transactional preflight failed: source cargo not empty");
+            return false;
+        }
+
+        for (int recordIndex = 0; recordIndex < records.Count(); recordIndex++)
+        {
+            TransferZSortRecord record = records.Get(recordIndex);
+            bool targetFlip = targetFlips.Get(recordIndex) != 0;
+            if (!CanMoveToExactCargoLocation(player, source, record, record.targetRow, record.targetCol, targetFlip))
+            {
+                Print("[TransferZ] Sort transactional preflight failed item=" + record.item.GetType() + " target=" + record.targetRow.ToString() + "," + record.targetCol.ToString() + " flip=" + targetFlip.ToString());
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     override static int Sort(PlayerBase player, EntityAI source)
     {
         if (!player || !source || !TransferZServerService.IsReachable(player, source) || !source.GetInventory().GetCargo())
         {
-            Print("[TransferZ] Sort external rejected: invalid or unreachable cargo source");
+            Print("[TransferZ] Sort transactional rejected: invalid or unreachable cargo source");
             return -1;
         }
 
@@ -204,7 +246,7 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
         int cargoHeight;
         if (!SnapshotSortRecords(source, records, cargoWidth, cargoHeight))
         {
-            Print("[TransferZ] Sort external rejected: cargo snapshot failed for " + source.GetType());
+            Print("[TransferZ] Sort transactional rejected: cargo snapshot failed for " + source.GetType());
             return -1;
         }
         if (records.Count() < 2)
@@ -215,65 +257,61 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
         ref array<int> targetWidths = new array<int>();
         ref array<int> targetHeights = new array<int>();
         ref array<int> targetFlips = new array<int>();
-        if (!BuildExternalTargetLayout(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
+        if (!BuildTransactionalTargetLayout(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
             return -1;
 
-        if (AllRecordsAtTargetV4(records, targetFlips))
+        if (VerifyTargetLayout(source, records, targetFlips))
             return 0;
 
-        ref array<int> staged = new array<int>();
-        ResetGrid(staged, records.Count());
-
-        int stagedPlayer = 0;
-        int stagedGround = 0;
-
-        // Clear every item that needs to move before placing any target. This makes
-        // execution linear and removes recursive in-cargo cycle breaking while
-        // preserving each original EntityAI instance.
-        for (int recordIndex = 0; recordIndex < records.Count(); recordIndex++)
+        // Transaction phase 1: evacuate every tracked direct cargo item. Evacuating
+        // all items makes both target placement and rollback deterministic because
+        // the source cargo becomes empty.
+        int stagedCount = 0;
+        for (int stageIndex = 0; stageIndex < records.Count(); stageIndex++)
         {
-            TransferZSortRecord record = records.Get(recordIndex);
-            if (RecordAtTargetV4(record, recordIndex, targetFlips))
-                continue;
-
-            bool usedPlayerCargo;
-            if (!TryStageExternally(player, source, record.item, usedPlayerCargo))
+            TransferZSortRecord stageRecord = records.Get(stageIndex);
+            if (!StageToVicinity(player, stageRecord.item, "stage"))
             {
-                int recovered = RecoverStagedItems(player, source, records, staged);
-                Print("[TransferZ] Sort external failed: could not stage item=" + record.item.GetType() + " recovered=" + recovered.ToString());
+                bool rolledBackAfterStageFailure = RestoreOriginalLayout(player, source, records);
+                Print("[TransferZ] Sort transactional failed during staging staged=" + stagedCount.ToString() + "/" + records.Count().ToString() + " rollback=" + rolledBackAfterStageFailure.ToString());
                 return -1;
             }
-
-            staged.Set(recordIndex, 1);
-            if (usedPlayerCargo)
-                stagedPlayer++;
-            else
-                stagedGround++;
+            stagedCount++;
         }
 
-        Print("[TransferZ] Sort external staged playerCargo=" + stagedPlayer.ToString() + " ground=" + stagedGround.ToString());
+        // Validate every target while source cargo is empty. Target geometry is
+        // already known to be non-overlapping, so a failed preflight can roll back
+        // before any target placement has occurred.
+        if (!PreflightTargetMoves(player, source, records, targetFlips))
+        {
+            bool rolledBackAfterPreflightFailure = RestoreOriginalLayout(player, source, records);
+            Print("[TransferZ] Sort transactional failed during target preflight rollback=" + rolledBackAfterPreflightFailure.ToString());
+            return -1;
+        }
 
-        int moved = 0;
+        int placedCount = 0;
         for (int targetIndex = 0; targetIndex < records.Count(); targetIndex++)
         {
-            if (staged.Get(targetIndex) == 0)
-                continue;
-
             TransferZSortRecord targetRecord = records.Get(targetIndex);
             bool targetFlip = targetFlips.Get(targetIndex) != 0;
-            if (!TryMoveToExactSortTarget(player, source, targetRecord, targetRecord.targetRow, targetRecord.targetCol, targetFlip))
+            if (!TryMoveToExactCargoLocation(player, source, targetRecord, targetRecord.targetRow, targetRecord.targetCol, targetFlip, "commit"))
             {
-                int recoveredAfterFailure = RecoverStagedItems(player, source, records, staged);
-                Print("[TransferZ] Sort external failed: target placement item=" + targetRecord.item.GetType() + " recovered=" + recoveredAfterFailure.ToString());
+                bool rolledBackAfterCommitFailure = RestoreOriginalLayout(player, source, records);
+                Print("[TransferZ] Sort transactional failed during commit placed=" + placedCount.ToString() + "/" + records.Count().ToString() + " rollback=" + rolledBackAfterCommitFailure.ToString());
                 return -1;
             }
-
-            staged.Set(targetIndex, 0);
-            moved++;
+            placedCount++;
         }
 
-        Print("[TransferZ] Sort external result source=" + source.GetType() + " repositioned=" + moved.ToString() + " stagedPlayer=" + stagedPlayer.ToString() + " stagedGround=" + stagedGround.ToString());
-        return moved;
+        if (!VerifyTargetLayout(source, records, targetFlips))
+        {
+            bool rolledBackAfterVerifyFailure = RestoreOriginalLayout(player, source, records);
+            Print("[TransferZ] Sort transactional failed target verification rollback=" + rolledBackAfterVerifyFailure.ToString());
+            return -1;
+        }
+
+        Print("[TransferZ] Sort transactional result source=" + source.GetType() + " staged=" + stagedCount.ToString() + " placed=" + placedCount.ToString() + " verified=true");
+        return placedCount;
     }
 
     override static void HandleRequest(PlayerBase player, PlayerIdentity sender, ParamsReadContext ctx)
