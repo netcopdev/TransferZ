@@ -38,17 +38,20 @@ Vicinity Unpack is intentionally zone-oriented rather than equivalent to applyin
 
 ### Sort
 
-Sort is a container-local maintenance operation. It never changes item ownership and never recreates items.
+Sort is a server-authoritative maintenance operation over the source container's direct cargo children. It never deletes or recreates sorted items and must preserve the identity of every original `EntityAI`.
 
-- Operate only on the source container's direct cargo children.
-- Build a complete target layout before executing the first move.
-- Use DayZ cargo dimensions and native inventory locations.
-- Treat DayZ user-reserved inventory locations as occupied so sorting cannot erase the placeholder for an item currently held in hands.
-- Move items only within the same cargo owner through validated native inventory moves.
-- Consider both valid cargo orientations for non-square items during target packing and temporary in-container parking. Prefer the current orientation when fit quality is otherwise equivalent, and carry the selected flip through native move validation/execution.
-- Prefer deterministic grouping/compaction over visual churn.
-- If no safe in-cargo move plan exists, leave the cargo unchanged rather than dropping, spawning, or temporarily moving items outside the container.
-- Stop safely if native validation fails while executing a previously planned move.
+- Snapshot every direct cargo child's exact original row, column and orientation before the first move.
+- Build a complete deterministic rotation-aware target layout before execution.
+- Use DayZ cargo dimensions, native inventory locations and native move validation.
+- Treat DayZ user-reserved inventory locations as unavailable.
+- Consider both valid cargo orientations for non-square items. Prefer the current orientation when fit quality is otherwise equivalent.
+- If the computed target layout already matches the snapshot, Sort is a successful no-op.
+- When movement is required, temporarily stage the same tracked entities through DayZ's normal vicinity/ground path so the source cargo becomes empty. Do not use arbitrary player cargo as an implicit staging area.
+- Preflight every exact target move while the source is empty before committing the first target placement.
+- Report success only after every tracked item is verified at its exact target row, column and orientation.
+- Any staging, preflight, commit or final-verification failure starts synchronous rollback. Clear partial target placements, restore every tracked item to its exact original row, column and orientation, and verify the original snapshot before returning failure.
+- No ordinary failed Sort may intentionally leave a tracked item in vicinity or leave a partially sorted source. A rollback invariant violation is critical, must be logged explicitly, and must trigger a final containment attempt back into the source rather than being treated as an acceptable partial result.
+- Do not serialize/reconstruct weapon, magazine, attachment, chamber, quantity or mod-defined state. Preservation comes from moving the same entity objects.
 
 Sort is not a replacement for Transfer and does not move nested contents independently of their direct container item.
 
