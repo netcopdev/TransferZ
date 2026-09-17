@@ -6,7 +6,7 @@ TransferZ makes inventory routing explicit and deterministic.
 
 ### Destination
 
-A cargo-bearing entity may be selected as the active destination. Exact-container operations target that entity's own cargo only. They must not silently fall back to arbitrary player inventory space.
+A cargo-bearing entity may be selected as the active destination. Exact-container operations target that entity's own cargo only. They must not silently fall back to arbitrary inventory space.
 
 `VICINITY` is also a valid destination. For that synthetic target, movement means DayZ's normal ground/vicinity drop path around the requesting player.
 
@@ -30,7 +30,7 @@ A destination nested inside a different source is rejected. Moving contents from
 
 The source itself is a valid Unpack destination. Self-unpack flattens leaf cargo from nested child containers into the source while leaving the source's existing direct loose items untouched.
 
-The Unpack control may also be dragged from a source onto another visible cargo container field, or back onto the source itself, for a one-off direct unpack without changing the selected destination.
+The Unpack control may be dragged from a source onto another visible cargo container field, or back onto the source itself, for a one-off direct unpack without changing the selected destination.
 
 When vicinity is the destination, a normal container Unpack drops only leaf items originating inside its nested cargo-bearing child containers through DayZ's normal inventory drop path.
 
@@ -154,7 +154,7 @@ Continue reading the legacy single `preferred_slot` preference as a compatibilit
 Community Framework (CF) is a mandatory TransferZ dependency.
 
 - Register TransferZ RPC ownership through one CF module.
-- Keep TransferZ's RPC identifiers in one contiguous range owned by the registered CF module.
+- Keep TransferZ's RPC identifiers in one contiguous range owned by that module.
 - Do not add new direct `PlayerBase.OnRPC` layers for TransferZ operations.
 - CF dispatch is transport/routing only; operation handlers must still validate sender identity and all current server-side inventory state.
 - Client-side request debouncing is advisory only and never a security boundary.
