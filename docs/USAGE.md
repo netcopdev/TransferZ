@@ -104,22 +104,26 @@ $profile:TransferZ/preferences.json
 
 ### Sort — right-side maintenance control
 
-Sort reorganizes the selected container's **direct cargo grid only**.
+Sort reorganizes the selected container's **direct cargo grid only** while preserving the original item entities.
 
-TransferZ first snapshots the direct cargo, calculates a deterministic compacted target layout, and then builds a move plan before changing anything. The plan uses the container's own grid only.
+TransferZ first snapshots every direct cargo item's exact row, column and orientation and calculates a deterministic compacted rotation-aware target layout. If the target already matches the snapshot, Sort is a successful no-op.
+
+When movement is required, Sort temporarily stages the tracked direct cargo items through DayZ's normal vicinity/ground path. It does not use arbitrary player cargo as hidden staging. Emptying the source removes in-cargo cycles and lets the final layout be placed directly rather than solved through an expensive recursive rearrangement search.
 
 Current behavior:
 
-- larger direct cargo items are placed first;
-- item type contributes to deterministic grouping after size priority;
-- non-square items may use either cargo orientation when the alternate orientation improves fit or makes a safe in-container rearrangement possible;
-- when two orientations are otherwise equivalent, Sort prefers to keep the item's current orientation to avoid unnecessary visual churn;
+- larger direct cargo items are packed first while smaller items fill available gaps;
+- non-square items may use either cargo orientation when the alternate orientation improves packing;
+- when two orientations are otherwise equivalent, Sort prefers to keep the item's current orientation;
 - nested containers are treated as ordinary direct cargo items and stay intact;
-- DayZ user-reserved cells, including the placeholder for an item currently held in hands, are treated as occupied;
-- all movement uses native DayZ inventory locations within the same cargo owner, including the selected orientation/flip;
-- if no safe in-container move plan exists, the operation is skipped rather than moving items to the ground or another temporary container.
+- DayZ user-reserved cells are treated as unavailable;
+- the same original `EntityAI` objects are moved; Sort does not recreate weapons, magazines, nested containers or their state;
+- after staging, every exact final target is preflighted before the first target placement;
+- success is reported only after every tracked item is verified at its exact final row, column and orientation.
 
-Sort never deletes/recreates items.
+If staging, target preflight, target placement, or final verification fails, Sort rolls the whole operation back. Partial target placements are cleared, every tracked item is restored to its exact original row, column and orientation, and the original snapshot is verified before a normal failure is returned. No ordinary failed Sort should intentionally leave tracked items in vicinity or leave the source partially sorted.
+
+A `CRITICAL rollback incomplete` log entry means DayZ itself refused one or more reverse native inventory moves despite repeated recovery attempts. TransferZ then attempts to contain every recoverable item back in the source, but treats that condition as an invariant violation rather than an acceptable partial result.
 
 ### Stack — right-side maintenance control
 
@@ -255,7 +259,9 @@ This is only a preview. The server performs the authoritative move validation wh
 
 ## Failure behavior
 
-TransferZ fails conservatively. If an item is no longer where expected, cannot be removed, cannot fit, is out of reach, or the chosen destination is no longer valid, the item remains where it is.
+TransferZ fails conservatively. Normal routing failures leave items where DayZ left them rather than deleting/recreating them.
+
+Sort has the stronger transactional rule described above: after the snapshot is taken, an ordinary failure must restore and verify the original cargo layout before returning failure. TransferZ does not accept a partially sorted container as a successful or normal failed result.
 
 TransferZ does not delete and recreate items to simulate movement, sorting, or stacking.
 
@@ -281,7 +287,7 @@ Hold `Alt` and left-drag one representative stack of that exact classname from t
 
 ### Repack a messy container
 
-Click Sort on the right side of that container's header. TransferZ attempts a deterministic in-place compaction using only that container's cargo grid, may rotate non-square items where that improves packing, and preserves active DayZ reserved locations.
+Click Sort on the right side of that container's header. TransferZ computes a rotation-aware compact layout, temporarily stages the original entities through vicinity, preflights exact placements, and either verifies the complete final layout or restores the complete original snapshot on failure.
 
 ### Consolidate partial stacks
 
