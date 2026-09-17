@@ -110,14 +110,29 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
 
     protected static bool StageToVicinity(PlayerBase player, EntityAI item, string phase)
     {
-        if (TransferZServerService.TryMoveToVicinity(player, item))
-            return true;
-
         string itemName = "<null>";
         if (item)
             itemName = item.GetType();
-        Print("[TransferZ] Sort transactional " + phase + " vicinity staging failed item=" + itemName);
-        return false;
+
+        if (!TransferZServerService.TryMoveToVicinity(player, item))
+        {
+            Print("[TransferZ] Sort transactional " + phase + " vicinity staging failed item=" + itemName);
+            return false;
+        }
+
+        InventoryLocation stagedLocation = new InventoryLocation();
+        if (!item || !item.GetInventory().GetCurrentInventoryLocation(stagedLocation) || stagedLocation.GetType() != InventoryLocationType.GROUND)
+        {
+            Print("[TransferZ] Sort transactional " + phase + " staging verification failed item=" + itemName);
+            return false;
+        }
+        if (!TransferZServerService.IsReachable(player, item))
+        {
+            Print("[TransferZ] Sort transactional " + phase + " staged item became unreachable item=" + itemName);
+            return false;
+        }
+
+        return true;
     }
 
     protected static bool RestoreOriginalLayout(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records)
@@ -135,8 +150,6 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
 
             bool progress = false;
 
-            // Clear any item that is currently in the source but not at its exact
-            // original slot. Items already restored never move again.
             for (int clearIndex = 0; clearIndex < records.Count(); clearIndex++)
             {
                 TransferZSortRecord clearRecord = records.Get(clearIndex);
@@ -149,8 +162,6 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
                     progress = true;
             }
 
-            // The original snapshot was a valid non-overlapping layout, so after
-            // wrong placements are evacuated every original rectangle is independent.
             for (int restoreIndex = 0; restoreIndex < records.Count(); restoreIndex++)
             {
                 TransferZSortRecord restoreRecord = records.Get(restoreIndex);
@@ -171,8 +182,6 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
                 break;
         }
 
-        // Final containment attempt: no tracked item should intentionally remain in
-        // vicinity even if DayZ refuses one of the exact rollback locations.
         int contained = 0;
         for (int containIndex = 0; containIndex < records.Count(); containIndex++)
         {
@@ -210,12 +219,41 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
         return true;
     }
 
+    protected static bool SourceCargoEmpty(EntityAI source)
+    {
+        if (!source)
+            return false;
+
+        CargoBase cargo = source.GetInventory().GetCargo();
+        return cargo && cargo.GetItemCount() == 0;
+    }
+
+    protected static bool PreflightOriginalMoves(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records)
+    {
+        if (!SourceCargoEmpty(source))
+        {
+            Print("[TransferZ] Sort transactional rollback preflight failed: source cargo not empty");
+            return false;
+        }
+
+        for (int recordIndex = 0; recordIndex < records.Count(); recordIndex++)
+        {
+            TransferZSortRecord record = records.Get(recordIndex);
+            if (!CanMoveToExactCargoLocation(player, source, record, record.row, record.col, record.flip))
+            {
+                Print("[TransferZ] Sort transactional rollback preflight failed item=" + record.item.GetType() + " original=" + record.row.ToString() + "," + record.col.ToString() + " flip=" + record.flip.ToString());
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     protected static bool PreflightTargetMoves(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, notnull array<int> targetFlips)
     {
-        CargoBase cargo = source.GetInventory().GetCargo();
-        if (!cargo || cargo.GetItemCount() != 0)
+        if (!SourceCargoEmpty(source))
         {
-            Print("[TransferZ] Sort transactional preflight failed: source cargo not empty");
+            Print("[TransferZ] Sort transactional target preflight failed: source cargo not empty");
             return false;
         }
 
@@ -225,7 +263,7 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
             bool targetFlip = targetFlips.Get(recordIndex) != 0;
             if (!CanMoveToExactCargoLocation(player, source, record, record.targetRow, record.targetCol, targetFlip))
             {
-                Print("[TransferZ] Sort transactional preflight failed item=" + record.item.GetType() + " target=" + record.targetRow.ToString() + "," + record.targetCol.ToString() + " flip=" + targetFlip.ToString());
+                Print("[TransferZ] Sort transactional target preflight failed item=" + record.item.GetType() + " target=" + record.targetRow.ToString() + "," + record.targetCol.ToString() + " flip=" + targetFlip.ToString());
                 return false;
             }
         }
@@ -263,9 +301,6 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
         if (VerifyTargetLayout(source, records, targetFlips))
             return 0;
 
-        // Transaction phase 1: evacuate every tracked direct cargo item. Evacuating
-        // all items makes both target placement and rollback deterministic because
-        // the source cargo becomes empty.
         int stagedCount = 0;
         for (int stageIndex = 0; stageIndex < records.Count(); stageIndex++)
         {
@@ -279,13 +314,27 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
             stagedCount++;
         }
 
-        // Validate every target while source cargo is empty. Target geometry is
-        // already known to be non-overlapping, so a failed preflight can roll back
-        // before any target placement has occurred.
+        if (!SourceCargoEmpty(source))
+        {
+            bool rolledBackAfterEmptyCheck = RestoreOriginalLayout(player, source, records);
+            Print("[TransferZ] Sort transactional failed: source did not empty after staging rollback=" + rolledBackAfterEmptyCheck.ToString());
+            return -1;
+        }
+
+        // Fail closed unless DayZ validates the complete exact original layout from
+        // the current staged state. This establishes a tested rollback path before
+        // any target placement is allowed to begin.
+        if (!PreflightOriginalMoves(player, source, records))
+        {
+            bool rolledBackAfterRollbackPreflightFailure = RestoreOriginalLayout(player, source, records);
+            Print("[TransferZ] Sort transactional failed during rollback preflight rollback=" + rolledBackAfterRollbackPreflightFailure.ToString());
+            return -1;
+        }
+
         if (!PreflightTargetMoves(player, source, records, targetFlips))
         {
-            bool rolledBackAfterPreflightFailure = RestoreOriginalLayout(player, source, records);
-            Print("[TransferZ] Sort transactional failed during target preflight rollback=" + rolledBackAfterPreflightFailure.ToString());
+            bool rolledBackAfterTargetPreflightFailure = RestoreOriginalLayout(player, source, records);
+            Print("[TransferZ] Sort transactional failed during target preflight rollback=" + rolledBackAfterTargetPreflightFailure.ToString());
             return -1;
         }
 
