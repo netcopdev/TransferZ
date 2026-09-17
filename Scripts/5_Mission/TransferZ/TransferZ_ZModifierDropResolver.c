@@ -1,3 +1,27 @@
+modded class TransferZOperationDrag
+{
+    protected static int s_TransferZLastWheelCaptureAt;
+
+    static void MarkWheelCapture()
+    {
+        if (IsActive())
+            s_TransferZLastWheelCaptureAt = GetGame().GetTime();
+    }
+
+    static bool ShouldResolveWheelCapturedDropAtMouse()
+    {
+        if (!IsActive() || s_TransferZLastWheelCaptureAt <= 0)
+            return false;
+
+        return GetGame().GetTime() - s_TransferZLastWheelCaptureAt < 10000;
+    }
+
+    static void ClearWheelCapture()
+    {
+        s_TransferZLastWheelCaptureAt = 0;
+    }
+}
+
 modded class TransferZHeaderControls
 {
     protected static bool TransferZPointInsideClippedWidget(Widget widget, ScrollWidget scroll, int mouseX, int mouseY)
@@ -46,7 +70,7 @@ modded class TransferZHeaderControls
 
     static bool CompleteModifierDragAtMousePosition()
     {
-        if (!TransferZOperationDrag.IsModifierItemDrag())
+        if (!TransferZOperationDrag.IsActive())
             return false;
 
         int mouseX;
@@ -101,13 +125,34 @@ modded class TransferZHeaderControls
         {
             Print("[TransferZ][DragDiag] RESOLVE_CHOSEN cargo=" + best.m_Entity.GetType());
             bool handled = TransferZOperationDrag.Complete(best.m_Entity);
+            TransferZOperationDrag.ClearWheelCapture();
             SetOperationDropTargetsVisible(false);
             RefreshAll();
             return handled;
         }
 
         Print("[TransferZ][DragDiag] RESOLVE_NO_CARGO trying vicinity");
-        return TransferZVicinityHeaderControls.CompleteModifierDragAtMousePosition(mouseX, mouseY);
+        bool vicinityHandled = TransferZVicinityHeaderControls.CompleteModifierDragAtMousePosition(mouseX, mouseY);
+        TransferZOperationDrag.ClearWheelCapture();
+        return vicinityHandled;
+    }
+
+    override void OnOperationDropReceived(Widget w, int x, int y, Widget receiver)
+    {
+        if (TransferZOperationDrag.ShouldResolveWheelCapturedDropAtMouse())
+        {
+            string captured = "<none>";
+            if (m_Entity)
+                captured = m_Entity.GetType();
+            int mouseX;
+            int mouseY;
+            GetMousePos(mouseX, mouseY);
+            Print("[TransferZ][DragDiag] REGISTERED_DROP captured=" + captured + " event=" + x.ToString() + "," + y.ToString() + " actual=" + mouseX.ToString() + "," + mouseY.ToString());
+            CompleteModifierDragAtMousePosition();
+            return;
+        }
+
+        super.OnOperationDropReceived(w, x, y, receiver);
     }
 }
 
@@ -115,7 +160,7 @@ modded class TransferZVicinityHeaderControls
 {
     static bool CompleteModifierDragAtMousePosition(int mouseX, int mouseY)
     {
-        if (!TransferZOperationDrag.IsModifierItemDrag() || !s_Instance || !s_Instance.m_Source || !IsVicinityOpen())
+        if (!TransferZOperationDrag.IsActive() || !s_Instance || !s_Instance.m_Source || !IsVicinityOpen())
             return false;
 
         if (TransferZOperationDrag.IsFromVicinity() && TransferZOperationDrag.GetOperation() == TransferZOperation.TRANSFER)
@@ -174,10 +219,19 @@ modded class TransferZVicinityHeaderControls
 
 // This file intentionally sorts after TransferZ_OperationDrag.c. The earlier
 // WidgetEventHandler layer keeps the modifier session alive across native Icon
-// teardown; this outer layer changes only how the final LMB release chooses its
-// destination. Never trust the widget that owns mouse capture after scrolling.
+// teardown. This outer layer resolves the final destination from live screen
+// geometry and also intercepts the registered drop callback when mouse capture
+// remains stuck on the first overlay that handled the wheel.
 modded class WidgetEventHandler
 {
+    override bool OnMouseWheel(Widget w, int x, int y, int wheel)
+    {
+        if (w && TransferZOperationDrag.IsActive() && w.GetName() == "TransferZHeaderDropTarget")
+            TransferZOperationDrag.MarkWheelCapture();
+
+        return super.OnMouseWheel(w, x, y, wheel);
+    }
+
     override bool OnMouseButtonUp(Widget w, int x, int y, int button)
     {
         if (button == MouseState.LEFT && TransferZOperationDrag.IsModifierItemDrag())
