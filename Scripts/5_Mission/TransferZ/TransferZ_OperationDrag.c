@@ -304,9 +304,9 @@ modded class WidgetEventHandler
         return super.OnMouseWheel(w, x, y, wheel);
     }
 
-    override bool OnDropReceived(Widget w, int x, int y, Widget receiver)
+    override bool OnDropReceived(Widget w, int x, int y, Widget reciever)
     {
-        if (receiver && receiver.GetName() == "TransferZHeaderDropTarget" && TransferZOperationDrag.IsModifierItemDrag())
+        if (reciever && reciever.GetName() == "TransferZHeaderDropTarget" && TransferZOperationDrag.IsModifierItemDrag())
         {
             // A wheel-scroll can make vanilla terminate/rebuild the dragged Icon
             // and emit a drop against the overlay under the cursor. Modifier
@@ -316,7 +316,7 @@ modded class WidgetEventHandler
             return true;
         }
 
-        return super.OnDropReceived(w, x, y, receiver);
+        return super.OnDropReceived(w, x, y, reciever);
     }
 
     override bool OnMouseButtonUp(Widget w, int x, int y, int button)
