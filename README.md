@@ -108,7 +108,7 @@ Current Sort behavior:
 
 - larger direct items are placed first;
 - like item types are kept deterministic/grouped after size priority;
-- existing item orientation is preserved;
+- non-square items may be rotated when the alternate orientation packs better or enables a safe in-container move plan; ties prefer the current orientation;
 - nested containers are treated as ordinary direct cargo items and move intact;
 - if no safe all-in-cargo rearrangement plan exists, Sort leaves the cargo alone rather than using an unsafe fallback.
 
