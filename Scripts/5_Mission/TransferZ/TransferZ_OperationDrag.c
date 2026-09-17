@@ -5,7 +5,81 @@ class TransferZOperationDrag
     protected static EntityAI s_RepresentativeItem;
     protected static bool s_ClassTransfer = false;
     protected static bool s_FromVicinity = false;
+    protected static bool s_ModifierItemDrag = false;
+    protected static bool s_ModifierReleaseWatchQueued = false;
+    protected static bool s_ModifierReleaseCancelQueued = false;
     protected static ref array<EntityAI> s_VicinityItems;
+
+    protected static bool NativeItemDragActive()
+    {
+        ItemManager itemManager = ItemManager.GetInstance();
+        return itemManager && itemManager.IsDragging() && itemManager.GetDraggedItem();
+    }
+
+    protected static bool LeftMousePressed()
+    {
+        return (GetMouseState(MouseState.LEFT) & MB_PRESSED_MASK) != 0;
+    }
+
+    protected static void StartModifierReleaseWatch()
+    {
+        if (!s_ModifierItemDrag || s_ModifierReleaseWatchQueued)
+            return;
+
+        s_ModifierReleaseWatchQueued = true;
+        GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(WatchModifierRelease, 25, false);
+    }
+
+    protected static void WatchModifierRelease()
+    {
+        if (!IsActive() || !s_ModifierItemDrag)
+        {
+            s_ModifierReleaseWatchQueued = false;
+            s_ModifierReleaseCancelQueued = false;
+            return;
+        }
+
+        if (LeftMousePressed())
+        {
+            GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(WatchModifierRelease, 25, false);
+            return;
+        }
+
+        s_ModifierReleaseWatchQueued = false;
+        if (!s_ModifierReleaseCancelQueued)
+        {
+            s_ModifierReleaseCancelQueued = true;
+            // Give the widget mouse-up event one GUI turn to complete a valid
+            // drop. If no target handled the release, cancel the batch session.
+            GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(CancelReleasedModifierDrag, 50, false);
+        }
+    }
+
+    protected static void CancelReleasedModifierDrag()
+    {
+        s_ModifierReleaseCancelQueued = false;
+        if (!IsActive() || !s_ModifierItemDrag || LeftMousePressed())
+            return;
+
+        ForceClear();
+        TransferZHeaderControls.SetOperationDropTargetsVisible(false);
+        TransferZHeaderControls.RefreshAll();
+    }
+
+    protected static void RestoreModifierDropTargets()
+    {
+        if (!IsActive() || !s_ModifierItemDrag || !LeftMousePressed())
+            return;
+
+        TransferZHeaderControls.SetOperationDropTargetsVisible(true);
+    }
+
+    protected static void SetModifierItemDrag(bool modifierItemDrag)
+    {
+        s_ModifierItemDrag = modifierItemDrag;
+        if (s_ModifierItemDrag)
+            StartModifierReleaseWatch();
+    }
 
     static void BeginContainer(int operation, EntityAI source)
     {
@@ -20,6 +94,8 @@ class TransferZOperationDrag
 
         if (s_VicinityItems)
             s_VicinityItems.Clear();
+
+        SetModifierItemDrag(NativeItemDragActive());
     }
 
     static void BeginClassTransfer(EntityAI source, EntityAI representative)
@@ -35,6 +111,9 @@ class TransferZOperationDrag
 
         if (s_VicinityItems)
             s_VicinityItems.Clear();
+
+        // Class transfer is created only by the Alt-modified item drag path.
+        SetModifierItemDrag(true);
     }
 
     static void BeginVicinity(int operation, notnull array<EntityAI> items)
@@ -55,11 +134,18 @@ class TransferZOperationDrag
             if (item)
                 s_VicinityItems.Insert(item);
         }
+
+        SetModifierItemDrag(NativeItemDragActive());
     }
 
     static bool IsActive()
     {
         return s_Operation == TransferZOperation.TRANSFER || s_Operation == TransferZOperation.UNPACK || s_Operation == TransferZOperation.TRANSFER_CLASS;
+    }
+
+    static bool IsModifierItemDrag()
+    {
+        return s_ModifierItemDrag && IsActive();
     }
 
     static bool IsClassTransfer()
@@ -125,7 +211,7 @@ class TransferZOperationDrag
             }
         }
 
-        Clear();
+        ForceClear();
         return handled;
     }
 
@@ -157,17 +243,36 @@ class TransferZOperationDrag
                 handled = state.RequestNestedUnpackToVicinity(s_Source);
         }
 
-        Clear();
+        ForceClear();
         return handled;
     }
 
     static void Clear()
+    {
+        // Vanilla Icon.DestroyWhiteBackground() can run while an item drag is
+        // still physically held when its scroller moves. The old delayed cancel
+        // path reaches here. Do not let that visual teardown cancel a modifier
+        // batch; restore the overlays after the caller hides them instead.
+        if (IsModifierItemDrag() && LeftMousePressed())
+        {
+            GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(RestoreModifierDropTargets, 0, false);
+            GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(RestoreModifierDropTargets, 30, false);
+            return;
+        }
+
+        ForceClear();
+    }
+
+    protected static void ForceClear()
     {
         s_Operation = 0;
         s_Source = null;
         s_RepresentativeItem = null;
         s_ClassTransfer = false;
         s_FromVicinity = false;
+        s_ModifierItemDrag = false;
+        s_ModifierReleaseWatchQueued = false;
+        s_ModifierReleaseCancelQueued = false;
         if (s_VicinityItems)
             s_VicinityItems.Clear();
     }
@@ -185,16 +290,11 @@ modded class WidgetEventHandler
     {
         if (w && TransferZOperationDrag.IsActive() && w.GetName() == "TransferZHeaderDropTarget")
         {
-            // TransferZ's overlay handlers already negate the wheel value before
+            // TransferZ's overlay handlers negate the wheel value before
             // calling VScrollStep. Feed the opposite value here so the resulting
             // scroll direction matches vanilla DayZ.
             bool handled = super.OnMouseWheel(w, x, y, -wheel);
 
-            // The overlays are detached top-level widgets. Scrolling moves their
-            // underlying container widgets, so refresh every drop target rather
-            // than only the overlay that received the wheel event. Repeat after
-            // layout settles so a later mouse release cannot resolve to the
-            // container that occupied this screen rectangle before the scroll.
             TransferZRefreshDropTargetsAfterScroll();
             GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(TransferZRefreshDropTargetsAfterScroll, 0, false);
             GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(TransferZRefreshDropTargetsAfterScroll, 30, false);
@@ -202,5 +302,43 @@ modded class WidgetEventHandler
         }
 
         return super.OnMouseWheel(w, x, y, wheel);
+    }
+
+    override bool OnDropReceived(Widget w, int x, int y, Widget receiver)
+    {
+        if (receiver && receiver.GetName() == "TransferZHeaderDropTarget" && TransferZOperationDrag.IsModifierItemDrag())
+        {
+            // A wheel-scroll can make vanilla terminate/rebuild the dragged Icon
+            // and emit a drop against the overlay under the cursor. Modifier
+            // batches never commit from this native drop event; actual LMB-up is
+            // the authority for the TransferZ destination.
+            TransferZRefreshDropTargetsAfterScroll();
+            return true;
+        }
+
+        return super.OnDropReceived(w, x, y, receiver);
+    }
+
+    override bool OnMouseButtonUp(Widget w, int x, int y, int button)
+    {
+        if (button == MouseState.LEFT && w && w.GetName() == "TransferZHeaderDropTarget" && TransferZOperationDrag.IsModifierItemDrag())
+        {
+            // First try the ordinary cargo drop targets. CompleteRightDragAtWidget
+            // clears the operation even when the request itself returns false, so
+            // active state tells us whether this overlay belonged to cargo.
+            TransferZHeaderControls.CompleteRightDragAtWidget(w);
+
+            // If no cargo overlay matched, the remaining TransferZ header drop
+            // target is VICINITY.
+            if (TransferZOperationDrag.IsModifierItemDrag())
+            {
+                TransferZOperationDrag.CompleteToVicinity();
+                TransferZHeaderControls.SetOperationDropTargetsVisible(false);
+                TransferZHeaderControls.RefreshAll();
+            }
+            return true;
+        }
+
+        return super.OnMouseButtonUp(w, x, y, button);
     }
 }
