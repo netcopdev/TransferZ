@@ -10,7 +10,6 @@ modded class TransferZOperationDrag
             return;
 
         SetModifierItemDrag(true);
-        Print("[TransferZ][DragDiag] MODIFIER_LATCH operation=" + GetOperation().ToString());
     }
 }
 
@@ -32,15 +31,6 @@ modded class TransferZHeaderControls
 {
     override void OnOperationDropReceived(Widget w, int x, int y, Widget receiver)
     {
-        string captured = "<none>";
-        if (m_Entity)
-            captured = m_Entity.GetType();
-
-        int mouseX;
-        int mouseY;
-        GetMousePos(mouseX, mouseY);
-        Print("[TransferZ][DragDiag] REGISTERED_DROP_FINAL captured=" + captured + " modifier=" + TransferZOperationDrag.IsModifierItemDrag().ToString() + " event=" + x.ToString() + "," + y.ToString() + " actual=" + mouseX.ToString() + "," + mouseY.ToString());
-
         // Registered drop callbacks are what DayZ actually delivers after the
         // scroll/capture sequence. For modifier item drags, never trust the
         // callback owner's cached entity; resolve against live mouse geometry.
