@@ -31,7 +31,7 @@ Before modifying this repository, read this file and `docs/CODEX_PROJECT_RULES.m
 - Nested attachment destinations such as `Belt > DumpPouch` are supported; direct worn containers are the one-hop form of the same model.
 - Keep compatibility with the legacy single `preferred_slot` preference unless a deliberate migration removes it.
 - Do not reinterpret cargo-nested containers as persistent preferred personal destinations unless that behavior is explicitly designed later.
-- Sort and Stack are server-authoritative container-maintenance operations. Sort may reposition only direct cargo children through native inventory moves. Stack may merge only items DayZ itself reports as combinable.
+- Sort and Stack are server-authoritative container-maintenance operations. Sort may reposition and rotate only direct cargo children through validated native inventory moves, and its planner may consider both cargo orientations when that improves fit or enables a safe plan. Stack may merge only items DayZ itself reports as combinable.
 - If a requested move is invalid, inaccessible, no longer current, or does not fit, fail safely and leave the item where it is.
 
 ## CF dependency and RPC ownership
