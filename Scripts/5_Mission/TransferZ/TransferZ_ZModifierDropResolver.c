@@ -52,6 +52,7 @@ modded class TransferZHeaderControls
         int mouseX;
         int mouseY;
         GetMousePos(mouseX, mouseY);
+        Print("[TransferZ][DragDiag] RESOLVE mouse=" + mouseX.ToString() + "," + mouseY.ToString());
 
         EntityAI source = TransferZOperationDrag.GetSource();
         TransferZHeaderControls best;
@@ -74,16 +75,19 @@ modded class TransferZHeaderControls
                         continue;
                 }
 
-                ScrollWidget scroll = controls.FindScrollWidget();
-                if (!TransferZPointInsideClippedWidget(controls.m_DropHost, scroll, mouseX, mouseY))
-                    continue;
-
                 float x;
                 float y;
                 float w;
                 float h;
                 controls.m_DropHost.GetScreenPos(x, y);
                 controls.m_DropHost.GetScreenSize(w, h);
+
+                ScrollWidget scroll = controls.FindScrollWidget();
+                bool inside = TransferZPointInsideClippedWidget(controls.m_DropHost, scroll, mouseX, mouseY);
+                Print("[TransferZ][DragDiag] CANDIDATE entity=" + controls.m_Entity.GetType() + " pos=" + x.ToString() + "," + y.ToString() + " size=" + w.ToString() + "x" + h.ToString() + " inside=" + inside.ToString());
+                if (!inside)
+                    continue;
+
                 float area = w * h;
                 if (!best || area < bestArea)
                 {
@@ -95,12 +99,14 @@ modded class TransferZHeaderControls
 
         if (best)
         {
+            Print("[TransferZ][DragDiag] RESOLVE_CHOSEN cargo=" + best.m_Entity.GetType());
             bool handled = TransferZOperationDrag.Complete(best.m_Entity);
             SetOperationDropTargetsVisible(false);
             RefreshAll();
             return handled;
         }
 
+        Print("[TransferZ][DragDiag] RESOLVE_NO_CARGO trying vicinity");
         return TransferZVicinityHeaderControls.CompleteModifierDragAtMousePosition(mouseX, mouseY);
     }
 }
@@ -158,6 +164,7 @@ modded class TransferZVicinityHeaderControls
         if (mouseX < left || mouseX > right || mouseY < top || mouseY > bottom)
             return false;
 
+        Print("[TransferZ][DragDiag] RESOLVE_CHOSEN vicinity");
         bool handled = TransferZOperationDrag.CompleteToVicinity();
         TransferZHeaderControls.SetOperationDropTargetsVisible(false);
         TransferZHeaderControls.RefreshAll();
@@ -175,6 +182,13 @@ modded class WidgetEventHandler
     {
         if (button == MouseState.LEFT && TransferZOperationDrag.IsModifierItemDrag())
         {
+            string widgetName = "<null>";
+            if (w)
+                widgetName = w.GetName();
+            int mouseX;
+            int mouseY;
+            GetMousePos(mouseX, mouseY);
+            Print("[TransferZ][DragDiag] MOUSE_UP widget=" + widgetName + " event=" + x.ToString() + "," + y.ToString() + " actual=" + mouseX.ToString() + "," + mouseY.ToString());
             TransferZHeaderControls.CompleteModifierDragAtMousePosition();
             return true;
         }
