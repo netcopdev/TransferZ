@@ -100,17 +100,21 @@ Attachments are not traversed by Unpack in 0.1.0.
 
 ## Sort
 
-Sort reorganizes the selected container's **direct cargo only**.
+Sort reorganizes the selected container's **direct cargo only** while preserving the original item entities.
 
-TransferZ first builds a complete deterministic layout plan using the container's native cargo grid. It then performs only validated in-cargo DayZ inventory moves. Items are not dropped, spawned, or recreated as temporary storage. DayZ user-reserved cells, including the placeholder for an item currently in hands, are treated as occupied and are preserved.
+TransferZ first snapshots each direct item's exact row, column and orientation and computes a complete deterministic rotation-aware target layout. If movement is required, it temporarily stages the tracked items through DayZ's normal vicinity/ground path so the source cargo becomes empty, preflights every exact final destination, and then moves those same `EntityAI` objects back into the source at their target positions.
 
 Current Sort behavior:
 
-- larger direct items are placed first;
-- like item types are kept deterministic/grouped after size priority;
-- non-square items may be rotated when the alternate orientation packs better or enables a safe in-container move plan; ties prefer the current orientation;
+- larger direct items are packed first, while smaller items fill usable gaps;
+- non-square items may be rotated when the alternate orientation improves packing; equivalent choices prefer the current orientation;
 - nested containers are treated as ordinary direct cargo items and move intact;
-- if no safe all-in-cargo rearrangement plan exists, Sort leaves the cargo alone rather than using an unsafe fallback.
+- DayZ user-reserved cells are treated as unavailable;
+- player inventory is not used as an implicit temporary staging area;
+- no weapon, magazine, container or other item is deleted and recreated, so preservation depends on the same entity object surviving the native moves;
+- success is reported only after every tracked item is verified at its exact target row, column and orientation.
+
+Sort is transactional at the TransferZ level. If staging, preflight, final placement, or verification fails, TransferZ clears any partial target placements and restores every tracked item to the exact original row, column and orientation from the snapshot before reporting failure. A normal failed Sort must not intentionally leave items in vicinity or leave the source partially sorted. If DayZ itself refuses the reverse native moves, TransferZ logs a critical rollback invariant violation and attempts final containment back into the source rather than treating the partial state as acceptable.
 
 ## Stack
 
@@ -175,9 +179,9 @@ The older single `preferred_slot` format remains readable as a compatibility fal
 
 TransferZ never deletes and recreates items to simulate movement, sorting, or stacking.
 
-The client requests operations; the server re-resolves entities and validates sender ownership, reachability, source removal, destination acceptance, exact cargo space, and DayZ inventory locations before moving anything. Items that no longer qualify or do not fit stay where they are.
+The client requests operations; the server re-resolves entities and validates sender ownership, reachability, source removal, destination acceptance, exact cargo space, and DayZ inventory locations before moving anything.
 
-Sort is deliberately conservative: if TransferZ cannot plan and execute the rearrangement using only the container's own cargo grid and native DayZ moves, it stops rather than using an external temporary location.
+Sort has an additional rollback contract: original cargo coordinates and orientation are captured before staging, and any failed transaction must restore and verify that snapshot before returning a normal failure. Absolute recovery still depends on the DayZ native inventory API continuing to accept valid reverse moves; engine-level refusal or process termination cannot be made atomic purely in script.
 
 ## Install
 
