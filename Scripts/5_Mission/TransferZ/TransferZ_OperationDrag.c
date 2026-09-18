@@ -8,6 +8,8 @@ class TransferZOperationDrag
     protected static bool s_ModifierItemDrag = false;
     protected static bool s_ModifierReleaseWatchQueued = false;
     protected static bool s_ModifierReleaseCancelQueued = false;
+    protected static int s_TransferZLastWheelCaptureAt;
+    protected static int s_TransferZSuppressNativeDropUntil;
     protected static ref array<EntityAI> s_VicinityItems;
 
     protected static bool NativeItemDragActive()
@@ -19,6 +21,38 @@ class TransferZOperationDrag
     protected static bool LeftMousePressed()
     {
         return (GetMouseState(MouseState.LEFT) & MB_PRESSED_MASK) != 0;
+    }
+
+    static void MarkWheelCapture()
+    {
+        if (IsActive())
+            s_TransferZLastWheelCaptureAt = GetGame().GetTime();
+    }
+
+    static bool ShouldResolveWheelCapturedDropAtMouse()
+    {
+        if (!IsActive() || s_TransferZLastWheelCaptureAt <= 0)
+            return false;
+
+        return GetGame().GetTime() - s_TransferZLastWheelCaptureAt < 10000;
+    }
+
+    static void ClearWheelCapture()
+    {
+        s_TransferZLastWheelCaptureAt = 0;
+    }
+
+    static void ArmNativeDropSuppression()
+    {
+        // DayZ can queue the native dragged icon's drop just before/after the
+        // mouse-up callback. TransferZ owns modifier drags, so swallow only
+        // that short trailing event window after the authoritative release.
+        s_TransferZSuppressNativeDropUntil = GetGame().GetTime() + 250;
+    }
+
+    static bool ShouldSuppressNativeDrop()
+    {
+        return s_TransferZSuppressNativeDropUntil > 0 && GetGame().GetTime() <= s_TransferZSuppressNativeDropUntil;
     }
 
     protected static void StartModifierReleaseWatch()
