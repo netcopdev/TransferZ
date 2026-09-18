@@ -640,9 +640,15 @@ class TransferZVicinityHeaderControls
         if (!TransferZOperationDrag.IsActive())
             return;
 
+        if ((GetMouseState(MouseState.LEFT) & MB_PRESSED_MASK) != 0)
+        {
+            TransferZHeaderControls.SetOperationDropTargetsVisible(true);
+            return;
+        }
+
         if (TransferZOperationDrag.IsModifierItemDrag())
         {
-            Print("[TransferZ][DragResolve] entry=legacy-vicinity-registered-drop");
+            Print("[TransferZ][DragResolve] entry=vicinity-registered-drop-fallback");
             TransferZHeaderControls.CompleteModifierDragAtMousePosition();
             return;
         }
