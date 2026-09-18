@@ -816,6 +816,7 @@ modded class SlotsIcon
             return;
 
         TransferZOperationDrag.BeginVicinity(TransferZOperation.TRANSFER, items);
+        TransferZOperationDrag.LatchModifierItemDrag();
         TransferZHeaderControls.SetOperationDropTargetsVisible(true);
         m_TransferZVicinityModifierDragStarted = true;
         s_TransferZModifierClickSuppressUntil = GetGame().GetTime() + 300;
