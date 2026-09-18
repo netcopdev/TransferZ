@@ -178,6 +178,69 @@ class TransferZVicinityHeaderControls
         return !s_Instance.m_Owner.IsHidden();
     }
 
+    static bool CompleteModifierDragAtMousePosition(int mouseX, int mouseY)
+    {
+        if (!TransferZOperationDrag.IsActive() || !s_Instance || !s_Instance.m_Source || !IsVicinityOpen())
+            return false;
+
+        if (TransferZOperationDrag.IsFromVicinity() && TransferZOperationDrag.GetOperation() == TransferZOperation.TRANSFER)
+            return false;
+
+        Widget root = s_Instance.m_Source.GetRootWidget();
+        if (!root || !root.IsVisibleHierarchy())
+            return false;
+
+        float x;
+        float y;
+        float w;
+        float h;
+        root.GetScreenPos(x, y);
+        root.GetScreenSize(w, h);
+
+        ScrollWidget scroll;
+        if (s_Instance.m_Owner)
+            scroll = s_Instance.m_Owner.TransferZGetScrollWidget();
+
+        float left = x;
+        float top = y;
+        float right = x + w;
+        float bottom = y + h;
+
+        if (scroll && scroll.IsVisibleHierarchy())
+        {
+            float sx;
+            float sy;
+            float sw;
+            float sh;
+            scroll.GetScreenPos(sx, sy);
+            scroll.GetScreenSize(sw, sh);
+            if (sx > left)
+                left = sx;
+            if (sy > top)
+                top = sy;
+            if (sx + sw < right)
+                right = sx + sw;
+            if (sy + sh < bottom)
+                bottom = sy + sh;
+        }
+
+        if (right <= left || bottom <= top)
+            return false;
+        if (mouseX < left || mouseX >= right || mouseY < top || mouseY >= bottom)
+            return false;
+
+        EntityAI source = TransferZOperationDrag.GetSource();
+        string sourceName = "<vicinity>";
+        if (source)
+            sourceName = source.GetType();
+
+        Print("[TransferZ][DragResolve] path=vicinity source=" + sourceName + " mouse=" + mouseX.ToString() + "," + mouseY.ToString());
+        bool handled = TransferZOperationDrag.CompleteToVicinity();
+        TransferZHeaderControls.SetOperationDropTargetsVisible(false);
+        TransferZHeaderControls.RefreshAll();
+        return handled;
+    }
+
     static void SetOperationDropTargetVisible(bool show)
     {
         if (s_Instance)
