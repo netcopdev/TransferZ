@@ -6,7 +6,7 @@ modded class MissionGameplay
     {
         super.OnInit();
         Print("[TransferZ] MissionGameplay.OnInit - 5_Mission module loaded");
-        Print("[TransferZ] DRAG-RESOLVER-BUILD-20260918-B");
+        Print("[TransferZ] DRAG-RESOLVER-BUILD-20260918-C");
     }
 
     override void OnUpdate(float timeslice)
