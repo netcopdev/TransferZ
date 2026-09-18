@@ -12,12 +12,6 @@ class TransferZOperationDrag
     protected static int s_TransferZSuppressNativeDropUntil;
     protected static ref array<EntityAI> s_VicinityItems;
 
-    protected static bool NativeItemDragActive()
-    {
-        ItemManager itemManager = ItemManager.GetInstance();
-        return itemManager && itemManager.IsDragging() && itemManager.GetDraggedItem();
-    }
-
     protected static bool LeftMousePressed()
     {
         return (GetMouseState(MouseState.LEFT) & MB_PRESSED_MASK) != 0;
@@ -137,7 +131,7 @@ class TransferZOperationDrag
         if (s_VicinityItems)
             s_VicinityItems.Clear();
 
-        SetModifierItemDrag(NativeItemDragActive());
+        SetModifierItemDrag(false);
     }
 
     static void BeginClassTransfer(EntityAI source, EntityAI representative)
@@ -177,7 +171,7 @@ class TransferZOperationDrag
                 s_VicinityItems.Insert(item);
         }
 
-        SetModifierItemDrag(NativeItemDragActive());
+        SetModifierItemDrag(false);
     }
 
     static bool IsActive()
