@@ -81,6 +81,10 @@ For an item shown in `VICINITY`, Shift selects the currently shown eligible loos
 
 Both modifier drags may target another visible cargo container. A cargo-source Shift or Alt drag may also target `VICINITY`; a vicinity-source Shift or Alt drag to vicinity is a no-op because those loose items are already there.
 
+While a Shift/Alt drag is active, TransferZ owns final release and destination resolution. Native DayZ drop callbacks from the representative dragged icon must be consumed and must never execute a second predictive item move. On actual LMB release, cancel the native widget drag before committing the TransferZ batch, and suppress only the immediately trailing native drop event window needed to discard already-queued callbacks.
+
+After scroll/capture churn, `GetWidgetUnderCursor()` is not sufficient proof of the destination. A hovered TransferZ drop overlay MUST also contain the current mouse point inside its owning container's live clipped drop-host rectangle; otherwise treat it as stale capture and continue with live geometry resolution.
+
 Do not broaden exact-class matching into category matching, inheritance matching, ammo-family matching, or fuzzy similarity without an explicit new specification.
 
 Do not assign `Ctrl + Drag` to TransferZ. Stock DayZ owns Ctrl-related inventory interactions and TransferZ must not compete with or suppress them.

@@ -1,6 +1,7 @@
 modded class TransferZOperationDrag
 {
     protected static int s_TransferZLastWheelCaptureAt;
+    protected static int s_TransferZSuppressNativeDropUntil;
 
     static void MarkWheelCapture()
     {
@@ -19,6 +20,19 @@ modded class TransferZOperationDrag
     static void ClearWheelCapture()
     {
         s_TransferZLastWheelCaptureAt = 0;
+    }
+
+    static void ArmNativeDropSuppression()
+    {
+        // DayZ can queue the native dragged icon's drop just before/after the
+        // mouse-up callback. TransferZ owns modifier drags, so swallow only
+        // that short trailing event window after the authoritative release.
+        s_TransferZSuppressNativeDropUntil = GetGame().GetTime() + 250;
+    }
+
+    static bool ShouldSuppressNativeDrop()
+    {
+        return s_TransferZSuppressNativeDropUntil > 0 && GetGame().GetTime() <= s_TransferZSuppressNativeDropUntil;
     }
 }
 
@@ -78,11 +92,25 @@ modded class TransferZHeaderControls
         GetMousePos(mouseX, mouseY);
 
         EntityAI source = TransferZOperationDrag.GetSource();
-        Widget hovered = GetWidgetUnderCursor();
+        string sourceName = "<vicinity>";
+        if (source)
+            sourceName = source.GetType();
 
-        // Prefer the live drop-target widget beneath the cursor. This reflects
-        // the UI's actual current hit result and avoids guessing between nearby
-        // or adjacent cargo panels from their container geometry.
+        Widget hovered = GetWidgetUnderCursor();
+        string hoveredName = "<none>";
+        if (hovered)
+            hoveredName = hovered.GetName();
+
+        bool wheelRecent = TransferZOperationDrag.ShouldResolveWheelCapturedDropAtMouse();
+        string wheelState = "no";
+        if (wheelRecent)
+            wheelState = "yes";
+
+        // Prefer the live drop-target widget beneath the cursor, but never trust
+        // widget ancestry alone after scrolling. Mouse capture can leave
+        // GetWidgetUnderCursor() pointing at the previously captured overlay.
+        // The current mouse point must also lie inside that container's live,
+        // clipped drop-host rectangle before the hovered widget may win.
         if (hovered && s_Instances)
         {
             for (int hoverIndex = s_Instances.Count() - 1; hoverIndex >= 0; hoverIndex--)
@@ -103,6 +131,14 @@ modded class TransferZHeaderControls
                 if (!WidgetIsWithin(hovered, hoveredControls.m_DropTarget))
                     continue;
 
+                ScrollWidget hoveredScroll = hoveredControls.FindScrollWidget();
+                if (!TransferZPointInsideClippedWidget(hoveredControls.m_DropHost, hoveredScroll, mouseX, mouseY))
+                {
+                    Print("[TransferZ][DragResolve] rejected stale hovered candidate=" + hoveredControls.m_Entity.GetType() + " hovered=" + hoveredName + " mouse=" + mouseX.ToString() + "," + mouseY.ToString() + " wheelRecent=" + wheelState);
+                    continue;
+                }
+
+                Print("[TransferZ][DragResolve] path=hovered source=" + sourceName + " destination=" + hoveredControls.m_Entity.GetType() + " hovered=" + hoveredName + " mouse=" + mouseX.ToString() + "," + mouseY.ToString() + " wheelRecent=" + wheelState);
                 bool hoveredHandled = TransferZOperationDrag.Complete(hoveredControls.m_Entity);
                 TransferZOperationDrag.ClearWheelCapture();
                 SetOperationDropTargetsVisible(false);
@@ -155,6 +191,7 @@ modded class TransferZHeaderControls
 
         if (best)
         {
+            Print("[TransferZ][DragResolve] path=geometry source=" + sourceName + " destination=" + best.m_Entity.GetType() + " hovered=" + hoveredName + " mouse=" + mouseX.ToString() + "," + mouseY.ToString() + " wheelRecent=" + wheelState);
             bool handled = TransferZOperationDrag.Complete(best.m_Entity);
             TransferZOperationDrag.ClearWheelCapture();
             SetOperationDropTargetsVisible(false);
@@ -163,6 +200,9 @@ modded class TransferZHeaderControls
         }
 
         bool vicinityHandled = TransferZVicinityHeaderControls.CompleteModifierDragAtMousePosition(mouseX, mouseY);
+        if (!vicinityHandled && TransferZOperationDrag.IsActive())
+            Print("[TransferZ][DragResolve] path=no-target source=" + sourceName + " hovered=" + hoveredName + " mouse=" + mouseX.ToString() + "," + mouseY.ToString() + " wheelRecent=" + wheelState);
+
         TransferZOperationDrag.ClearWheelCapture();
         return vicinityHandled;
     }
@@ -232,6 +272,12 @@ modded class TransferZVicinityHeaderControls
         if (mouseX < left || mouseX >= right || mouseY < top || mouseY >= bottom)
             return false;
 
+        EntityAI source = TransferZOperationDrag.GetSource();
+        string sourceName = "<vicinity>";
+        if (source)
+            sourceName = source.GetType();
+
+        Print("[TransferZ][DragResolve] path=vicinity source=" + sourceName + " mouse=" + mouseX.ToString() + "," + mouseY.ToString());
         bool handled = TransferZOperationDrag.CompleteToVicinity();
         TransferZHeaderControls.SetOperationDropTargetsVisible(false);
         TransferZHeaderControls.RefreshAll();
@@ -251,10 +297,53 @@ modded class WidgetEventHandler
         return super.OnMouseWheel(w, x, y, wheel);
     }
 
+    override bool OnDropReceived(Widget w, int x, int y, Widget reciever)
+    {
+        bool activeModifierDrag = TransferZOperationDrag.IsModifierItemDrag();
+        bool trailingNativeDrop = TransferZOperationDrag.ShouldSuppressNativeDrop();
+        if (activeModifierDrag || trailingNativeDrop)
+        {
+            string receiverName = "<none>";
+            if (reciever)
+                receiverName = reciever.GetName();
+
+            string draggedName = "<none>";
+            if (w)
+                draggedName = w.GetName();
+
+            string phase = "active";
+            if (!activeModifierDrag)
+                phase = "post-release";
+
+            Print("[TransferZ][DragNativeGuard] suppressed native drop phase=" + phase + " dragged=" + draggedName + " receiver=" + receiverName);
+
+            if (activeModifierDrag)
+                TransferZHeaderControls.SetOperationDropTargetsVisible(true);
+            return true;
+        }
+
+        return super.OnDropReceived(w, x, y, reciever);
+    }
+
     override bool OnMouseButtonUp(Widget w, int x, int y, int button)
     {
         if (button == MouseState.LEFT && TransferZOperationDrag.IsModifierItemDrag())
         {
+            // TransferZ owns the modifier drag. Cancel DayZ's native widget drag
+            // before moving the batch so the representative icon cannot enqueue
+            // a second predictive move against its now-stale source location.
+            TransferZOperationDrag.ArmNativeDropSuppression();
+            Widget nativeDrag = GetDragWidget();
+            if (nativeDrag)
+                CancelWidgetDragging();
+
+            ItemManager itemManager = ItemManager.GetInstance();
+            if (itemManager)
+            {
+                itemManager.HideDropzones();
+                itemManager.SetIsDragging(false);
+            }
+
             TransferZHeaderControls.CompleteModifierDragAtMousePosition();
             return true;
         }
