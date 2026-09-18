@@ -321,21 +321,13 @@ modded class WidgetEventHandler
 
     override bool OnMouseButtonUp(Widget w, int x, int y, int button)
     {
-        if (button == MouseState.LEFT && w && w.GetName() == "TransferZHeaderDropTarget" && TransferZOperationDrag.IsModifierItemDrag())
+        if (button == MouseState.LEFT && TransferZOperationDrag.IsModifierItemDrag())
         {
-            // First try the ordinary cargo drop targets. CompleteRightDragAtWidget
-            // clears the operation even when the request itself returns false, so
-            // active state tells us whether this overlay belonged to cargo.
-            TransferZHeaderControls.CompleteRightDragAtWidget(w);
-
-            // If no cargo overlay matched, the remaining TransferZ header drop
-            // target is VICINITY.
-            if (TransferZOperationDrag.IsModifierItemDrag())
-            {
-                TransferZOperationDrag.CompleteToVicinity();
-                TransferZHeaderControls.SetOperationDropTargetsVisible(false);
-                TransferZHeaderControls.RefreshAll();
-            }
+            // Modifier item drags always resolve from the current mouse position.
+            // Do not trust the callback widget: wheel/capture churn can leave it
+            // pointing at a stale TransferZ overlay.
+            Print("[TransferZ][DragResolve] entry=legacy-mouseup");
+            TransferZHeaderControls.CompleteModifierDragAtMousePosition();
             return true;
         }
 
