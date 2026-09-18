@@ -329,6 +329,12 @@ class TransferZHeaderControls
         if (!widget || !TransferZOperationDrag.IsActive())
             return false;
 
+        if (TransferZOperationDrag.IsModifierItemDrag())
+        {
+            Print("[TransferZ][DragResolve] entry=legacy-widget-complete");
+            return CompleteModifierDragAtMousePosition();
+        }
+
         if (s_Instances)
         {
             for (int i = s_Instances.Count() - 1; i >= 0; i--)
@@ -953,6 +959,13 @@ class TransferZHeaderControls
     {
         if (!TransferZOperationDrag.IsActive() || !m_Entity)
             return;
+
+        if (TransferZOperationDrag.IsModifierItemDrag())
+        {
+            Print("[TransferZ][DragResolve] entry=legacy-registered-drop");
+            CompleteModifierDragAtMousePosition();
+            return;
+        }
 
         TransferZOperationDrag.Complete(m_Entity);
         SetOperationDropTargetsVisible(false);
