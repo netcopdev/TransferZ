@@ -1026,12 +1026,51 @@ class TransferZHeaderControls
     {
         if (!m_DropTarget || !m_DropHost)
             return;
+
         float x;
         float y;
         float w;
         float h;
         m_DropHost.GetScreenPos(x, y);
         m_DropHost.GetScreenSize(w, h);
+
+        ScrollWidget scroll = FindScrollWidget();
+        if (scroll && scroll.IsVisibleHierarchy())
+        {
+            float sx;
+            float sy;
+            float sw;
+            float sh;
+            scroll.GetScreenPos(sx, sy);
+            scroll.GetScreenSize(sw, sh);
+
+            float left = x;
+            float top = y;
+            float right = x + w;
+            float bottom = y + h;
+
+            if (sx > left)
+                left = sx;
+            if (sy > top)
+                top = sy;
+            if (sx + sw < right)
+                right = sx + sw;
+            if (sy + sh < bottom)
+                bottom = sy + sh;
+
+            if (right <= left || bottom <= top)
+            {
+                m_DropTarget.SetScreenPos(0.0, 0.0, false);
+                m_DropTarget.SetScreenSize(0.0, 0.0, false);
+                return;
+            }
+
+            x = left;
+            y = top;
+            w = right - left;
+            h = bottom - top;
+        }
+
         m_DropTarget.SetScreenPos(x, y, false);
         m_DropTarget.SetScreenSize(w, h, false);
     }
@@ -1130,9 +1169,32 @@ class TransferZHeaderControls
         if (!TransferZOperationDrag.IsActive() || !m_Entity)
             return;
 
+        // Scrolling can cause DayZ to emit a registered drop while LMB is still
+        // physically held. Modifier batches never commit from that synthetic
+        // event; actual mouse-up is authoritative.
+        if ((GetMouseState(MouseState.LEFT) & MB_PRESSED_MASK) != 0)
+        {
+            int mouseX;
+            int mouseY;
+            GetMousePos(mouseX, mouseY);
+
+            string receiverName = "<none>";
+            if (receiver)
+                receiverName = receiver.GetName();
+
+            Widget hovered = GetWidgetUnderCursor();
+            string hoveredName = "<none>";
+            if (hovered)
+                hoveredName = hovered.GetName();
+
+            Print("[TransferZ][DragWheelGuard] ignored premature drop while LMB held receiver=" + receiverName + " hovered=" + hoveredName + " mouse=" + mouseX.ToString() + "," + mouseY.ToString());
+            SetOperationDropTargetsVisible(true);
+            return;
+        }
+
         if (TransferZOperationDrag.IsModifierItemDrag())
         {
-            Print("[TransferZ][DragResolve] entry=legacy-registered-drop");
+            Print("[TransferZ][DragResolve] entry=registered-drop-fallback");
             CompleteModifierDragAtMousePosition();
             return;
         }
