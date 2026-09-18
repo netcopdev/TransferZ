@@ -577,6 +577,13 @@ class TransferZVicinityHeaderControls
         if (!TransferZOperationDrag.IsActive())
             return;
 
+        if (TransferZOperationDrag.IsModifierItemDrag())
+        {
+            Print("[TransferZ][DragResolve] entry=legacy-vicinity-registered-drop");
+            TransferZHeaderControls.CompleteModifierDragAtMousePosition();
+            return;
+        }
+
         TransferZOperationDrag.CompleteToVicinity();
         TransferZHeaderControls.SetOperationDropTargetsVisible(false);
         TransferZHeaderControls.RefreshAll();
