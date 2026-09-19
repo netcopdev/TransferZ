@@ -240,3 +240,5 @@ Therefore:
 
 - Modifier item drags own their native drag teardown: before TransferZ commits the batch, the native `Icon` / `SlotsIcon` visual drag state MUST be explicitly reset, then widget dragging may be cancelled. `CancelWidgetDragging()` alone is not sufficient because it does not run the registered native drop cleanup and can leave colored cursor borders behind.
 - VICINITY modifier-drop hit testing uses the visible vicinity slots root directly. Do not clip that root against `VicinityContainer`'s cargo scroller; current DayZ reparents vicinity slots into a separate LeftArea slots area.
+
+- VICINITY Transfer treats takeable top-level ground containers as movable items, not as implicit unpack sources. Shift-drag may therefore move visible ground containers themselves into the selected cargo target, and Alt-drag exact-class matching MUST include cargo-bearing siblings of the same class. Container contents remain inside the moved container; unpack is a separate operation.
