@@ -233,8 +233,6 @@ class TransferZVicinityHeaderControls
         string sourceName = "<vicinity>";
         if (source)
             sourceName = source.GetType();
-
-        Print("[TransferZ][DragResolve] path=vicinity source=" + sourceName + " mouse=" + mouseX.ToString() + "," + mouseY.ToString());
         bool handled = TransferZOperationDrag.CompleteToVicinity();
         TransferZHeaderControls.SetOperationDropTargetsVisible(false);
         TransferZHeaderControls.RefreshAll();
@@ -648,7 +646,6 @@ class TransferZVicinityHeaderControls
 
         if (TransferZOperationDrag.IsModifierItemDrag())
         {
-            Print("[TransferZ][DragResolve] entry=vicinity-registered-drop-fallback");
             TransferZHeaderControls.CompleteModifierDragAtMousePosition();
             return;
         }
