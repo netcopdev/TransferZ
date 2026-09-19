@@ -98,7 +98,14 @@ class TransferZServerService
         if (!GetGame().IsMultiplayer())
             moveMode = InventoryMode.LOCAL;
 
-        if (!player.GetInventory().TakeToDst(moveMode, src, dst))
+        // Do not route server-authored batch moves through DayZPlayerInventory.
+        // Its SERVER path queues a sync juncture for the remote player and does
+        // not update the authoritative location immediately. A TransferZ batch
+        // then plans every following item against stale cargo state and usually
+        // only the first move survives. The item's GameInventory SERVER path
+        // performs LocationSyncMoveEntity immediately and emits the server move
+        // to clients, so each next batch step sees the committed state.
+        if (!item.GetInventory().TakeToDst(moveMode, src, dst))
             return MoveFailure("TakeToDst failed", item, destination);
 
         return true;
@@ -129,8 +136,9 @@ class TransferZServerService
 
         // Drop relative to the requesting player so VICINITY consistently means
         // the accessible ground area around that player, irrespective of where
-        // the source cargo sits in the UI hierarchy.
-        if (!player.GetInventory().DropEntity(moveMode, player, item))
+        // the source cargo sits in the UI hierarchy. Use the item's inventory
+        // for the same immediate authoritative semantics as exact-cargo moves.
+        if (!item.GetInventory().DropEntity(moveMode, player, item))
             return MoveFailure("DropEntity failed", item, null);
 
         return true;
