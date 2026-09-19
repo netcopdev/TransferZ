@@ -4,6 +4,9 @@ class TransferZSortRollbackMove
     int row;
     int col;
     bool flip;
+    int forwardRow;
+    int forwardCol;
+    bool forwardFlip;
 }
 
 class TransferZTransactionalSortPlanner : TransferZSortPlanner
@@ -87,16 +90,30 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         return true;
     }
 
-    protected static bool ItemAtRollbackLocation(EntityAI source, TransferZSortRollbackMove rollbackMove)
+    protected static bool ItemAtCargoCoordinates(EntityAI source, EntityAI item, int row, int col, bool flip)
     {
-        if (!source || !rollbackMove || !rollbackMove.item)
+        if (!source || !item)
             return false;
 
         InventoryLocation current = new InventoryLocation();
-        if (!rollbackMove.item.GetInventory().GetCurrentInventoryLocation(current))
+        if (!item.GetInventory().GetCurrentInventoryLocation(current))
             return false;
 
-        return current.GetType() == InventoryLocationType.CARGO && current.GetParent() == source && current.GetRow() == rollbackMove.row && current.GetCol() == rollbackMove.col && current.GetFlip() == rollbackMove.flip;
+        return current.GetType() == InventoryLocationType.CARGO && current.GetParent() == source && current.GetRow() == row && current.GetCol() == col && current.GetFlip() == flip;
+    }
+
+    protected static bool ItemAtRollbackLocation(EntityAI source, TransferZSortRollbackMove rollbackMove)
+    {
+        if (!rollbackMove)
+            return false;
+        return ItemAtCargoCoordinates(source, rollbackMove.item, rollbackMove.row, rollbackMove.col, rollbackMove.flip);
+    }
+
+    protected static bool ItemAtForwardLocation(EntityAI source, TransferZSortRollbackMove rollbackMove)
+    {
+        if (!rollbackMove)
+            return false;
+        return ItemAtCargoCoordinates(source, rollbackMove.item, rollbackMove.forwardRow, rollbackMove.forwardCol, rollbackMove.forwardFlip);
     }
 
     protected static bool RollbackExecutedMoves(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRollbackMove> rollbackMoves, notnull array<ref TransferZSortRecord> originalRecords)
@@ -114,6 +131,15 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
 
             if (ItemAtRollbackLocation(source, rollbackMove))
                 continue;
+
+            // Reverse only the exact forward state this entry produced. If the
+            // item is somewhere unexpected, fail closed rather than moving an
+            // unknown state and making recovery less deterministic.
+            if (!ItemAtForwardLocation(source, rollbackMove))
+            {
+                reverseMovesAccepted = false;
+                continue;
+            }
 
             if (!TryMoveWithinCargo(player, source, rollbackMove.item, rollbackMove.row, rollbackMove.col, rollbackMove.flip))
                 reverseMovesAccepted = false;
@@ -134,16 +160,22 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         if (!CaptureRollbackMove(source, move.item, rollbackMove))
             return false;
 
-        if (!TryMoveWithinCargo(player, source, move.item, move.row, move.col, move.flip))
+        rollbackMove.forwardRow = move.row;
+        rollbackMove.forwardCol = move.col;
+        rollbackMove.forwardFlip = move.flip;
+
+        bool moved = TryMoveWithinCargo(player, source, move.item, move.row, move.col, move.flip);
+        if (!moved)
+        {
+            // Native false should mean no mutation. If the exact destination did
+            // commit anyway, retain the inverse so the caller can still unwind it.
+            if (ItemAtForwardLocation(source, rollbackMove))
+                rollbackMoves.Insert(rollbackMove);
             return false;
+        }
 
         rollbackMoves.Insert(rollbackMove);
-
-        InventoryLocation current = new InventoryLocation();
-        if (!move.item.GetInventory().GetCurrentInventoryLocation(current))
-            return false;
-
-        return current.GetType() == InventoryLocationType.CARGO && current.GetParent() == source && current.GetRow() == move.row && current.GetCol() == move.col && current.GetFlip() == move.flip;
+        return ItemAtForwardLocation(source, rollbackMove);
     }
 
     override static int Sort(PlayerBase player, EntityAI source)
