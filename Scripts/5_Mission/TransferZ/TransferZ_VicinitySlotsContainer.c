@@ -178,6 +178,38 @@ class TransferZVicinityHeaderControls
         return !s_Instance.m_Owner.IsHidden();
     }
 
+    static bool CompleteModifierDragAtMousePosition(int mouseX, int mouseY)
+    {
+        if (!TransferZOperationDrag.IsActive() || !s_Instance || !s_Instance.m_Source || !IsVicinityOpen())
+            return false;
+
+        if (TransferZOperationDrag.IsFromVicinity() && TransferZOperationDrag.GetOperation() == TransferZOperation.TRANSFER)
+            return false;
+
+        Widget root = s_Instance.m_Source.GetRootWidget();
+        if (!root || !root.IsVisibleHierarchy())
+            return false;
+
+        float x;
+        float y;
+        float w;
+        float h;
+        root.GetScreenPos(x, y);
+        root.GetScreenSize(w, h);
+
+        // DayZ reparents the vicinity icon root into LeftArea's slots area.
+        // m_Owner.TransferZGetScrollWidget() is the separate cargo scroller, so
+        // intersecting these two rectangles can incorrectly eliminate VICINITY.
+        if (w <= 0.0 || h <= 0.0)
+            return false;
+        if (mouseX < x || mouseX >= x + w || mouseY < y || mouseY >= y + h)
+            return false;
+        bool handled = TransferZOperationDrag.CompleteToVicinity();
+        TransferZHeaderControls.SetOperationDropTargetsVisible(false);
+        TransferZHeaderControls.RefreshAll();
+        return handled;
+    }
+
     static void SetOperationDropTargetVisible(bool show)
     {
         if (s_Instance)
@@ -577,6 +609,18 @@ class TransferZVicinityHeaderControls
         if (!TransferZOperationDrag.IsActive())
             return;
 
+        if ((GetMouseState(MouseState.LEFT) & MB_PRESSED_MASK) != 0)
+        {
+            TransferZHeaderControls.SetOperationDropTargetsVisible(true);
+            return;
+        }
+
+        if (TransferZOperationDrag.IsModifierItemDrag())
+        {
+            TransferZHeaderControls.CompleteModifierDragAtMousePosition();
+            return;
+        }
+
         TransferZOperationDrag.CompleteToVicinity();
         TransferZHeaderControls.SetOperationDropTargetsVisible(false);
         TransferZHeaderControls.RefreshAll();
@@ -687,6 +731,41 @@ modded class SlotsIcon
         return TRANSFERZ_VICINITY_MODIFIER_ALT;
     }
 
+    protected bool TransferZBuildShiftItems(VicinitySlotsContainer vicinity, EntityAI representative, notnull array<EntityAI> matches)
+    {
+        matches.Clear();
+        if (!vicinity || !representative)
+            return false;
+
+        ref array<EntityAI> visible = new array<EntityAI>();
+        vicinity.TransferZSnapshotVisibleItems(visible);
+        bool representativeStillVisible = false;
+        bool representativeIsContainer = representative.GetInventory().GetCargo() != null;
+
+        foreach (EntityAI item : visible)
+        {
+            if (!item)
+                continue;
+            if (item == representative)
+                representativeStillVisible = true;
+
+            // VICINITY has no ownership boundary. Shift on a ground container
+            // therefore means that container only; Shift on loose loot batches
+            // loose items but deliberately leaves ground containers alone.
+            if (representativeIsContainer && item != representative)
+                continue;
+            if (!representativeIsContainer && item.GetInventory().GetCargo())
+                continue;
+
+            ItemBase itemBase = ItemBase.Cast(item);
+            if (!itemBase || !itemBase.IsTakeable() || !item.GetInventory().CanRemoveEntity())
+                continue;
+            matches.Insert(item);
+        }
+
+        return representativeStillVisible && matches.Count() > 0;
+    }
+
     protected bool TransferZBuildExactClassItems(VicinitySlotsContainer vicinity, EntityAI representative, notnull array<EntityAI> matches)
     {
         matches.Clear();
@@ -707,9 +786,11 @@ modded class SlotsIcon
                 continue;
             if (item == representative)
                 representativeStillVisible = true;
-            if (item.GetType() != className || item.GetInventory().GetCargo())
+            if (item.GetType() != className)
                 continue;
 
+            // Ground containers are items too. Cargo presence must not exclude
+            // protective cases, ammo boxes, med kits, etc. from Alt batches.
             ItemBase itemBase = ItemBase.Cast(item);
             if (!itemBase || !itemBase.IsTakeable() || !item.GetInventory().CanRemoveEntity())
                 continue;
@@ -735,7 +816,8 @@ modded class SlotsIcon
         ref array<EntityAI> items = new array<EntityAI>();
         if (mode == TRANSFERZ_VICINITY_MODIFIER_SHIFT)
         {
-            vicinity.TransferZSnapshotVisibleItems(items);
+            if (!TransferZBuildShiftItems(vicinity, m_Obj, items))
+                return;
         }
         else if (!TransferZBuildExactClassItems(vicinity, m_Obj, items))
         {
@@ -746,6 +828,7 @@ modded class SlotsIcon
             return;
 
         TransferZOperationDrag.BeginVicinity(TransferZOperation.TRANSFER, items);
+        TransferZOperationDrag.LatchModifierItemDrag();
         TransferZHeaderControls.SetOperationDropTargetsVisible(true);
         m_TransferZVicinityModifierDragStarted = true;
         s_TransferZModifierClickSuppressUntil = GetGame().GetTime() + 300;

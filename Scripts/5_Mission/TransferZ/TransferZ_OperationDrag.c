@@ -8,17 +8,25 @@ class TransferZOperationDrag
     protected static bool s_ModifierItemDrag = false;
     protected static bool s_ModifierReleaseWatchQueued = false;
     protected static bool s_ModifierReleaseCancelQueued = false;
+    protected static int s_TransferZSuppressNativeDropUntil;
     protected static ref array<EntityAI> s_VicinityItems;
-
-    protected static bool NativeItemDragActive()
-    {
-        ItemManager itemManager = ItemManager.GetInstance();
-        return itemManager && itemManager.IsDragging() && itemManager.GetDraggedItem();
-    }
 
     protected static bool LeftMousePressed()
     {
         return (GetMouseState(MouseState.LEFT) & MB_PRESSED_MASK) != 0;
+    }
+
+    static void ArmNativeDropSuppression()
+    {
+        // DayZ can queue the native dragged icon's drop just before/after the
+        // mouse-up callback. TransferZ owns modifier drags, so swallow only
+        // that short trailing event window after the authoritative release.
+        s_TransferZSuppressNativeDropUntil = GetGame().GetTime() + 250;
+    }
+
+    static bool ShouldSuppressNativeDrop()
+    {
+        return s_TransferZSuppressNativeDropUntil > 0 && GetGame().GetTime() <= s_TransferZSuppressNativeDropUntil;
     }
 
     protected static void StartModifierReleaseWatch()
@@ -81,6 +89,14 @@ class TransferZOperationDrag
             StartModifierReleaseWatch();
     }
 
+    static void LatchModifierItemDrag()
+    {
+        if (!IsActive())
+            return;
+
+        SetModifierItemDrag(true);
+    }
+
     static void BeginContainer(int operation, EntityAI source)
     {
         if (!source)
@@ -95,7 +111,7 @@ class TransferZOperationDrag
         if (s_VicinityItems)
             s_VicinityItems.Clear();
 
-        SetModifierItemDrag(NativeItemDragActive());
+        SetModifierItemDrag(false);
     }
 
     static void BeginClassTransfer(EntityAI source, EntityAI representative)
@@ -135,7 +151,7 @@ class TransferZOperationDrag
                 s_VicinityItems.Insert(item);
         }
 
-        SetModifierItemDrag(NativeItemDragActive());
+        SetModifierItemDrag(false);
     }
 
     static bool IsActive()
@@ -290,6 +306,7 @@ modded class WidgetEventHandler
     {
         if (w && TransferZOperationDrag.IsActive() && w.GetName() == "TransferZHeaderDropTarget")
         {
+
             // TransferZ's overlay handlers negate the wheel value before
             // calling VScrollStep. Feed the opposite value here so the resulting
             // scroll direction matches vanilla DayZ.
@@ -306,13 +323,13 @@ modded class WidgetEventHandler
 
     override bool OnDropReceived(Widget w, int x, int y, Widget reciever)
     {
-        if (reciever && reciever.GetName() == "TransferZHeaderDropTarget" && TransferZOperationDrag.IsModifierItemDrag())
+        bool activeModifierDrag = TransferZOperationDrag.IsModifierItemDrag();
+        bool trailingNativeDrop = TransferZOperationDrag.ShouldSuppressNativeDrop();
+        if (activeModifierDrag || trailingNativeDrop)
         {
-            // A wheel-scroll can make vanilla terminate/rebuild the dragged Icon
-            // and emit a drop against the overlay under the cursor. Modifier
-            // batches never commit from this native drop event; actual LMB-up is
-            // the authority for the TransferZ destination.
-            TransferZRefreshDropTargetsAfterScroll();
+
+            if (activeModifierDrag)
+                TransferZRefreshDropTargetsAfterScroll();
             return true;
         }
 
@@ -321,24 +338,45 @@ modded class WidgetEventHandler
 
     override bool OnMouseButtonUp(Widget w, int x, int y, int button)
     {
-        if (button == MouseState.LEFT && w && w.GetName() == "TransferZHeaderDropTarget" && TransferZOperationDrag.IsModifierItemDrag())
+        if (button == MouseState.LEFT && TransferZOperationDrag.IsModifierItemDrag())
         {
-            // First try the ordinary cargo drop targets. CompleteRightDragAtWidget
-            // clears the operation even when the request itself returns false, so
-            // active state tells us whether this overlay belonged to cargo.
-            TransferZHeaderControls.CompleteRightDragAtWidget(w);
+            // TransferZ owns modifier-item release. End the native widget drag
+            // before moving the batch so DayZ cannot enqueue a stale
+            // PredictiveTakeToDst for the representative item.
+            TransferZOperationDrag.ArmNativeDropSuppression();
 
-            // If no cargo overlay matched, the remaining TransferZ header drop
-            // target is VICINITY.
-            if (TransferZOperationDrag.IsModifierItemDrag())
+            Widget nativeDrag = GetDragWidget();
+            ItemManager itemManager = ItemManager.GetInstance();
+            if (itemManager)
             {
-                TransferZOperationDrag.CompleteToVicinity();
-                TransferZHeaderControls.SetOperationDropTargetsVisible(false);
-                TransferZHeaderControls.RefreshAll();
+                Icon draggedIcon = itemManager.GetDraggedIcon();
+                if (draggedIcon)
+                {
+                    draggedIcon.DestroyWhiteBackground();
+                }
+                else if (nativeDrag)
+                {
+                    SlotsIcon draggedSlotsIcon;
+                    nativeDrag.GetUserData(draggedSlotsIcon);
+                    if (draggedSlotsIcon)
+                        draggedSlotsIcon.OnIconDrop(nativeDrag);
+                }
             }
+
+            if (nativeDrag)
+                CancelWidgetDragging();
+
+            if (itemManager)
+            {
+                itemManager.HideDropzones();
+                itemManager.SetIsDragging(false);
+            }
+
+            TransferZHeaderControls.CompleteModifierDragAtMousePosition();
             return true;
         }
 
         return super.OnMouseButtonUp(w, x, y, button);
     }
 }
+

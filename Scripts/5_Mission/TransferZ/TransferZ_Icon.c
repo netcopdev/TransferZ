@@ -147,6 +147,7 @@ modded class Icon
         m_TransferZModifierClickPending = false;
         TransferZHeaderControls.SetOperationDropTargetsVisible(true);
         m_TransferZModifierDragStarted = true;
+        TransferZOperationDrag.LatchModifierItemDrag();
     }
 
     override void DestroyWhiteBackground()

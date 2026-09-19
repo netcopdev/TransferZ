@@ -96,6 +96,19 @@ class TransferZSortPlanner : TransferZMaintenanceService
         }
     }
 
+    protected static bool MatchesPreferredOrientationV4(TransferZSortRecord record, int width, int height, bool preferVerticalMagazines)
+    {
+        if (!preferVerticalMagazines || !record || !record.item)
+            return true;
+
+        // MagazineStorage is the detachable-magazine family. Ammunition piles
+        // also derive from Magazine but are not magazines for layout purposes.
+        if (!MagazineStorage.Cast(record.item))
+            return true;
+
+        return height >= width;
+    }
+
     protected static bool CollidesWithUserReservationV4(PlayerBase player, EntityAI source, TransferZSortRecord record, int row, int col, bool flip)
     {
         if (!player || !source || !record || !record.item)
@@ -170,7 +183,7 @@ class TransferZSortPlanner : TransferZMaintenanceService
         return candidate.typeHash < best.typeHash;
     }
 
-    protected static bool AssignCompactTargetsV4(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips)
+    protected static bool AssignCompactTargetsV4(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips, bool preferVerticalMagazines = false)
     {
         ref array<int> targetGrid = new array<int>();
         ref array<int> assigned = new array<int>();
@@ -212,6 +225,8 @@ class TransferZSortPlanner : TransferZMaintenanceService
                     bool candidateFlip;
                     GetOrientationV4(candidate, orientationIndex, candidateWidth, candidateHeight, candidateFlip);
 
+                    if (!MatchesPreferredOrientationV4(candidate, candidateWidth, candidateHeight, preferVerticalMagazines))
+                        continue;
                     if (!RectFree(targetGrid, cargoWidth, cargoHeight, anchorRow, anchorCol, candidateWidth, candidateHeight))
                         continue;
                     if (CollidesWithUserReservationV4(player, source, candidate, anchorRow, anchorCol, candidateFlip))
@@ -250,12 +265,10 @@ class TransferZSortPlanner : TransferZMaintenanceService
             assigned.Set(bestIndex, 1);
             assignedCount++;
         }
-
-        Print("[TransferZ] Sort planner V4 compact rotation-aware packing assigned=" + assignedCount.ToString() + " skippedCells=" + skippedCells.ToString());
         return true;
     }
 
-    protected static bool AssignFirstFitTargetsV4(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips)
+    protected static bool AssignFirstFitTargetsV4(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips, bool preferVerticalMagazines = false)
     {
         ref array<int> targetGrid = new array<int>();
         ResetGrid(targetGrid, cargoWidth * cargoHeight);
@@ -280,6 +293,8 @@ class TransferZSortPlanner : TransferZMaintenanceService
                         bool targetFlip;
                         GetOrientationV4(record, orientationIndex, targetWidth, targetHeight, targetFlip);
 
+                        if (!MatchesPreferredOrientationV4(record, targetWidth, targetHeight, preferVerticalMagazines))
+                            continue;
                         if (!RectFree(targetGrid, cargoWidth, cargoHeight, targetRow, targetCol, targetWidth, targetHeight))
                             continue;
                         if (CollidesWithUserReservationV4(player, source, record, targetRow, targetCol, targetFlip))
@@ -648,7 +663,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
             MoveRecordInGridV4(state.currentGrid, state.cargoWidth, directRecord, recordIndex + 1, directRow, directCol, directWidth, directHeight, directFlip);
             state.stepCount++;
             state.activeParking.Set(recordIndex, 0);
-            Print("[TransferZ] Sort planner V4 parked record=" + recordIndex.ToString() + " direct=" + directRow.ToString() + "," + directCol.ToString() + " size=" + directWidth.ToString() + "x" + directHeight.ToString() + " flip=" + directFlip.ToString());
             return true;
         }
 
@@ -725,7 +739,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
                         MoveRecordInGridV4(state.currentGrid, state.cargoWidth, record, recordIndex + 1, candidateRow, candidateCol, candidateWidth, candidateHeight, candidateFlip);
                         state.stepCount++;
                         state.activeParking.Set(recordIndex, 0);
-                        Print("[TransferZ] Sort planner V4 recursively parked record=" + recordIndex.ToString() + " at=" + candidateRow.ToString() + "," + candidateCol.ToString() + " size=" + candidateWidth.ToString() + "x" + candidateHeight.ToString() + " flip=" + candidateFlip.ToString() + " depth=" + depth.ToString());
                         return true;
                     }
 
@@ -778,18 +791,7 @@ class TransferZSortPlanner : TransferZMaintenanceService
         MoveRecordInGridV4(state.currentGrid, state.cargoWidth, record, recordIndex + 1, record.targetRow, record.targetCol, targetWidth, targetHeight, targetFlip);
         state.stepCount++;
         state.lockedRecords.Set(recordIndex, 1);
-        Print("[TransferZ] Sort planner V4 locked record=" + recordIndex.ToString() + " at=" + record.targetRow.ToString() + "," + record.targetCol.ToString() + " size=" + targetWidth.ToString() + "x" + targetHeight.ToString() + " flip=" + targetFlip.ToString());
         return true;
-    }
-
-    protected static void LogTargetsV4(notnull array<ref TransferZSortRecord> records, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips)
-    {
-        for (int recordIndex = 0; recordIndex < records.Count(); recordIndex++)
-        {
-            TransferZSortRecord record = records.Get(recordIndex);
-            bool targetFlip = targetFlips.Get(recordIndex) != 0;
-            Print("[TransferZ] Sort planner V4 target record=" + recordIndex.ToString() + " type=" + record.item.GetType() + " from=" + record.row.ToString() + "," + record.col.ToString() + " current=" + record.width.ToString() + "x" + record.height.ToString() + " flip=" + record.flip.ToString() + " to=" + record.targetRow.ToString() + "," + record.targetCol.ToString() + " target=" + targetWidths.Get(recordIndex).ToString() + "x" + targetHeights.Get(recordIndex).ToString() + " flip=" + targetFlip.ToString());
-        }
     }
 
     protected static bool BuildSortPlanV4(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<ref TransferZSortMove> moves)
@@ -800,19 +802,24 @@ class TransferZSortPlanner : TransferZMaintenanceService
         ref array<int> targetHeights = new array<int>();
         ref array<int> targetFlips = new array<int>();
 
-        if (!AssignCompactTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
+        bool assigned = AssignCompactTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips, true);
+        if (!assigned)
+            assigned = AssignFirstFitTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips, true);
+
+        // Preferred orientation must not make an otherwise valid sort fail.
+        if (!assigned)
+            assigned = AssignCompactTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips);
+        if (!assigned)
+            assigned = AssignFirstFitTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips);
+
+        if (!assigned)
         {
-            Print("[TransferZ] Sort planner V4 compact target packing failed; retrying rotation-aware first-fit targets");
-            if (!AssignFirstFitTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
-            {
-                Print("[TransferZ] Sort planner V4 failed: target layout assignment");
-                return false;
-            }
+            Print("[TransferZ] Sort planner V4 failed: target layout assignment");
+            return false;
         }
 
         OptimizeEquivalentTargetAssignmentsV4(records, targetWidths, targetHeights, targetFlips);
         SortRecordsByTargetV4(records, targetWidths, targetHeights, targetFlips);
-        LogTargetsV4(records, targetWidths, targetHeights, targetFlips);
 
         ref TransferZSortPlannerState state = new TransferZSortPlannerState();
         state.player = player;
@@ -863,7 +870,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
         state.maxDepth = records.Count() + 4;
         state.stepCount = 0;
         state.searchCount = 0;
-        Print("[TransferZ] Sort planner V4 active records=" + records.Count().ToString() + " maxSteps=" + state.maxSteps.ToString() + " maxSearch=" + state.maxSearch.ToString());
 
         for (int planIndex = 0; planIndex < records.Count(); planIndex++)
         {
@@ -881,8 +887,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
             Print("[TransferZ] Sort planner V4 stopped: target layout incomplete");
             return false;
         }
-
-        Print("[TransferZ] Sort planner V4 solved moves=" + moves.Count().ToString() + " steps=" + state.stepCount.ToString() + " search=" + state.searchCount.ToString());
         return true;
     }
 
@@ -928,8 +932,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
             }
             moved++;
         }
-
-        Print("[TransferZ] Sort V4 result source=" + source.GetType() + " moves=" + moved.ToString() + "/" + moves.Count().ToString());
         return moved;
     }
 

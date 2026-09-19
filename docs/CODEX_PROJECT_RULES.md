@@ -81,6 +81,14 @@ For an item shown in `VICINITY`, Shift selects the currently shown eligible loos
 
 Both modifier drags may target another visible cargo container. A cargo-source Shift or Alt drag may also target `VICINITY`; a vicinity-source Shift or Alt drag to vicinity is a no-op because those loose items are already there.
 
+While a Shift/Alt drag is active, TransferZ owns final release and destination resolution. Native DayZ drop callbacks from the representative dragged icon must be consumed and must never execute a second predictive item move. On actual LMB release, cancel the native widget drag before committing the TransferZ batch, and suppress only the immediately trailing native drop event window needed to discard already-queued callbacks.
+
+After scroll/capture churn, `GetWidgetUnderCursor()` is not sufficient proof of the destination. A hovered TransferZ drop overlay MUST also contain the current mouse point inside its owning container's live clipped drop-host rectangle; otherwise treat it as stale capture and continue with live geometry resolution.
+
+Every modifier-item completion path (global mouse-up, cargo registered drop, vicinity registered drop, and legacy widget completion helper) MUST delegate to `CompleteModifierDragAtMousePosition()`. No modifier path may commit directly from the callback receiver or cached entity.
+
+Critical modifier-drag event handling MUST live in the primary TransferZ implementation files. Do not split mouse-up, native-drop suppression, latching, scroll clipping, or destination resolution across filename-ordered `Z`/`ZZ`/`ZZZ` patch layers; Enforce Script modded-class ordering is not a valid correctness dependency.
+
 Do not broaden exact-class matching into category matching, inheritance matching, ammo-family matching, or fuzzy similarity without an explicit new specification.
 
 Do not assign `Ctrl + Drag` to TransferZ. Stock DayZ owns Ctrl-related inventory interactions and TransferZ must not compete with or suppress them.
@@ -229,3 +237,10 @@ Therefore:
 - No persistent preferred personal targets for containers nested in cargo rather than attached through slots.
 - No class allowlists for container support.
 - No custom replacement inventory screen.
+
+- Modifier item drags own their native drag teardown: before TransferZ commits the batch, the native `Icon` / `SlotsIcon` visual drag state MUST be explicitly reset, then widget dragging may be cancelled. `CancelWidgetDragging()` alone is not sufficient because it does not run the registered native drop cleanup and can leave colored cursor borders behind.
+- VICINITY modifier-drop hit testing uses the visible vicinity slots root directly. Do not clip that root against `VicinityContainer`'s cargo scroller; current DayZ reparents vicinity slots into a separate LeftArea slots area.
+
+- VICINITY has no implicit ownership boundary. Shift-dragging a cargo-bearing ground container moves only that dragged container. Shift-dragging loose ground loot batches eligible loose items but excludes cargo-bearing ground containers. Alt-drag remains the explicit homogeneous batch operation and includes same-class cargo-bearing siblings. Container contents remain inside moved containers; unpack is a separate operation.
+
+- Sort orientation preference: detachable magazines (`MagazineStorage`) prefer vertical placement (height >= width). The planner first attempts a complete layout with that preference enforced for every magazine, then falls back to unrestricted rotation only when a complete preferred layout is impossible. Ammunition piles are not treated as magazines for this rule.

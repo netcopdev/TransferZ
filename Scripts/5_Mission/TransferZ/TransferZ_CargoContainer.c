@@ -324,10 +324,164 @@ class TransferZHeaderControls
         return false;
     }
 
+    protected static bool TransferZPointInsideClippedWidget(Widget widget, ScrollWidget scroll, int mouseX, int mouseY)
+    {
+        if (!widget || !widget.IsVisibleHierarchy())
+            return false;
+
+        float x;
+        float y;
+        float w;
+        float h;
+        widget.GetScreenPos(x, y);
+        widget.GetScreenSize(w, h);
+        if (w <= 0.0 || h <= 0.0)
+            return false;
+
+        float left = x;
+        float top = y;
+        float right = x + w;
+        float bottom = y + h;
+
+        if (scroll && scroll.IsVisibleHierarchy())
+        {
+            float sx;
+            float sy;
+            float sw;
+            float sh;
+            scroll.GetScreenPos(sx, sy);
+            scroll.GetScreenSize(sw, sh);
+
+            if (sx > left)
+                left = sx;
+            if (sy > top)
+                top = sy;
+            if (sx + sw < right)
+                right = sx + sw;
+            if (sy + sh < bottom)
+                bottom = sy + sh;
+        }
+
+        if (right <= left || bottom <= top)
+            return false;
+
+        return mouseX >= left && mouseX < right && mouseY >= top && mouseY < bottom;
+    }
+
+    static bool CompleteModifierDragAtMousePosition()
+    {
+        if (!TransferZOperationDrag.IsActive())
+            return false;
+
+        int mouseX;
+        int mouseY;
+        GetMousePos(mouseX, mouseY);
+
+        EntityAI source = TransferZOperationDrag.GetSource();
+
+        Widget hovered = GetWidgetUnderCursor();
+
+        // Prefer the live drop-target widget beneath the cursor, but never trust
+        // widget ancestry alone after scrolling. Mouse capture can leave
+        // GetWidgetUnderCursor() pointing at the previously captured overlay.
+        // The current mouse point must also lie inside that container's live,
+        // clipped drop-host rectangle before the hovered widget may win.
+        if (hovered && s_Instances)
+        {
+            for (int hoverIndex = s_Instances.Count() - 1; hoverIndex >= 0; hoverIndex--)
+            {
+                TransferZHeaderControls hoveredControls = s_Instances.Get(hoverIndex);
+                if (!hoveredControls || !hoveredControls.m_Entity || !hoveredControls.m_DropTarget || !hoveredControls.m_DropTarget.IsVisibleHierarchy() || !hoveredControls.IsOpenTarget())
+                    continue;
+                if (!hoveredControls.m_Entity.GetInventory().GetCargo())
+                    continue;
+
+                if (source && source == hoveredControls.m_Entity)
+                {
+                    bool hoveredSelfUnpack = TransferZOperationDrag.GetOperation() == TransferZOperation.UNPACK && !TransferZOperationDrag.IsClassTransfer() && !TransferZOperationDrag.IsFromVicinity();
+                    if (!hoveredSelfUnpack)
+                        continue;
+                }
+
+                if (!WidgetIsWithin(hovered, hoveredControls.m_DropTarget))
+                    continue;
+
+                ScrollWidget hoveredScroll = hoveredControls.FindScrollWidget();
+                if (!TransferZPointInsideClippedWidget(hoveredControls.m_DropHost, hoveredScroll, mouseX, mouseY))
+                {
+                    continue;
+                }
+                bool hoveredHandled = TransferZOperationDrag.Complete(hoveredControls.m_Entity);
+                SetOperationDropTargetsVisible(false);
+                RefreshAll();
+                return hoveredHandled;
+            }
+        }
+
+        TransferZHeaderControls best;
+        float bestArea = 999999999.0;
+
+        // Mouse capture can occasionally prevent GetWidgetUnderCursor() from
+        // exposing the overlay. Fall back to live container screen geometry.
+        if (s_Instances)
+        {
+            for (int i = s_Instances.Count() - 1; i >= 0; i--)
+            {
+                TransferZHeaderControls controls = s_Instances.Get(i);
+                if (!controls || !controls.m_Entity || !controls.m_DropHost || !controls.IsOpenTarget())
+                    continue;
+                if (!controls.m_Entity.GetInventory().GetCargo())
+                    continue;
+
+                if (source && source == controls.m_Entity)
+                {
+                    bool selfUnpack = TransferZOperationDrag.GetOperation() == TransferZOperation.UNPACK && !TransferZOperationDrag.IsClassTransfer() && !TransferZOperationDrag.IsFromVicinity();
+                    if (!selfUnpack)
+                        continue;
+                }
+
+                float x;
+                float y;
+                float w;
+                float h;
+                controls.m_DropHost.GetScreenPos(x, y);
+                controls.m_DropHost.GetScreenSize(w, h);
+
+                ScrollWidget scroll = controls.FindScrollWidget();
+                if (!TransferZPointInsideClippedWidget(controls.m_DropHost, scroll, mouseX, mouseY))
+                    continue;
+
+                float area = w * h;
+                if (!best || area < bestArea)
+                {
+                    best = controls;
+                    bestArea = area;
+                }
+            }
+        }
+
+        if (best)
+        {
+            bool handled = TransferZOperationDrag.Complete(best.m_Entity);
+            SetOperationDropTargetsVisible(false);
+            RefreshAll();
+            return handled;
+        }
+
+        bool vicinityHandled = TransferZVicinityHeaderControls.CompleteModifierDragAtMousePosition(mouseX, mouseY);
+        return vicinityHandled;
+    }
+
+
     static bool CompleteRightDragAtWidget(Widget widget)
     {
         if (!widget || !TransferZOperationDrag.IsActive())
             return false;
+
+        if (TransferZOperationDrag.IsModifierItemDrag())
+        {
+            return CompleteModifierDragAtMousePosition();
+        }
 
         if (s_Instances)
         {
@@ -850,12 +1004,51 @@ class TransferZHeaderControls
     {
         if (!m_DropTarget || !m_DropHost)
             return;
+
         float x;
         float y;
         float w;
         float h;
         m_DropHost.GetScreenPos(x, y);
         m_DropHost.GetScreenSize(w, h);
+
+        ScrollWidget scroll = FindScrollWidget();
+        if (scroll && scroll.IsVisibleHierarchy())
+        {
+            float sx;
+            float sy;
+            float sw;
+            float sh;
+            scroll.GetScreenPos(sx, sy);
+            scroll.GetScreenSize(sw, sh);
+
+            float left = x;
+            float top = y;
+            float right = x + w;
+            float bottom = y + h;
+
+            if (sx > left)
+                left = sx;
+            if (sy > top)
+                top = sy;
+            if (sx + sw < right)
+                right = sx + sw;
+            if (sy + sh < bottom)
+                bottom = sy + sh;
+
+            if (right <= left || bottom <= top)
+            {
+                m_DropTarget.SetScreenPos(0.0, 0.0, false);
+                m_DropTarget.SetScreenSize(0.0, 0.0, false);
+                return;
+            }
+
+            x = left;
+            y = top;
+            w = right - left;
+            h = bottom - top;
+        }
+
         m_DropTarget.SetScreenPos(x, y, false);
         m_DropTarget.SetScreenSize(w, h, false);
     }
@@ -953,6 +1146,21 @@ class TransferZHeaderControls
     {
         if (!TransferZOperationDrag.IsActive() || !m_Entity)
             return;
+
+        // Scrolling can cause DayZ to emit a registered drop while LMB is still
+        // physically held. Modifier batches never commit from that synthetic
+        // event; actual mouse-up is authoritative.
+        if ((GetMouseState(MouseState.LEFT) & MB_PRESSED_MASK) != 0)
+        {
+            SetOperationDropTargetsVisible(true);
+            return;
+        }
+
+        if (TransferZOperationDrag.IsModifierItemDrag())
+        {
+            CompleteModifierDragAtMousePosition();
+            return;
+        }
 
         TransferZOperationDrag.Complete(m_Entity);
         SetOperationDropTargetsVisible(false);

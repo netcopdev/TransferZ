@@ -203,19 +203,22 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
 
     protected static bool BuildTransactionalTargetLayout(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips)
     {
-        if (!AssignCompactTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
+        bool assigned = AssignCompactTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips, true);
+        if (!assigned)
+            assigned = AssignFirstFitTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips, true);
+        if (!assigned)
+            assigned = AssignCompactTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips);
+        if (!assigned)
+            assigned = AssignFirstFitTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips);
+
+        if (!assigned)
         {
-            Print("[TransferZ] Sort transactional compact target packing failed; retrying rotation-aware first-fit targets");
-            if (!AssignFirstFitTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
-            {
-                Print("[TransferZ] Sort transactional failed: target layout assignment");
-                return false;
-            }
+            Print("[TransferZ] Sort transactional failed: target layout assignment");
+            return false;
         }
 
         OptimizeEquivalentTargetAssignmentsV4(records, targetWidths, targetHeights, targetFlips);
         SortRecordsByTargetV4(records, targetWidths, targetHeights, targetFlips);
-        LogTargetsV4(records, targetWidths, targetHeights, targetFlips);
         return true;
     }
 
@@ -358,8 +361,6 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
             Print("[TransferZ] Sort transactional failed target verification rollback=" + rolledBackAfterVerifyFailure.ToString());
             return -1;
         }
-
-        Print("[TransferZ] Sort transactional result source=" + source.GetType() + " staged=" + stagedCount.ToString() + " placed=" + placedCount.ToString() + " verified=true");
         return placedCount;
     }
 

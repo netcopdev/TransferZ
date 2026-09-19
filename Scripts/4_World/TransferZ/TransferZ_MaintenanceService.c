@@ -503,8 +503,6 @@ class TransferZMaintenanceService
             Print("[TransferZ] Sort planner stopped: target layout incomplete after steps=" + stepCount.ToString());
             return false;
         }
-
-        Print("[TransferZ] Sort planner solved deterministic moves=" + moves.Count().ToString() + " steps=" + stepCount.ToString());
         return true;
     }
 
@@ -598,7 +596,6 @@ class TransferZMaintenanceService
         }
         if (records.Count() < 2)
         {
-            Print("[TransferZ] Sort skipped: fewer than two direct cargo items in " + source.GetType());
             return 0;
         }
 
@@ -610,7 +607,6 @@ class TransferZMaintenanceService
         }
         if (moves.Count() == 0)
         {
-            Print("[TransferZ] Sort skipped: cargo already matches target order for " + source.GetType());
             return 0;
         }
 
@@ -626,8 +622,6 @@ class TransferZMaintenanceService
             }
             moved++;
         }
-
-        Print("[TransferZ] Sort result source=" + source.GetType() + " moves=" + moved.ToString() + "/" + moves.Count().ToString());
         return moved;
     }
 
@@ -672,8 +666,6 @@ class TransferZMaintenanceService
                     break;
             }
         }
-
-        Print("[TransferZ] Stack result source=" + source.GetType() + " combines=" + combined.ToString());
         return combined;
     }
 

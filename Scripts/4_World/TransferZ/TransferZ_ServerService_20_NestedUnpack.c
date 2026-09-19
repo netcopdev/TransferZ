@@ -42,8 +42,6 @@ class TransferZNestedUnpackService
             if (TransferZServerService.TryMoveToExactCargo(player, item, destination))
                 moved++;
         }
-
-        Print("[TransferZ] Nested unpack result source=" + source.GetType() + " destination=" + destination.GetType() + " moved=" + moved.ToString() + "/" + leaves.Count().ToString());
         return moved;
     }
 
@@ -61,8 +59,6 @@ class TransferZNestedUnpackService
             if (TransferZServerService.TryMoveToVicinity(player, item))
                 moved++;
         }
-
-        Print("[TransferZ] Nested unpack result source=" + source.GetType() + " destination=VICINITY moved=" + moved.ToString() + "/" + leaves.Count().ToString());
         return moved;
     }
 

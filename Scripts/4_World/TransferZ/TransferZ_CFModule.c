@@ -5,7 +5,6 @@ class TransferZCFModule : CF_ModuleWorld
     {
         super.OnInit();
         EnableRPC();
-        Print("[TransferZ] BUILD MARKER SORT-TRANSACTIONAL-20260917-B");
     }
 
     override int GetRPCMin()

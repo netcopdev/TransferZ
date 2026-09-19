@@ -221,8 +221,6 @@ class TransferZServerService
             if (TryMoveToExactCargo(player, item, destination))
                 moved++;
         }
-
-        Print("[TransferZ] Transfer result source=" + source.GetType() + " destination=" + destination.GetType() + " moved=" + moved.ToString() + "/" + items.Count().ToString());
         return moved;
     }
 
@@ -240,8 +238,6 @@ class TransferZServerService
             if (TryMoveToVicinity(player, item))
                 moved++;
         }
-
-        Print("[TransferZ] Transfer result source=" + source.GetType() + " destination=VICINITY moved=" + moved.ToString() + "/" + items.Count().ToString());
         return moved;
     }
 
@@ -283,8 +279,6 @@ class TransferZServerService
             if (TryMoveToExactCargo(player, item, destination))
                 moved++;
         }
-
-        Print("[TransferZ] Class transfer result class=" + className + " source=" + source.GetType() + " destination=" + destination.GetType() + " moved=" + moved.ToString() + "/" + matched.ToString());
         return moved;
     }
 
@@ -320,8 +314,6 @@ class TransferZServerService
             if (TryMoveToVicinity(player, item))
                 moved++;
         }
-
-        Print("[TransferZ] Class transfer result class=" + className + " source=" + source.GetType() + " destination=VICINITY moved=" + moved.ToString() + "/" + matched.ToString());
         return moved;
     }
 
@@ -348,8 +340,6 @@ class TransferZServerService
             if (TryMoveToExactCargo(player, item, destination))
                 moved++;
         }
-
-        Print("[TransferZ] Unpack result source=" + source.GetType() + " destination=" + destination.GetType() + " moved=" + moved.ToString() + "/" + leaves.Count().ToString());
         return moved;
     }
 
@@ -367,8 +357,6 @@ class TransferZServerService
             if (TryMoveToVicinity(player, item))
                 moved++;
         }
-
-        Print("[TransferZ] Unpack result source=" + source.GetType() + " destination=VICINITY moved=" + moved.ToString() + "/" + leaves.Count().ToString());
         return moved;
     }
 
@@ -384,7 +372,6 @@ class TransferZServerService
         string movedText = "false";
         if (moved)
             movedText = "true";
-        Print("[TransferZ] MoveItem result item=" + item.GetType() + " destination=" + destination.GetType() + " moved=" + movedText);
         return moved;
     }
 
@@ -397,7 +384,6 @@ class TransferZServerService
         string movedText = "false";
         if (moved)
             movedText = "true";
-        Print("[TransferZ] MoveItem result item=" + item.GetType() + " destination=VICINITY moved=" + movedText);
         return moved;
     }
 
