@@ -205,7 +205,6 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
     {
         if (!AssignCompactTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
         {
-            Print("[TransferZ] Sort transactional compact target packing failed; retrying rotation-aware first-fit targets");
             if (!AssignFirstFitTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
             {
                 Print("[TransferZ] Sort transactional failed: target layout assignment");
@@ -358,8 +357,6 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
             Print("[TransferZ] Sort transactional failed target verification rollback=" + rolledBackAfterVerifyFailure.ToString());
             return -1;
         }
-
-        Print("[TransferZ] Sort transactional result source=" + source.GetType() + " staged=" + stagedCount.ToString() + " placed=" + placedCount.ToString() + " verified=true");
         return placedCount;
     }
 
