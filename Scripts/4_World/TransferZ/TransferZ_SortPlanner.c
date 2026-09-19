@@ -957,13 +957,11 @@ class TransferZSortPlanner : TransferZMaintenanceService
         return true;
     }
 
-    protected static bool BuildSortPlanV4(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<ref TransferZSortMove> moves)
+    protected static bool BuildTargetLayoutV4(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips)
     {
-        moves.Clear();
-
-        ref array<int> targetWidths = new array<int>();
-        ref array<int> targetHeights = new array<int>();
-        ref array<int> targetFlips = new array<int>();
+        targetWidths.Clear();
+        targetHeights.Clear();
+        targetFlips.Clear();
 
         // First try to repack without rotating anything at all. The player's
         // existing orientation is the primary layout preference.
@@ -994,12 +992,27 @@ class TransferZSortPlanner : TransferZMaintenanceService
 
         // Common repeat-sort case: deterministic assignment already describes
         // the current layout. Equivalent-slot optimization cannot improve a
-        // zero-move plan, so avoid its quadratic assignment pass.
+        // zero-move plan.
         if (AllRecordsAtTargetV4(records, targetFlips))
             return true;
 
         OptimizeEquivalentTargetAssignmentsV4(records, targetWidths, targetHeights, targetFlips);
         SortRecordsByTargetV4(records, targetWidths, targetHeights, targetFlips);
+        return true;
+    }
+
+    protected static bool BuildSortPlanV4(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<ref TransferZSortMove> moves)
+    {
+        moves.Clear();
+
+        ref array<int> targetWidths = new array<int>();
+        ref array<int> targetHeights = new array<int>();
+        ref array<int> targetFlips = new array<int>();
+        if (!BuildTargetLayoutV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
+            return false;
+
+        if (AllRecordsAtTargetV4(records, targetFlips))
+            return true;
 
         ref TransferZSortPlannerState state = new TransferZSortPlannerState();
         state.player = player;
