@@ -698,10 +698,14 @@ class TransferZClientState
         return RequestMoveItem(item, destination);
     }
 
-    protected bool IsLooseVicinityTransferCandidate(EntityAI item, EntityAI destination)
+    protected bool IsVicinityTransferCandidate(EntityAI item, EntityAI destination)
     {
-        if (!item || item == destination || item.GetInventory().GetCargo())
+        if (!item || item == destination)
             return false;
+
+        // A cargo-bearing ground item is still a movable vicinity item.
+        // Server-side MoveItem() rejects moving a destination into one of its
+        // own descendants, so containers use the same exact-cargo move path.
         ItemBase itemBase = ItemBase.Cast(item);
         return itemBase && itemBase.IsTakeable() && item.GetInventory().CanRemoveEntity();
     }
@@ -720,7 +724,7 @@ class TransferZClientState
         {
             foreach (EntityAI offlineItem : items)
             {
-                if (!IsLooseVicinityTransferCandidate(offlineItem, destination))
+                if (!IsVicinityTransferCandidate(offlineItem, destination))
                     continue;
                 if (TransferZServerService.MoveItem(player, offlineItem, destination))
                     requested = true;
@@ -732,7 +736,7 @@ class TransferZClientState
 
         foreach (EntityAI item : items)
         {
-            if (!IsLooseVicinityTransferCandidate(item, destination))
+            if (!IsVicinityTransferCandidate(item, destination))
                 continue;
             if (RequestMoveItem(item, destination))
                 requested = true;
