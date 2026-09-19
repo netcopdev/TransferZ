@@ -53,7 +53,6 @@ Sort is a server-authoritative maintenance operation over the source container's
 - No ordinary failed Sort may intentionally leave a tracked item in vicinity or leave a partially sorted source. A rollback invariant violation is critical, must be logged explicitly, and must trigger a final containment attempt back into the source rather than being treated as an acceptable partial result.
 - Do not serialize/reconstruct weapon, magazine, attachment, chamber, quantity or mod-defined state. Preservation comes from moving the same entity objects.
 - Keep equivalent-target assignment bounded for large cargo. Preserve records already occupying valid equivalent target slots first, then assign remaining records directly using cached slot-overlap data. Do not use iterative all-pairs improvement passes; assignment optimization must remain quadratic and must never compromise target-layout validity or transactional rollback.
-- Slow successful sorts may emit one aggregate phase-timing diagnostic (planning, staging, preflight, commit) to identify server-side performance bottlenecks without restoring per-item success spam.
 - Transactional Sort SHOULD leave records already at their exact target row/column/orientation in cargo and stage only records that actually need movement. Preflight and rollback must treat those stationary records as immutable occupancy and fail closed if unexpected cargo remains.
 
 Sort is not a replacement for Transfer and does not move nested contents independently of their direct container item.
