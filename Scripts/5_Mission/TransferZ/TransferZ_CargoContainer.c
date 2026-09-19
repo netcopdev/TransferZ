@@ -378,19 +378,8 @@ class TransferZHeaderControls
         GetMousePos(mouseX, mouseY);
 
         EntityAI source = TransferZOperationDrag.GetSource();
-        string sourceName = "<vicinity>";
-        if (source)
-            sourceName = source.GetType();
 
         Widget hovered = GetWidgetUnderCursor();
-        string hoveredName = "<none>";
-        if (hovered)
-            hoveredName = hovered.GetName();
-
-        bool wheelRecent = TransferZOperationDrag.ShouldResolveWheelCapturedDropAtMouse();
-        string wheelState = "no";
-        if (wheelRecent)
-            wheelState = "yes";
 
         // Prefer the live drop-target widget beneath the cursor, but never trust
         // widget ancestry alone after scrolling. Mouse capture can leave
@@ -423,7 +412,6 @@ class TransferZHeaderControls
                     continue;
                 }
                 bool hoveredHandled = TransferZOperationDrag.Complete(hoveredControls.m_Entity);
-                TransferZOperationDrag.ClearWheelCapture();
                 SetOperationDropTargetsVisible(false);
                 RefreshAll();
                 return hoveredHandled;
@@ -475,7 +463,6 @@ class TransferZHeaderControls
         if (best)
         {
             bool handled = TransferZOperationDrag.Complete(best.m_Entity);
-            TransferZOperationDrag.ClearWheelCapture();
             SetOperationDropTargetsVisible(false);
             RefreshAll();
             return handled;
@@ -483,8 +470,6 @@ class TransferZHeaderControls
 
         bool vicinityHandled = TransferZVicinityHeaderControls.CompleteModifierDragAtMousePosition(mouseX, mouseY);
         if (!vicinityHandled && TransferZOperationDrag.IsActive())
-
-        TransferZOperationDrag.ClearWheelCapture();
         return vicinityHandled;
     }
 
@@ -1168,18 +1153,6 @@ class TransferZHeaderControls
         // event; actual mouse-up is authoritative.
         if ((GetMouseState(MouseState.LEFT) & MB_PRESSED_MASK) != 0)
         {
-            int mouseX;
-            int mouseY;
-            GetMousePos(mouseX, mouseY);
-
-            string receiverName = "<none>";
-            if (receiver)
-                receiverName = receiver.GetName();
-
-            Widget hovered = GetWidgetUnderCursor();
-            string hoveredName = "<none>";
-            if (hovered)
-                hoveredName = hovered.GetName();
             SetOperationDropTargetsVisible(true);
             return;
         }
