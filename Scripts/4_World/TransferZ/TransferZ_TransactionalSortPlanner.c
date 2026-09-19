@@ -7,6 +7,14 @@ class TransferZSortRollbackMove
     int forwardRow;
     int forwardCol;
     bool forwardFlip;
+
+    EntityAI swapItem;
+    int swapRow;
+    int swapCol;
+    bool swapFlip;
+    int swapForwardRow;
+    int swapForwardCol;
+    bool swapForwardFlip;
 }
 
 class TransferZTransactionalSortPlanner : TransferZSortPlanner
@@ -116,6 +124,56 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         return ItemAtCargoCoordinates(source, rollbackMove.item, rollbackMove.forwardRow, rollbackMove.forwardCol, rollbackMove.forwardFlip);
     }
 
+    protected static bool SwapAtRollbackLocations(EntityAI source, TransferZSortRollbackMove rollbackMove)
+    {
+        if (!rollbackMove || !rollbackMove.swapItem)
+            return false;
+        return ItemAtCargoCoordinates(source, rollbackMove.item, rollbackMove.row, rollbackMove.col, rollbackMove.flip) && ItemAtCargoCoordinates(source, rollbackMove.swapItem, rollbackMove.swapRow, rollbackMove.swapCol, rollbackMove.swapFlip);
+    }
+
+    protected static bool SwapAtForwardLocations(EntityAI source, TransferZSortRollbackMove rollbackMove)
+    {
+        if (!rollbackMove || !rollbackMove.swapItem)
+            return false;
+        return ItemAtCargoCoordinates(source, rollbackMove.item, rollbackMove.forwardRow, rollbackMove.forwardCol, rollbackMove.forwardFlip) && ItemAtCargoCoordinates(source, rollbackMove.swapItem, rollbackMove.swapForwardRow, rollbackMove.swapForwardCol, rollbackMove.swapForwardFlip);
+    }
+
+    protected static bool CaptureSwapRollbackMove(EntityAI source, EntityAI item1, EntityAI item2, out TransferZSortRollbackMove rollbackMove)
+    {
+        rollbackMove = null;
+        if (!source || !item1 || !item2)
+            return false;
+
+        InventoryLocation first = new InventoryLocation();
+        InventoryLocation second = new InventoryLocation();
+        if (!item1.GetInventory().GetCurrentInventoryLocation(first) || !item2.GetInventory().GetCurrentInventoryLocation(second))
+            return false;
+        if (first.GetType() != InventoryLocationType.CARGO || second.GetType() != InventoryLocationType.CARGO)
+            return false;
+        if (first.GetParent() != source || second.GetParent() != source)
+            return false;
+
+        rollbackMove = new TransferZSortRollbackMove();
+        rollbackMove.item = item1;
+        rollbackMove.row = first.GetRow();
+        rollbackMove.col = first.GetCol();
+        rollbackMove.flip = first.GetFlip();
+        rollbackMove.swapItem = item2;
+        rollbackMove.swapRow = second.GetRow();
+        rollbackMove.swapCol = second.GetCol();
+        rollbackMove.swapFlip = second.GetFlip();
+
+        // Native ordinary swap exchanges locations while preserving each item's
+        // own cargo orientation.
+        rollbackMove.forwardRow = rollbackMove.swapRow;
+        rollbackMove.forwardCol = rollbackMove.swapCol;
+        rollbackMove.forwardFlip = rollbackMove.flip;
+        rollbackMove.swapForwardRow = rollbackMove.row;
+        rollbackMove.swapForwardCol = rollbackMove.col;
+        rollbackMove.swapForwardFlip = rollbackMove.swapFlip;
+        return true;
+    }
+
     protected static bool RollbackExecutedMoves(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRollbackMove> rollbackMoves, notnull array<ref TransferZSortRecord> originalRecords)
     {
         bool reverseMovesAccepted = true;
@@ -126,6 +184,21 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
             if (!rollbackMove || !rollbackMove.item)
             {
                 reverseMovesAccepted = false;
+                continue;
+            }
+
+            if (rollbackMove.swapItem)
+            {
+                if (SwapAtRollbackLocations(source, rollbackMove))
+                    continue;
+                if (!SwapAtForwardLocations(source, rollbackMove))
+                {
+                    reverseMovesAccepted = false;
+                    continue;
+                }
+
+                if (!TrySwapWithinCargo(player, source, rollbackMove.item, rollbackMove.swapItem) || !SwapAtRollbackLocations(source, rollbackMove))
+                    reverseMovesAccepted = false;
                 continue;
             }
 
@@ -155,6 +228,24 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
     {
         if (!move || !move.item)
             return false;
+
+        if (move.swapItem)
+        {
+            TransferZSortRollbackMove swapRollback;
+            if (!CaptureSwapRollbackMove(source, move.item, move.swapItem, swapRollback))
+                return false;
+
+            bool swapped = TrySwapWithinCargo(player, source, move.item, move.swapItem);
+            if (!swapped)
+            {
+                if (SwapAtForwardLocations(source, swapRollback))
+                    rollbackMoves.Insert(swapRollback);
+                return false;
+            }
+
+            rollbackMoves.Insert(swapRollback);
+            return SwapAtForwardLocations(source, swapRollback);
+        }
 
         TransferZSortRollbackMove rollbackMove;
         if (!CaptureRollbackMove(source, move.item, rollbackMove))
