@@ -110,7 +110,7 @@ Sort reorganizes the selected container's **direct cargo grid only** while prese
 
 TransferZ first snapshots every direct cargo item's exact row, column and orientation and calculates a deterministic compacted rotation-aware target layout. If the target already matches the snapshot, Sort is a successful no-op.
 
-When movement is required, TransferZ computes a complete bounded **in-cargo move sequence** before touching the authoritative inventory. Free cells inside that same cargo grid may be used temporarily to clear blockers or break move cycles. Compatible equal-size blockers can be exchanged with DayZ's native atomic swap, so those cycles do not require a free intermediary cell. Sort does not put items on the ground, into vicinity, into player inventory, or into another container as hidden workspace.
+When movement is required, TransferZ first computes a complete bounded **in-cargo move sequence**. Free cells inside that same cargo grid may clear blockers or break cycles, and compatible equal-size blockers can use DayZ's native atomic swap. If the final layout fits but no bounded in-cargo path exists, TransferZ uses its own hidden native `TransferZ_SortBuffer` as temporary cargo workspace. The same item entities move source → buffer → exact final cells; Sort never uses ground/vicinity, arbitrary player inventory, or arbitrary containers as staging.
 
 Current packing behavior:
 
