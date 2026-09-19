@@ -242,3 +242,5 @@ Therefore:
 - VICINITY modifier-drop hit testing uses the visible vicinity slots root directly. Do not clip that root against `VicinityContainer`'s cargo scroller; current DayZ reparents vicinity slots into a separate LeftArea slots area.
 
 - VICINITY has no implicit ownership boundary. Shift-dragging a cargo-bearing ground container moves only that dragged container. Shift-dragging loose ground loot batches eligible loose items but excludes cargo-bearing ground containers. Alt-drag remains the explicit homogeneous batch operation and includes same-class cargo-bearing siblings. Container contents remain inside moved containers; unpack is a separate operation.
+
+- Sort orientation preference: detachable magazines (`MagazineStorage`) prefer vertical placement (height >= width). The planner first attempts a complete layout with that preference enforced for every magazine, then falls back to unrestricted rotation only when a complete preferred layout is impossible. Ammunition piles are not treated as magazines for this rule.
