@@ -36,6 +36,13 @@ class TransferZServerService
         if (root.IsMan())
             return false;
 
+        // Vehicle inventory access is not represented by distance to the model
+        // origin. Large vehicles can expose valid cargo several metres from that
+        // origin, so accept displayable vehicle cargo at this coarse layer. Every
+        // mutating move is still checked by DayZ's native request validators.
+        if (root.IsInherited(Transport))
+            return root.CanDisplayCargo();
+
         return GameInventory.CheckManipulatedObjectsDistances(entity, player, GameInventory.c_MaxItemDistanceRadius);
     }
 
@@ -135,6 +142,12 @@ class TransferZServerService
         EntityAI sourceParent = src.GetParent();
         if (sourceParent && src.GetType() == InventoryLocationType.CARGO && !sourceParent.CanReleaseCargo(item))
             return MoveFailure("source cargo refuses release", item, null);
+
+        // Vehicle reachability above deliberately avoids distance to the model
+        // origin. Validate the exact source location before any server-authored
+        // drop so remote/inaccessible cargo cannot be manipulated.
+        if (!GameInventory.CheckDropRequest(player, src, GameInventory.c_MaxItemDistanceRadius))
+            return MoveFailure("CheckDropRequest failed", item, null);
 
         InventoryMode moveMode = InventoryMode.SERVER;
         if (!GetGame().IsMultiplayer())
