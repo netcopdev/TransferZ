@@ -124,7 +124,7 @@ Current packing behavior:
 
 Each authoritative step is an exact cargo-to-cargo move. Before a successful step, TransferZ records its inverse. If any move or final verification fails, those successful moves are reversed in strict reverse order and the exact original snapshot is verified before failure is returned.
 
-If the bounded planner cannot reach the requested compact layout using only space inside the source cargo, Sort fails **before moving anything**. It does not fall back to ground staging.
+If the bounded in-cargo planner cannot reach the requested compact layout, Sort falls back to the hidden native sort buffer. A buffer failure restores the exact original snapshot before a normal failure is returned; the buffer is deleted only when verified empty. There is no ground-staging fallback.
 
 ### Stack — right-side maintenance control
 
