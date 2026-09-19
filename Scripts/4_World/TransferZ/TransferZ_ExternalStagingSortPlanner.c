@@ -246,6 +246,8 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
 
     protected static bool PreflightOriginalMoves(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records)
     {
+        int stagingFinishedAt = GetGame().GetTime();
+
         if (!SourceCargoEmpty(source))
         {
             Print("[TransferZ] Sort transactional rollback preflight failed: source cargo not empty");
@@ -287,8 +289,21 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
         return true;
     }
 
+    protected static void LogSlowSortPerformance(EntityAI source, int itemCount, int totalMs, int planMs, int stageMs, int preflightMs, int commitMs)
+    {
+        if (totalMs < 250)
+            return;
+
+        string sourceName = "<null>";
+        if (source)
+            sourceName = source.GetType();
+        Print("[TransferZ] Sort performance source=" + sourceName + " items=" + itemCount.ToString() + " totalMs=" + totalMs.ToString() + " planMs=" + planMs.ToString() + " stageMs=" + stageMs.ToString() + " preflightMs=" + preflightMs.ToString() + " commitMs=" + commitMs.ToString());
+    }
+
     override static int Sort(PlayerBase player, EntityAI source)
     {
+        int sortStartedAt = GetGame().GetTime();
+
         if (!player || !source || !TransferZServerService.IsReachable(player, source) || !source.GetInventory().GetCargo())
         {
             Print("[TransferZ] Sort transactional rejected: invalid or unreachable cargo source");
@@ -314,8 +329,13 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
         if (!BuildTransactionalTargetLayout(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
             return -1;
 
+        int planFinishedAt = GetGame().GetTime();
         if (VerifyTargetLayout(source, records, targetFlips))
+        {
+            int noOpTotalMs = GetGame().GetTime() - sortStartedAt;
+            LogSlowSortPerformance(source, records.Count(), noOpTotalMs, planFinishedAt - sortStartedAt, 0, 0, 0);
             return 0;
+        }
 
         int stagedCount = 0;
         for (int stageIndex = 0; stageIndex < records.Count(); stageIndex++)
@@ -354,6 +374,7 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
             return -1;
         }
 
+        int preflightFinishedAt = GetGame().GetTime();
         int placedCount = 0;
         for (int targetIndex = 0; targetIndex < records.Count(); targetIndex++)
         {
@@ -374,6 +395,9 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
             Print("[TransferZ] Sort transactional failed target verification rollback=" + rolledBackAfterVerifyFailure.ToString());
             return -1;
         }
+
+        int sortFinishedAt = GetGame().GetTime();
+        LogSlowSortPerformance(source, records.Count(), sortFinishedAt - sortStartedAt, planFinishedAt - sortStartedAt, stagingFinishedAt - planFinishedAt, preflightFinishedAt - stagingFinishedAt, sortFinishedAt - preflightFinishedAt);
         return placedCount;
     }
 
