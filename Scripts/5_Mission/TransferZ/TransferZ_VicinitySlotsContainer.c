@@ -197,36 +197,12 @@ class TransferZVicinityHeaderControls
         root.GetScreenPos(x, y);
         root.GetScreenSize(w, h);
 
-        ScrollWidget scroll;
-        if (s_Instance.m_Owner)
-            scroll = s_Instance.m_Owner.TransferZGetScrollWidget();
-
-        float left = x;
-        float top = y;
-        float right = x + w;
-        float bottom = y + h;
-
-        if (scroll && scroll.IsVisibleHierarchy())
-        {
-            float sx;
-            float sy;
-            float sw;
-            float sh;
-            scroll.GetScreenPos(sx, sy);
-            scroll.GetScreenSize(sw, sh);
-            if (sx > left)
-                left = sx;
-            if (sy > top)
-                top = sy;
-            if (sx + sw < right)
-                right = sx + sw;
-            if (sy + sh < bottom)
-                bottom = sy + sh;
-        }
-
-        if (right <= left || bottom <= top)
+        // DayZ reparents the vicinity icon root into LeftArea's slots area.
+        // m_Owner.TransferZGetScrollWidget() is the separate cargo scroller, so
+        // intersecting these two rectangles can incorrectly eliminate VICINITY.
+        if (w <= 0.0 || h <= 0.0)
             return false;
-        if (mouseX < left || mouseX >= right || mouseY < top || mouseY >= bottom)
+        if (mouseX < x || mouseX >= x + w || mouseY < y || mouseY >= y + h)
             return false;
         bool handled = TransferZOperationDrag.CompleteToVicinity();
         TransferZHeaderControls.SetOperationDropTargetsVisible(false);
