@@ -246,8 +246,6 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
 
     protected static bool PreflightOriginalMoves(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records)
     {
-        int stagingFinishedAt = GetGame().GetTime();
-
         if (!SourceCargoEmpty(source))
         {
             Print("[TransferZ] Sort transactional rollback preflight failed: source cargo not empty");
