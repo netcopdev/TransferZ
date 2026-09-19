@@ -250,8 +250,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
             assigned.Set(bestIndex, 1);
             assignedCount++;
         }
-
-        Print("[TransferZ] Sort planner V4 compact rotation-aware packing assigned=" + assignedCount.ToString() + " skippedCells=" + skippedCells.ToString());
         return true;
     }
 
@@ -648,7 +646,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
             MoveRecordInGridV4(state.currentGrid, state.cargoWidth, directRecord, recordIndex + 1, directRow, directCol, directWidth, directHeight, directFlip);
             state.stepCount++;
             state.activeParking.Set(recordIndex, 0);
-            Print("[TransferZ] Sort planner V4 parked record=" + recordIndex.ToString() + " direct=" + directRow.ToString() + "," + directCol.ToString() + " size=" + directWidth.ToString() + "x" + directHeight.ToString() + " flip=" + directFlip.ToString());
             return true;
         }
 
@@ -725,7 +722,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
                         MoveRecordInGridV4(state.currentGrid, state.cargoWidth, record, recordIndex + 1, candidateRow, candidateCol, candidateWidth, candidateHeight, candidateFlip);
                         state.stepCount++;
                         state.activeParking.Set(recordIndex, 0);
-                        Print("[TransferZ] Sort planner V4 recursively parked record=" + recordIndex.ToString() + " at=" + candidateRow.ToString() + "," + candidateCol.ToString() + " size=" + candidateWidth.ToString() + "x" + candidateHeight.ToString() + " flip=" + candidateFlip.ToString() + " depth=" + depth.ToString());
                         return true;
                     }
 
@@ -778,7 +774,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
         MoveRecordInGridV4(state.currentGrid, state.cargoWidth, record, recordIndex + 1, record.targetRow, record.targetCol, targetWidth, targetHeight, targetFlip);
         state.stepCount++;
         state.lockedRecords.Set(recordIndex, 1);
-        Print("[TransferZ] Sort planner V4 locked record=" + recordIndex.ToString() + " at=" + record.targetRow.ToString() + "," + record.targetCol.ToString() + " size=" + targetWidth.ToString() + "x" + targetHeight.ToString() + " flip=" + targetFlip.ToString());
         return true;
     }
 
@@ -788,7 +783,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
         {
             TransferZSortRecord record = records.Get(recordIndex);
             bool targetFlip = targetFlips.Get(recordIndex) != 0;
-            Print("[TransferZ] Sort planner V4 target record=" + recordIndex.ToString() + " type=" + record.item.GetType() + " from=" + record.row.ToString() + "," + record.col.ToString() + " current=" + record.width.ToString() + "x" + record.height.ToString() + " flip=" + record.flip.ToString() + " to=" + record.targetRow.ToString() + "," + record.targetCol.ToString() + " target=" + targetWidths.Get(recordIndex).ToString() + "x" + targetHeights.Get(recordIndex).ToString() + " flip=" + targetFlip.ToString());
         }
     }
 
@@ -802,7 +796,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
 
         if (!AssignCompactTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
         {
-            Print("[TransferZ] Sort planner V4 compact target packing failed; retrying rotation-aware first-fit targets");
             if (!AssignFirstFitTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
             {
                 Print("[TransferZ] Sort planner V4 failed: target layout assignment");
@@ -863,7 +856,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
         state.maxDepth = records.Count() + 4;
         state.stepCount = 0;
         state.searchCount = 0;
-        Print("[TransferZ] Sort planner V4 active records=" + records.Count().ToString() + " maxSteps=" + state.maxSteps.ToString() + " maxSearch=" + state.maxSearch.ToString());
 
         for (int planIndex = 0; planIndex < records.Count(); planIndex++)
         {
@@ -881,8 +873,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
             Print("[TransferZ] Sort planner V4 stopped: target layout incomplete");
             return false;
         }
-
-        Print("[TransferZ] Sort planner V4 solved moves=" + moves.Count().ToString() + " steps=" + state.stepCount.ToString() + " search=" + state.searchCount.ToString());
         return true;
     }
 
@@ -928,8 +918,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
             }
             moved++;
         }
-
-        Print("[TransferZ] Sort V4 result source=" + source.GetType() + " moves=" + moved.ToString() + "/" + moves.Count().ToString());
         return moved;
     }
 
