@@ -350,6 +350,8 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
             stagedCount++;
         }
 
+        int stagingFinishedAt = GetGame().GetTime();
+
         if (!SourceCargoEmpty(source))
         {
             bool rolledBackAfterEmptyCheck = RestoreOriginalLayout(player, source, records);
