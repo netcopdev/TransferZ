@@ -1,4 +1,8 @@
-class TransferZHeaderControls
+// Managed: instances are CallLater targets and WidgetEventHandler handlers,
+// and the header that owns them can be destroyed while a call is queued
+// (for example a vicinity container leaving range). Managed references are
+// nulled when the object is deleted instead of dangling.
+class TransferZHeaderControls : Managed
 {
     protected static ref array<TransferZHeaderControls> s_Instances;
 
@@ -155,6 +159,16 @@ class TransferZHeaderControls
 
     void ~TransferZHeaderControls()
     {
+        if (GetGame())
+        {
+            ScriptCallQueue guiQueue = GetGame().GetCallQueue(CALL_CATEGORY_GUI);
+            if (guiQueue)
+            {
+                guiQueue.Remove(DeferredPlacementPassOne);
+                guiQueue.Remove(DeferredPlacementPassTwo);
+            }
+        }
+
         if (s_Instances)
         {
             int index = s_Instances.Find(this);
