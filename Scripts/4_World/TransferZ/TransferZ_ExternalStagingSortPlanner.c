@@ -71,7 +71,7 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
         dst.SetCargo(source, item, record.cargoIndex, row, col, flip);
 
         HumanInventory humanInventory = player.GetHumanInventory();
-        if (humanInventory && humanInventory.FindCollidingUserReservedLocationIndex(item, dst) >= 0)
+        if (humanInventory && humanInventory.GetUserReservedLocationCount() > 0 && humanInventory.FindCollidingUserReservedLocationIndex(item, dst) >= 0)
             return false;
         if (!GameInventory.CheckMoveToDstRequest(player, src, dst, GameInventory.c_MaxItemDistanceRadius))
             return false;
@@ -229,6 +229,12 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
             Print("[TransferZ] Sort transactional failed: target layout assignment");
             return false;
         }
+
+        // Common repeat-sort case: deterministic assignment already describes
+        // the current layout. Equivalent-slot optimization cannot improve a
+        // zero-move plan, so avoid its quadratic pair passes entirely.
+        if (AllRecordsAtTargetV4(records, targetFlips))
+            return true;
 
         OptimizeEquivalentTargetAssignmentsV4(records, targetWidths, targetHeights, targetFlips);
         SortRecordsByTargetV4(records, targetWidths, targetHeights, targetFlips);
