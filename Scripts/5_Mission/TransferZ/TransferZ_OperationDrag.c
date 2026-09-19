@@ -8,32 +8,12 @@ class TransferZOperationDrag
     protected static bool s_ModifierItemDrag = false;
     protected static bool s_ModifierReleaseWatchQueued = false;
     protected static bool s_ModifierReleaseCancelQueued = false;
-    protected static int s_TransferZLastWheelCaptureAt;
     protected static int s_TransferZSuppressNativeDropUntil;
     protected static ref array<EntityAI> s_VicinityItems;
 
     protected static bool LeftMousePressed()
     {
         return (GetMouseState(MouseState.LEFT) & MB_PRESSED_MASK) != 0;
-    }
-
-    static void MarkWheelCapture()
-    {
-        if (IsActive())
-            s_TransferZLastWheelCaptureAt = GetGame().GetTime();
-    }
-
-    static bool ShouldResolveWheelCapturedDropAtMouse()
-    {
-        if (!IsActive() || s_TransferZLastWheelCaptureAt <= 0)
-            return false;
-
-        return GetGame().GetTime() - s_TransferZLastWheelCaptureAt < 10000;
-    }
-
-    static void ClearWheelCapture()
-    {
-        s_TransferZLastWheelCaptureAt = 0;
     }
 
     static void ArmNativeDropSuppression()
@@ -326,7 +306,6 @@ modded class WidgetEventHandler
     {
         if (w && TransferZOperationDrag.IsActive() && w.GetName() == "TransferZHeaderDropTarget")
         {
-            TransferZOperationDrag.MarkWheelCapture();
 
             // TransferZ's overlay handlers negate the wheel value before
             // calling VScrollStep. Feed the opposite value here so the resulting
@@ -348,17 +327,6 @@ modded class WidgetEventHandler
         bool trailingNativeDrop = TransferZOperationDrag.ShouldSuppressNativeDrop();
         if (activeModifierDrag || trailingNativeDrop)
         {
-            string receiverName = "<none>";
-            if (reciever)
-                receiverName = reciever.GetName();
-
-            string draggedName = "<none>";
-            if (w)
-                draggedName = w.GetName();
-
-            string phase = "active";
-            if (!activeModifierDrag)
-                phase = "post-release";
 
             if (activeModifierDrag)
                 TransferZRefreshDropTargetsAfterScroll();
