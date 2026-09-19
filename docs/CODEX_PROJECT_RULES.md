@@ -237,3 +237,6 @@ Therefore:
 - No persistent preferred personal targets for containers nested in cargo rather than attached through slots.
 - No class allowlists for container support.
 - No custom replacement inventory screen.
+
+- Modifier item drags own their native drag teardown: before TransferZ commits the batch, the native `Icon` / `SlotsIcon` visual drag state MUST be explicitly reset, then widget dragging may be cancelled. `CancelWidgetDragging()` alone is not sufficient because it does not run the registered native drop cleanup and can leave colored cursor borders behind.
+- VICINITY modifier-drop hit testing uses the visible vicinity slots root directly. Do not clip that root against `VicinityContainer`'s cargo scroller; current DayZ reparents vicinity slots into a separate LeftArea slots area.
