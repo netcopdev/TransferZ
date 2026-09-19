@@ -74,6 +74,12 @@ class TransferZServerService
         if (!item.GetInventory().GetCurrentInventoryLocation(src))
             return MoveFailure("source location unavailable", item, destination);
 
+        // A client-predicted representative drag can reach the requested cargo
+        // before its TransferZ batch RPC is processed. Treat that as an already
+        // completed member instead of relocating it inside the same cargo.
+        if (src.GetType() == InventoryLocationType.CARGO && src.GetParent() == destination)
+            return true;
+
         EntityAI sourceParent = src.GetParent();
         if (sourceParent && src.GetType() == InventoryLocationType.CARGO && !sourceParent.CanReleaseCargo(item))
             return MoveFailure("source cargo refuses release", item, destination);
@@ -266,7 +272,10 @@ class TransferZServerService
         InventoryLocation representativeLocation = new InventoryLocation();
         if (!representative.GetInventory().GetCurrentInventoryLocation(representativeLocation))
             return 0;
-        if (representativeLocation.GetType() != InventoryLocationType.CARGO || representativeLocation.GetParent() != source)
+
+        bool representativeInSource = representativeLocation.GetType() == InventoryLocationType.CARGO && representativeLocation.GetParent() == source;
+        bool representativeAtDestination = representativeLocation.GetType() == InventoryLocationType.CARGO && representativeLocation.GetParent() == destination;
+        if (!representativeInSource && !representativeAtDestination)
             return 0;
 
         string className = representative.GetType();
@@ -301,7 +310,10 @@ class TransferZServerService
         InventoryLocation representativeLocation = new InventoryLocation();
         if (!representative.GetInventory().GetCurrentInventoryLocation(representativeLocation))
             return 0;
-        if (representativeLocation.GetType() != InventoryLocationType.CARGO || representativeLocation.GetParent() != source)
+
+        bool representativeInSource = representativeLocation.GetType() == InventoryLocationType.CARGO && representativeLocation.GetParent() == source;
+        bool representativeAlreadyGround = representativeLocation.GetType() == InventoryLocationType.GROUND;
+        if (!representativeInSource && !representativeAlreadyGround)
             return 0;
 
         string className = representative.GetType();
