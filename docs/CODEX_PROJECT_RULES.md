@@ -47,7 +47,7 @@ Sort is a server-authoritative maintenance operation over the source container's
 - Consider both valid cargo orientations for non-square items. Preserve the current orientation whenever a complete layout permits it; detachable-magazine vertical preference is secondary and rotation remains a packing fallback.
 - Keep equivalent-target assignment bounded for large cargo. Preserve records already occupying valid equivalent target slots first, then assign remaining records directly using cached slot-overlap data. Do not use iterative all-pairs improvement passes.
 - If the computed target layout already matches the snapshot, Sort is a successful no-op.
-- Build a complete bounded **in-cargo** rearrangement plan before the first authoritative move. The planner may use genuinely free cells inside the same source cargo as temporary workspace to break dependencies and cycles.
+- Build a complete bounded **in-cargo** rearrangement plan before the first authoritative move. The planner may use genuinely free cells inside the same source cargo as temporary workspace and SHOULD use DayZ native atomic swaps for compatible equal-size blockers/cycles so nearly-full cargo does not require an empty intermediary rectangle.
 - Sort MUST NOT use vicinity/ground, player inventory, or another container as implicit temporary staging. If the target cannot be reached with the bounded in-cargo planner, fail before moving anything.
 - Planning is virtual. Keep the authoritative original snapshot untouched while the planner mutates cloned geometry.
 - Execute each planned cargo-to-cargo step through the moved item's generic `GameInventory` with the appropriate authoritative inventory mode so dedicated-server state is immediately visible to the next step.
