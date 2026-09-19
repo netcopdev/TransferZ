@@ -751,9 +751,11 @@ modded class SlotsIcon
                 continue;
             if (item == representative)
                 representativeStillVisible = true;
-            if (item.GetType() != className || item.GetInventory().GetCargo())
+            if (item.GetType() != className)
                 continue;
 
+            // Ground containers are items too. Cargo presence must not exclude
+            // protective cases, ammo boxes, med kits, etc. from Alt batches.
             ItemBase itemBase = ItemBase.Cast(item);
             if (!itemBase || !itemBase.IsTakeable() || !item.GetInventory().CanRemoveEntity())
                 continue;
