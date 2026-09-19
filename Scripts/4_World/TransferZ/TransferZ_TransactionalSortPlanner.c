@@ -394,6 +394,35 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         }
     }
 
+    protected static bool VerifyBufferedStaging(EntityAI source, TransferZ_SortBuffer buffer, notnull array<ref TransferZSortRecord> layoutRecords, notnull array<int> targetFlips, int expectedStaged)
+    {
+        if (!source || !buffer)
+            return false;
+
+        int stationary = 0;
+        for (int recordIndex = 0; recordIndex < layoutRecords.Count(); recordIndex++)
+        {
+            TransferZSortRecord record = layoutRecords.Get(recordIndex);
+            if (!record || !record.item)
+                return false;
+
+            if (RecordAtTargetV4(record, recordIndex, targetFlips))
+            {
+                stationary++;
+                if (!RecordAtCargoLocation(source, record))
+                    return false;
+            }
+            else if (!ItemInSortBuffer(buffer, record.item))
+            {
+                return false;
+            }
+        }
+
+        CargoBase sourceCargo = source.GetInventory().GetCargo();
+        CargoBase bufferCargo = buffer.GetInventory().GetCargo();
+        return sourceCargo && bufferCargo && sourceCargo.GetItemCount() == stationary && bufferCargo.GetItemCount() == expectedStaged;
+    }
+
     protected static bool RecoverBufferedSort(PlayerBase player, EntityAI source, TransferZ_SortBuffer buffer, notnull array<ref TransferZSortRecord> originalRecords)
     {
         if (!player || !source || !buffer)
@@ -505,6 +534,13 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
                 return -1;
             }
             staged++;
+        }
+
+        if (!VerifyBufferedStaging(source, buffer, layoutRecords, targetFlips, staged))
+        {
+            bool stagingVerifyRollback = RecoverBufferedSort(player, source, buffer, originalRecords);
+            Print("[TransferZ] Sort buffer fallback failed staging verification rollback=" + stagingVerifyRollback.ToString());
+            return -1;
         }
 
         int placed = 0;
