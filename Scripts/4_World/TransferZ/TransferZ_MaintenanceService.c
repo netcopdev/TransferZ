@@ -18,6 +18,9 @@ class TransferZSortMove
     int row;
     int col;
     bool flip;
+
+    // Non-null for an atomic native swap. Ordinary moves leave this null.
+    EntityAI swapItem;
 }
 
 class TransferZMaintenanceService
@@ -679,6 +682,51 @@ class TransferZMaintenanceService
         }
         return combined;
     }
+
+    protected static bool TrySwapWithinCargo(PlayerBase player, EntityAI source, EntityAI item1, EntityAI item2)
+    {
+        if (!player || !source || !item1 || !item2 || item1 == item2)
+            return false;
+        if (!IsDirectCargoItem(source, item1) || !IsDirectCargoItem(source, item2))
+            return false;
+        if (!item1.GetInventory().CanRemoveEntity() || !item2.GetInventory().CanRemoveEntity())
+            return false;
+        if (!GameInventory.CanSwapEntitiesEx(item1, item2))
+            return false;
+
+        InventoryLocation src1;
+        InventoryLocation src2;
+        InventoryLocation dst1;
+        InventoryLocation dst2;
+        if (!GameInventory.MakeSrcAndDstForSwap(item1, item2, src1, src2, dst1, dst2))
+            return false;
+        if (!src1 || !src2 || !dst1 || !dst2)
+            return false;
+        if (src1.GetType() != InventoryLocationType.CARGO || src2.GetType() != InventoryLocationType.CARGO)
+            return false;
+        if (src1.GetParent() != source || src2.GetParent() != source || dst1.GetParent() != source || dst2.GetParent() != source)
+            return false;
+
+        HumanInventory humanInventory = player.GetHumanInventory();
+        if (humanInventory && humanInventory.GetUserReservedLocationCount() > 0)
+        {
+            if (humanInventory.FindCollidingUserReservedLocationIndex(item1, dst1) >= 0)
+                return false;
+            if (humanInventory.FindCollidingUserReservedLocationIndex(item2, dst2) >= 0)
+                return false;
+        }
+
+        if (GetGame().IsMultiplayer())
+        {
+            // DayZ's server swap command performs and synchronizes the native
+            // swap as one operation; no empty intermediary cargo cell is needed.
+            InventoryInputUserData.SendServerSwap(src1, src2, dst1, dst2);
+            return true;
+        }
+
+        return GameInventory.LocationSwap(src1, src2, dst1, dst2);
+    }
+
 
     protected static void SendResult(PlayerBase player, int operation, int sourceLow, int sourceHigh, bool success)
     {
