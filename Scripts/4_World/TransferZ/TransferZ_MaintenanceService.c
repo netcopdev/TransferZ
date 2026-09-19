@@ -34,6 +34,23 @@ class TransferZMaintenanceService
         return location.GetType() == InventoryLocationType.CARGO && location.GetParent() == source;
     }
 
+    // A merge that empties a donor with varQuantityDestroyOnMin calls Delete(),
+    // which only queues the entity for deletion on the next frame. Until then
+    // it is still a direct cargo child with quantity 0, and CanBeCombined does
+    // not reject it. Using it again as a target or donor in the same Stack pass
+    // would move live quantity into an entity that is about to disappear.
+    protected static bool IsLiveStackItem(ItemBase item)
+    {
+        if (!item || item.IsSetForDeletion())
+            return false;
+
+        Magazine magazine = Magazine.Cast(item);
+        if (magazine && magazine.GetAmmoCount() <= 0)
+            return false;
+
+        return true;
+    }
+
     protected static bool SortBefore(TransferZSortRecord left, TransferZSortRecord right)
     {
         int leftArea = left.width * left.height;
@@ -646,7 +663,7 @@ class TransferZMaintenanceService
         for (int targetIndex = 0; targetIndex < items.Count(); targetIndex++)
         {
             ItemBase target = ItemBase.Cast(items.Get(targetIndex));
-            if (!target || !IsDirectCargoItem(source, target))
+            if (!IsLiveStackItem(target) || !IsDirectCargoItem(source, target))
                 continue;
 
             InventoryLocation targetLocation = new InventoryLocation();
@@ -656,7 +673,7 @@ class TransferZMaintenanceService
             for (int sourceIndex = targetIndex + 1; sourceIndex < items.Count(); sourceIndex++)
             {
                 ItemBase donor = ItemBase.Cast(items.Get(sourceIndex));
-                if (!donor || !IsDirectCargoItem(source, donor))
+                if (!IsLiveStackItem(donor) || !IsDirectCargoItem(source, donor))
                     continue;
 
                 InventoryLocation donorLocation = new InventoryLocation();
