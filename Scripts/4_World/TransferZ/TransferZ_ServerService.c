@@ -123,6 +123,12 @@ class TransferZServerService
         if (!destinationCargo)
             return MoveFailure("destination has no cargo", item, destination);
 
+        // IsCargoChainAccessible covers the containers above the destination;
+        // the destination's own cargo must be displayable as well (closed
+        // barrel, packed tent, underground stash).
+        if (!destination.CanDisplayCargo())
+            return MoveFailure("destination cargo is not accessible", item, destination);
+
         if (!item.GetInventory().CanRemoveEntity())
             return MoveFailure("item cannot be removed", item, destination);
 
