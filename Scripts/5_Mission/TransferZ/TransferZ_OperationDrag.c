@@ -360,8 +360,6 @@ modded class WidgetEventHandler
             if (!activeModifierDrag)
                 phase = "post-release";
 
-            Print("[TransferZ][DragNativeGuard] suppressed native drop phase=" + phase + " dragged=" + draggedName + " receiver=" + receiverName);
-
             if (activeModifierDrag)
                 TransferZRefreshDropTargetsAfterScroll();
             return true;
@@ -389,8 +387,6 @@ modded class WidgetEventHandler
                 itemManager.HideDropzones();
                 itemManager.SetIsDragging(false);
             }
-
-            Print("[TransferZ][DragResolve] entry=authoritative-mouseup");
             TransferZHeaderControls.CompleteModifierDragAtMousePosition();
             return true;
         }
