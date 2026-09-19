@@ -174,7 +174,7 @@ TransferZ never deletes and recreates items to simulate movement, sorting, or st
 
 The client requests operations; the server re-resolves entities and validates sender ownership, reachability, source removal, destination acceptance, exact cargo space, and DayZ inventory locations before moving anything.
 
-Sort has an additional rollback contract: original cargo coordinates and orientation are captured before execution, and any failed transaction must reverse successful in-cargo moves and verify that snapshot before returning a normal failure. Absolute recovery still depends on the DayZ native inventory API continuing to accept valid reverse moves; engine-level refusal or process termination cannot be made atomic purely in script.
+Sort has an additional rollback contract: original cargo coordinates and orientation are captured before execution, and any failed transaction must restore and verify that snapshot before returning a normal failure. In-cargo execution reverses its move journal; buffered execution restores through the hidden native cargo buffer. Absolute recovery still depends on the DayZ native inventory API continuing to accept valid recovery moves; engine-level refusal or process termination cannot be made atomic purely in script.
 
 ## Install
 
