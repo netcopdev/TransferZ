@@ -1,13 +1,3 @@
-class TransferZSortAssignmentCostRow
-{
-    ref array<int> costs;
-
-    void TransferZSortAssignmentCostRow()
-    {
-        costs = new array<int>();
-    }
-}
-
 class TransferZSortPlannerState
 {
     PlayerBase player;
@@ -383,23 +373,43 @@ class TransferZSortPlanner : TransferZMaintenanceService
         }
     }
 
-    protected static void BuildEquivalentAssignmentCostCacheV4(notnull array<ref TransferZSortRecord> records, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips, notnull array<int> slotRows, notnull array<int> slotCols, notnull array<ref TransferZSortAssignmentCostRow> costRows)
+    protected static int EquivalentTargetSlotCostV4(notnull array<ref TransferZSortRecord> records, TransferZSortRecord record, int targetRow, int targetCol, int targetWidth, int targetHeight, int slotOverlapCount)
     {
-        slotRows.Clear();
-        slotCols.Clear();
-        costRows.Clear();
+        int foreignOverlap = slotOverlapCount;
+        if (RectOverlaps(targetRow, targetCol, targetWidth, targetHeight, record.row, record.col, record.width, record.height))
+            foreignOverlap--;
 
+        int distance = Math.AbsInt(record.row - targetRow) + Math.AbsInt(record.col - targetCol);
+        return foreignOverlap * 10000 + distance * 2;
+    }
+
+    protected static void OptimizeEquivalentTargetAssignmentsV4(notnull array<ref TransferZSortRecord> records, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips)
+    {
+        int recordCount = records.Count();
+        if (recordCount < 2)
+            return;
+
+        ref array<int> slotRows = new array<int>();
+        ref array<int> slotCols = new array<int>();
         ref array<int> slotOverlapCounts = new array<int>();
-        for (int slotIndex = 0; slotIndex < records.Count(); slotIndex++)
+        ref array<int> slotUsed = new array<int>();
+        ref array<int> assignedSlots = new array<int>();
+
+        // Snapshot the valid target rectangles produced by the packer. Equivalent
+        // records may exchange only coordinates; their chosen orientation remains
+        // record-owned, so target geometry and layout validity cannot change.
+        for (int slotIndex = 0; slotIndex < recordCount; slotIndex++)
         {
             TransferZSortRecord slotRecord = records.Get(slotIndex);
             slotRows.Insert(slotRecord.targetRow);
             slotCols.Insert(slotRecord.targetCol);
+            slotUsed.Insert(0);
+            assignedSlots.Insert(-1);
 
             int overlapCount = 0;
             int slotWidth = targetWidths.Get(slotIndex);
             int slotHeight = targetHeights.Get(slotIndex);
-            for (int currentIndex = 0; currentIndex < records.Count(); currentIndex++)
+            for (int currentIndex = 0; currentIndex < recordCount; currentIndex++)
             {
                 TransferZSortRecord currentRecord = records.Get(currentIndex);
                 if (RectOverlaps(slotRecord.targetRow, slotRecord.targetCol, slotWidth, slotHeight, currentRecord.row, currentRecord.col, currentRecord.width, currentRecord.height))
@@ -408,94 +418,76 @@ class TransferZSortPlanner : TransferZMaintenanceService
             slotOverlapCounts.Insert(overlapCount);
         }
 
-        // For equivalent target rectangles, the set of current records overlapped
-        // by a slot is slot-owned data. Compute that count once per slot, then
-        // subtract the candidate itself when applicable. This turns the old
-        // repeated O(n) overlap scan for every record/slot cost into O(1).
-        for (int recordIndex = 0; recordIndex < records.Count(); recordIndex++)
+        // First lock every record already occupying one of its equivalent target
+        // slots in the required orientation. This is the common near-sorted case:
+        // moving one item out of place should not make 100+ correct items churn.
+        for (int recordIndex = 0; recordIndex < recordCount; recordIndex++)
         {
             TransferZSortRecord record = records.Get(recordIndex);
-            ref TransferZSortAssignmentCostRow costRow = new TransferZSortAssignmentCostRow();
-            for (int targetSlotIndex = 0; targetSlotIndex < records.Count(); targetSlotIndex++)
-            {
-                int cost = -1;
-                if (targetWidths.Get(recordIndex) == targetWidths.Get(targetSlotIndex) && targetHeights.Get(recordIndex) == targetHeights.Get(targetSlotIndex))
-                {
-                    int targetRow = slotRows.Get(targetSlotIndex);
-                    int targetCol = slotCols.Get(targetSlotIndex);
-                    int foreignOverlap = slotOverlapCounts.Get(targetSlotIndex);
-                    if (RectOverlaps(targetRow, targetCol, targetWidths.Get(recordIndex), targetHeights.Get(recordIndex), record.row, record.col, record.width, record.height))
-                        foreignOverlap--;
+            bool targetFlip = targetFlips.Get(recordIndex) != 0;
+            if (record.flip != targetFlip)
+                continue;
 
-                    int distance = Math.AbsInt(record.row - targetRow) + Math.AbsInt(record.col - targetCol);
-                    int rotationPenalty = 0;
-                    bool targetFlip = targetFlips.Get(recordIndex) != 0;
-                    if (record.flip != targetFlip)
-                        rotationPenalty = 1;
-                    cost = foreignOverlap * 10000 + distance * 2 + rotationPenalty;
-                }
-                costRow.costs.Insert(cost);
+            for (int stationarySlot = 0; stationarySlot < recordCount; stationarySlot++)
+            {
+                if (slotUsed.Get(stationarySlot) != 0)
+                    continue;
+                if (targetWidths.Get(recordIndex) != targetWidths.Get(stationarySlot) || targetHeights.Get(recordIndex) != targetHeights.Get(stationarySlot))
+                    continue;
+                if (record.row != slotRows.Get(stationarySlot) || record.col != slotCols.Get(stationarySlot))
+                    continue;
+
+                assignedSlots.Set(recordIndex, stationarySlot);
+                slotUsed.Set(stationarySlot, 1);
+                break;
             }
-            costRows.Insert(costRow);
         }
-    }
 
-    protected static void OptimizeEquivalentTargetAssignmentsV4(notnull array<ref TransferZSortRecord> records, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips)
-    {
-        if (records.Count() < 2)
-            return;
-
-        ref array<int> slotRows = new array<int>();
-        ref array<int> slotCols = new array<int>();
-        ref array<int> assignedSlots = new array<int>();
-        ref array<ref TransferZSortAssignmentCostRow> costRows = new array<ref TransferZSortAssignmentCostRow>();
-        BuildEquivalentAssignmentCostCacheV4(records, targetWidths, targetHeights, targetFlips, slotRows, slotCols, costRows);
-
-        for (int assignedIndex = 0; assignedIndex < records.Count(); assignedIndex++)
-            assignedSlots.Insert(assignedIndex);
-
-        bool changed = true;
-        int passCount = 0;
-        int passLimit = records.Count();
-        if (passLimit > 32)
-            passLimit = 32;
-
-        while (changed && passCount < passLimit)
+        // Assign the remaining equivalent records directly to the cheapest free
+        // slot. Cost is O(1) because each slot's current overlap count was cached
+        // above, making the complete optimizer O(n^2) with no iterative passes.
+        for (int remainingIndex = 0; remainingIndex < recordCount; remainingIndex++)
         {
-            changed = false;
-            passCount++;
+            if (assignedSlots.Get(remainingIndex) >= 0)
+                continue;
 
-            for (int leftIndex = 0; leftIndex < records.Count(); leftIndex++)
+            TransferZSortRecord remainingRecord = records.Get(remainingIndex);
+            int bestSlot = -1;
+            int bestCost = 0;
+            for (int candidateSlot = 0; candidateSlot < recordCount; candidateSlot++)
             {
-                TransferZSortRecord left = records.Get(leftIndex);
-                TransferZSortAssignmentCostRow leftCosts = costRows.Get(leftIndex);
-                for (int rightIndex = leftIndex + 1; rightIndex < records.Count(); rightIndex++)
-                {
-                    TransferZSortRecord right = records.Get(rightIndex);
-                    if (targetWidths.Get(leftIndex) != targetWidths.Get(rightIndex) || targetHeights.Get(leftIndex) != targetHeights.Get(rightIndex))
-                        continue;
+                if (slotUsed.Get(candidateSlot) != 0)
+                    continue;
+                if (targetWidths.Get(remainingIndex) != targetWidths.Get(candidateSlot) || targetHeights.Get(remainingIndex) != targetHeights.Get(candidateSlot))
+                    continue;
 
-                    int leftSlot = assignedSlots.Get(leftIndex);
-                    int rightSlot = assignedSlots.Get(rightIndex);
-                    TransferZSortAssignmentCostRow rightCosts = costRows.Get(rightIndex);
+                int candidateCost = EquivalentTargetSlotCostV4(records, remainingRecord, slotRows.Get(candidateSlot), slotCols.Get(candidateSlot), targetWidths.Get(remainingIndex), targetHeights.Get(remainingIndex), slotOverlapCounts.Get(candidateSlot));
+                if (bestSlot >= 0 && candidateCost >= bestCost)
+                    continue;
 
-                    int currentCost = leftCosts.costs.Get(leftSlot) + rightCosts.costs.Get(rightSlot);
-                    int swappedCost = leftCosts.costs.Get(rightSlot) + rightCosts.costs.Get(leftSlot);
-                    if (swappedCost >= currentCost)
-                        continue;
-
-                    int swapRow = left.targetRow;
-                    int swapCol = left.targetCol;
-                    left.targetRow = right.targetRow;
-                    left.targetCol = right.targetCol;
-                    right.targetRow = swapRow;
-                    right.targetCol = swapCol;
-
-                    assignedSlots.Set(leftIndex, rightSlot);
-                    assignedSlots.Set(rightIndex, leftSlot);
-                    changed = true;
-                }
+                bestSlot = candidateSlot;
+                bestCost = candidateCost;
             }
+
+            // The original target slot is always an equivalent free candidate
+            // unless the planner state is corrupt. Fail closed by retaining the
+            // packer's original assignment if that invariant is ever violated.
+            if (bestSlot < 0)
+                return;
+
+            assignedSlots.Set(remainingIndex, bestSlot);
+            slotUsed.Set(bestSlot, 1);
+        }
+
+        for (int applyIndex = 0; applyIndex < recordCount; applyIndex++)
+        {
+            int assignedSlot = assignedSlots.Get(applyIndex);
+            if (assignedSlot < 0)
+                continue;
+
+            TransferZSortRecord applyRecord = records.Get(applyIndex);
+            applyRecord.targetRow = slotRows.Get(assignedSlot);
+            applyRecord.targetCol = slotCols.Get(assignedSlot);
         }
     }
 
