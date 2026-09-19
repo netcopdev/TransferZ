@@ -18,23 +18,17 @@ The target layout is deterministic and rotation-aware.
 
 ## Transactional execution
 
-Sort snapshots the exact original row, column and orientation of every direct cargo child before any move. It computes the complete target layout before execution and is a no-op when that layout already matches the snapshot.
+Sort snapshots the exact original row, column and orientation of every direct cargo child before any move. It computes the complete target layout and a bounded rearrangement plan before execution. If the target layout already matches the snapshot, Sort is a successful no-op.
 
-When movement is required, Sort temporarily stages every tracked direct cargo item through DayZ's normal vicinity/ground drop path. Each staging move is immediately verified as a reachable ground location. Staging the complete set deliberately empties the source cargo, which removes in-cargo move cycles and makes both final placement and rollback deterministic. Player inventory is not used as an implicit staging area.
+Planning is entirely virtual. A cloned record set is used while the planner resolves blockers and cycles, so the authoritative original snapshot remains unchanged for rollback verification. The planner uses genuinely free cells inside the **same cargo grid** as temporary parking when a direct target move is blocked.
 
-With the source empty, Sort first preflights every exact **original** move from the current staged state. This proves the normal rollback path before any target placement is allowed to begin. It then preflights every exact target move. Only when both complete layouts pass native DayZ validation does Sort start committing target placements. The same original item entities are then moved back into the source at their exact target rows, columns and orientations. No weapon, magazine, container or other item is copied or reconstructed.
+Sort never uses the ground/vicinity, player inventory, or another container as hidden temporary storage. If there is not enough in-cargo workspace for the bounded planner to reach the target layout, Sort fails before moving the first item.
 
-Success is reported only after every tracked item is verified at its target location. If staging, rollback preflight, target preflight, target placement, or final verification fails, Sort enters synchronous rollback:
+Execution is a sequence of exact cargo-to-cargo moves of the same original entity objects. Before each successful move, TransferZ records the item's exact current row, column and orientation as the inverse operation. Each dedicated-server move is committed synchronously through the moved item's generic `GameInventory`, so the next step validates against the state actually produced by the previous step.
 
-- any tracked item currently in the source at a non-original location is evacuated again;
-- every tracked item is restored to its exact original row, column and orientation from the snapshot;
-- rollback is verified before the failed operation returns;
-- no tracked item is intentionally left in vicinity;
-- if DayZ unexpectedly refuses an exact rollback move after repeated recovery passes, TransferZ performs a final containment attempt back into the source and emits a `CRITICAL rollback incomplete` diagnostic. This is treated as a hard invariant violation, not a successful or acceptable partial sort.
+If a move fails or the final target verification fails, the successfully executed operations are reversed in strict reverse order. The original snapshot is then verified before Sort returns failure. A normal failed Sort therefore restores the exact original layout; a failure of the reverse sequence is logged as a `CRITICAL rollback incomplete` invariant violation.
 
-The rollback design means a normal failed Sort should leave the source exactly as it was before the button was pressed. Absolute recovery still depends on DayZ's native inventory API continuing to accept valid reverse moves and cannot survive process/server termination mid-operation; TransferZ does not bypass or corrupt native inventory state to force a move.
-
-Temporary staging can trigger normal DayZ inventory/drop callbacks because the same entities genuinely move through vicinity. Chamber contents, attachments and mod-defined entity state are preserved by object identity rather than manually serialized and recreated.
+Because items never leave their source cargo during Sort, normal world-drop physics and vicinity/drop side effects are not part of sorting. Chamber contents, attachments and mod-defined entity state remain preserved by object identity rather than manual serialization or reconstruction.
 
 ## UI feedback
 
