@@ -228,11 +228,6 @@ class TransferZVicinityHeaderControls
             return false;
         if (mouseX < left || mouseX >= right || mouseY < top || mouseY >= bottom)
             return false;
-
-        EntityAI source = TransferZOperationDrag.GetSource();
-        string sourceName = "<vicinity>";
-        if (source)
-            sourceName = source.GetType();
         bool handled = TransferZOperationDrag.CompleteToVicinity();
         TransferZHeaderControls.SetOperationDropTargetsVisible(false);
         TransferZHeaderControls.RefreshAll();
