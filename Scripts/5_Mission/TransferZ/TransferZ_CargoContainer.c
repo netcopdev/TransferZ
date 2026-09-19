@@ -31,6 +31,8 @@ class TransferZHeaderControls
     protected Widget m_HoveredOperation;
     protected Widget m_HoveredTooltipButton;
     protected int m_IgnoreOperationClickUntil;
+    protected int m_NextIntervalRefreshTime;
+    protected static const int INTERVAL_REFRESH_MS = 250;
 
     protected ImageWidget m_BlockBackground;
     protected ImageWidget m_ManageBlockBackground;
@@ -1176,6 +1178,22 @@ class TransferZHeaderControls
             UpdateDropTargetPosition();
     }
 
+    // Vanilla calls UpdateInterval every frame while the inventory is open.
+    // Event paths (RefreshAll, clicks, SetEntity on a new entity, drag start)
+    // still update immediately; the per-frame callers only need a periodic
+    // refresh, so they must not rerun the full UpdateControls pass (preferred
+    // resolution, header layout, hovered Transfer/Unpack preview scan and
+    // tooltip rebuild) on every frame.
+    void UpdateControlsFromInterval()
+    {
+        int now = GetGame().GetTime();
+        if (now < m_NextIntervalRefreshTime)
+            return;
+
+        m_NextIntervalRefreshTime = now + INTERVAL_REFRESH_MS;
+        UpdateControls();
+    }
+
     void UpdateControls()
     {
         if (!m_Root || !m_ManageRoot || !m_Entity || !m_Entity.GetInventory().GetCargo())
@@ -1378,8 +1396,12 @@ modded class HandsHeader
                 TransferZHeaderControls.RefreshAll();
         }
 
+        bool handsChanged = currentHands != m_TransferZLastHandsEntity;
         m_TransferZLastHandsEntity = currentHands;
-        m_TransferZHeaderControls.SetEntity(currentHands);
+        if (handsChanged)
+            m_TransferZHeaderControls.SetEntity(currentHands);
+        else if (currentHands && currentHands.GetInventory().GetCargo())
+            m_TransferZHeaderControls.UpdateControlsFromInterval();
     }
 }
 
@@ -1408,6 +1430,6 @@ modded class CargoContainer
     {
         super.UpdateInterval();
         if (m_TransferZAttachmentHeaderControls)
-            m_TransferZAttachmentHeaderControls.UpdateControls();
+            m_TransferZAttachmentHeaderControls.UpdateControlsFromInterval();
     }
 }
