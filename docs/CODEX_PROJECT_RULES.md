@@ -44,16 +44,17 @@ Sort is a server-authoritative maintenance operation over the source container's
 - Build a complete deterministic rotation-aware target layout before execution.
 - Use DayZ cargo dimensions, native inventory locations and native move validation.
 - Treat DayZ user-reserved inventory locations as unavailable.
-- Consider both valid cargo orientations for non-square items. Prefer the current orientation when fit quality is otherwise equivalent.
+- Consider both valid cargo orientations for non-square items. Preserve the current orientation whenever a complete layout permits it; detachable-magazine vertical preference is secondary and rotation remains a packing fallback.
+- Keep equivalent-target assignment bounded for large cargo. Preserve records already occupying valid equivalent target slots first, then assign remaining records directly using cached slot-overlap data. Do not use iterative all-pairs improvement passes.
 - If the computed target layout already matches the snapshot, Sort is a successful no-op.
-- When movement is required, temporarily stage the same tracked entities through DayZ's normal vicinity/ground path so the source cargo becomes empty. Do not use arbitrary player cargo as an implicit staging area.
-- Preflight every exact target move while the source is empty before committing the first target placement.
-- Report success only after every tracked item is verified at its exact target row, column and orientation.
-- Any staging, preflight, commit or final-verification failure starts synchronous rollback. Clear partial target placements, restore every tracked item to its exact original row, column and orientation, and verify the original snapshot before returning failure.
-- No ordinary failed Sort may intentionally leave a tracked item in vicinity or leave a partially sorted source. A rollback invariant violation is critical, must be logged explicitly, and must trigger a final containment attempt back into the source rather than being treated as an acceptable partial result.
+- Build a complete bounded **in-cargo** rearrangement plan before the first authoritative move. The planner may use genuinely free cells inside the same source cargo as temporary workspace to break dependencies and cycles.
+- Sort MUST NOT use vicinity/ground, player inventory, or another container as implicit temporary staging. If the target cannot be reached with the bounded in-cargo planner, fail before moving anything.
+- Planning is virtual. Keep the authoritative original snapshot untouched while the planner mutates cloned geometry.
+- Execute each planned cargo-to-cargo step through the moved item's generic `GameInventory` with the appropriate authoritative inventory mode so dedicated-server state is immediately visible to the next step.
+- Before each successful step, capture that item's exact current row, column and orientation as an inverse move. If any move or final verification fails, execute those inverse moves in strict reverse order and verify the exact original snapshot before returning failure.
+- Report success only after every tracked item is verified at the planner's exact final row, column and orientation.
+- No ordinary failed Sort may leave a partial target layout. A rollback invariant violation is critical and must be logged explicitly.
 - Do not serialize/reconstruct weapon, magazine, attachment, chamber, quantity or mod-defined state. Preservation comes from moving the same entity objects.
-- Keep equivalent-target assignment bounded for large cargo. Preserve records already occupying valid equivalent target slots first, then assign remaining records directly using cached slot-overlap data. Do not use iterative all-pairs improvement passes; assignment optimization must remain quadratic and must never compromise target-layout validity or transactional rollback.
-- Transactional Sort SHOULD leave records already at their exact target row/column/orientation in cargo and stage only records that actually need movement. Preflight and rollback must treat those stationary records as immutable occupancy and fail closed if unexpected cargo remains.
 
 Sort is not a replacement for Transfer and does not move nested contents independently of their direct container item.
 
