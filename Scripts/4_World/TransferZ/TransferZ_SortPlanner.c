@@ -581,17 +581,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
             protectedHeight = state.targetHeights.Get(protectedTargetIndex);
         }
 
-        // Scratch storage belongs to this recursion frame, not to each
-        // candidate cell. CapturePlannerStateV4 and CollectBlockersV4 overwrite
-        // these arrays, so reusing them avoids thousands of short-lived arrays
-        // in failed searches on large/nearly-full cargo grids.
-        ref array<int> blockers = new array<int>();
-        ref array<int> savedRows = new array<int>();
-        ref array<int> savedCols = new array<int>();
-        ref array<int> savedWidths = new array<int>();
-        ref array<int> savedHeights = new array<int>();
-        ref array<int> savedFlips = new array<int>();
-
         int orientationCount = OrientationCountV4(record);
         for (int orientationIndex = 0; orientationIndex < orientationCount; orientationIndex++)
         {
@@ -847,6 +836,17 @@ class TransferZSortPlanner : TransferZMaintenanceService
             protectedWidth = state.targetWidths.Get(protectedTargetIndex);
             protectedHeight = state.targetHeights.Get(protectedTargetIndex);
         }
+
+        // Scratch storage belongs to this recursion frame, not to each
+        // candidate cell. CapturePlannerStateV4 and CollectBlockersV4 overwrite
+        // these arrays, so reusing them avoids thousands of short-lived arrays
+        // in failed searches on large/nearly-full cargo grids.
+        ref array<int> blockers = new array<int>();
+        ref array<int> savedRows = new array<int>();
+        ref array<int> savedCols = new array<int>();
+        ref array<int> savedWidths = new array<int>();
+        ref array<int> savedHeights = new array<int>();
+        ref array<int> savedFlips = new array<int>();
 
         int orientationCount = OrientationCountV4(record);
         for (int orientationIndex = 0; orientationIndex < orientationCount; orientationIndex++)
