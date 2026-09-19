@@ -269,6 +269,278 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         return ItemAtForwardLocation(source, rollbackMove);
     }
 
+    protected static TransferZ_SortBuffer CreateSortBuffer(PlayerBase player)
+    {
+        if (!player)
+            return null;
+
+        int flags = ECE_SETUP | ECE_KEEPHEIGHT | ECE_NOLIFETIME | ECE_NOPERSISTENCY_WORLD | ECE_NOPERSISTENCY_CHAR;
+        TransferZ_SortBuffer buffer = TransferZ_SortBuffer.Cast(GetGame().CreateObjectEx("TransferZ_SortBuffer", player.GetPosition(), flags, RF_IGNORE));
+        if (!buffer)
+            return null;
+
+        buffer.SetPosition(player.GetPosition());
+        buffer.SetAllowDamage(false);
+        buffer.DisableSimulation(true);
+
+        CargoBase cargo = buffer.GetInventory().GetCargo();
+        if (!cargo)
+        {
+            buffer.Delete();
+            return null;
+        }
+
+        return buffer;
+    }
+
+    protected static bool DeleteSortBufferIfEmpty(TransferZ_SortBuffer buffer)
+    {
+        if (!buffer)
+            return true;
+
+        CargoBase cargo = buffer.GetInventory().GetCargo();
+        if (!cargo || cargo.GetItemCount() != 0)
+            return false;
+
+        buffer.Delete();
+        return true;
+    }
+
+    protected static bool ItemInSortBuffer(TransferZ_SortBuffer buffer, EntityAI item)
+    {
+        if (!buffer || !item)
+            return false;
+
+        InventoryLocation current = new InventoryLocation();
+        if (!item.GetInventory().GetCurrentInventoryLocation(current))
+            return false;
+
+        return current.GetType() == InventoryLocationType.CARGO && current.GetParent() == buffer;
+    }
+
+    protected static bool TryMoveToSortBuffer(PlayerBase player, EntityAI source, TransferZ_SortBuffer buffer, EntityAI item)
+    {
+        if (!player || !source || !buffer || !item || !IsDirectCargoItem(source, item))
+            return false;
+        if (!item.GetInventory().CanRemoveEntity() || !source.CanReleaseCargo(item) || !buffer.CanReceiveItemIntoCargo(item))
+            return false;
+
+        InventoryLocation src = new InventoryLocation();
+        if (!item.GetInventory().GetCurrentInventoryLocation(src))
+            return false;
+
+        InventoryLocation dst = new InventoryLocation();
+        if (!buffer.GetInventory().FindFreeLocationFor(item, FindInventoryLocationType.CARGO, dst))
+            return false;
+        if (dst.GetType() != InventoryLocationType.CARGO || dst.GetParent() != buffer)
+            return false;
+        if (!GameInventory.LocationCanMoveEntity(src, dst))
+            return false;
+
+        InventoryMode moveMode = InventoryMode.SERVER;
+        if (!GetGame().IsMultiplayer())
+            moveMode = InventoryMode.LOCAL;
+
+        if (!item.GetInventory().TakeToDst(moveMode, src, dst))
+            return false;
+        return ItemInSortBuffer(buffer, item);
+    }
+
+    protected static bool TryMoveFromSortBuffer(PlayerBase player, EntityAI source, TransferZ_SortBuffer buffer, EntityAI item, int cargoIndex, int row, int col, bool flip)
+    {
+        if (!player || !source || !buffer || !item || !ItemInSortBuffer(buffer, item))
+            return false;
+        if (!item.GetInventory().CanRemoveEntity() || !buffer.CanReleaseCargo(item) || !source.CanReceiveItemIntoCargo(item))
+            return false;
+
+        InventoryLocation src = new InventoryLocation();
+        if (!item.GetInventory().GetCurrentInventoryLocation(src))
+            return false;
+
+        InventoryLocation dst = new InventoryLocation();
+        dst.SetCargo(source, item, cargoIndex, row, col, flip);
+
+        HumanInventory humanInventory = player.GetHumanInventory();
+        if (humanInventory && humanInventory.GetUserReservedLocationCount() > 0 && humanInventory.FindCollidingUserReservedLocationIndex(item, dst) >= 0)
+            return false;
+        if (!GameInventory.LocationCanMoveEntity(src, dst))
+            return false;
+
+        InventoryMode moveMode = InventoryMode.SERVER;
+        if (!GetGame().IsMultiplayer())
+            moveMode = InventoryMode.LOCAL;
+
+        if (!item.GetInventory().TakeToDst(moveMode, src, dst))
+            return false;
+        return ItemAtCargoCoordinates(source, item, row, col, flip);
+    }
+
+    protected static void BuildExpectedTargetRecords(notnull array<ref TransferZSortRecord> layoutRecords, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips, notnull array<ref TransferZSortRecord> expectedRecords)
+    {
+        expectedRecords.Clear();
+        for (int recordIndex = 0; recordIndex < layoutRecords.Count(); recordIndex++)
+        {
+            TransferZSortRecord layoutRecord = layoutRecords.Get(recordIndex);
+            TransferZSortRecord expectedRecord = CloneSortRecord(layoutRecord);
+            if (!expectedRecord)
+                continue;
+
+            expectedRecord.row = layoutRecord.targetRow;
+            expectedRecord.col = layoutRecord.targetCol;
+            expectedRecord.width = targetWidths.Get(recordIndex);
+            expectedRecord.height = targetHeights.Get(recordIndex);
+            expectedRecord.flip = targetFlips.Get(recordIndex) != 0;
+            expectedRecords.Insert(expectedRecord);
+        }
+    }
+
+    protected static bool RecoverBufferedSort(PlayerBase player, EntityAI source, TransferZ_SortBuffer buffer, notnull array<ref TransferZSortRecord> originalRecords)
+    {
+        if (!player || !source || !buffer)
+            return false;
+
+        bool accepted = true;
+
+        // First evacuate every tracked item that is in the source but no longer
+        // at its exact original coordinates. This recreates the empty geometry
+        // needed to restore the original snapshot deterministically.
+        foreach (TransferZSortRecord originalRecord : originalRecords)
+        {
+            if (!originalRecord || !originalRecord.item)
+            {
+                accepted = false;
+                continue;
+            }
+            if (RecordAtCargoLocation(source, originalRecord))
+                continue;
+            if (ItemInSortBuffer(buffer, originalRecord.item))
+                continue;
+
+            InventoryLocation current = new InventoryLocation();
+            if (!originalRecord.item.GetInventory().GetCurrentInventoryLocation(current))
+            {
+                accepted = false;
+                continue;
+            }
+            if (current.GetType() != InventoryLocationType.CARGO || current.GetParent() != source)
+            {
+                accepted = false;
+                continue;
+            }
+            if (!TryMoveToSortBuffer(player, source, buffer, originalRecord.item))
+                accepted = false;
+        }
+
+        // Restore exact row/column/orientation from the immutable snapshot.
+        foreach (TransferZSortRecord restoreRecord : originalRecords)
+        {
+            if (!restoreRecord || !restoreRecord.item)
+            {
+                accepted = false;
+                continue;
+            }
+            if (RecordAtCargoLocation(source, restoreRecord))
+                continue;
+            if (!ItemInSortBuffer(buffer, restoreRecord.item))
+            {
+                accepted = false;
+                continue;
+            }
+            if (!TryMoveFromSortBuffer(player, source, buffer, restoreRecord.item, restoreRecord.cargoIndex, restoreRecord.row, restoreRecord.col, restoreRecord.flip))
+                accepted = false;
+        }
+
+        bool exact = VerifyLayout(source, originalRecords);
+        CargoBase bufferCargo = buffer.GetInventory().GetCargo();
+        bool bufferEmpty = bufferCargo && bufferCargo.GetItemCount() == 0;
+        if (exact && bufferEmpty)
+            DeleteSortBufferIfEmpty(buffer);
+        else
+            Print("[TransferZ] Sort buffer CRITICAL rollback incomplete accepted=" + accepted.ToString() + " exact=" + exact.ToString() + " bufferEmpty=" + bufferEmpty.ToString());
+
+        return exact && bufferEmpty;
+    }
+
+    protected static int SortWithNativeBuffer(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> originalRecords, int cargoWidth, int cargoHeight)
+    {
+        ref array<ref TransferZSortRecord> layoutRecords = new array<ref TransferZSortRecord>();
+        CloneSortRecords(originalRecords, layoutRecords);
+        if (layoutRecords.Count() != originalRecords.Count())
+            return -1;
+
+        ref array<int> targetWidths = new array<int>();
+        ref array<int> targetHeights = new array<int>();
+        ref array<int> targetFlips = new array<int>();
+        if (!BuildTargetLayoutV4(player, source, layoutRecords, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
+            return -1;
+        if (AllRecordsAtTargetV4(layoutRecords, targetFlips))
+            return 0;
+
+        ref array<ref TransferZSortRecord> expectedRecords = new array<ref TransferZSortRecord>();
+        BuildExpectedTargetRecords(layoutRecords, targetWidths, targetHeights, targetFlips, expectedRecords);
+        if (expectedRecords.Count() != originalRecords.Count())
+            return -1;
+
+        if (!VerifyLayout(source, originalRecords))
+            return -1;
+
+        TransferZ_SortBuffer buffer = CreateSortBuffer(player);
+        if (!buffer)
+        {
+            Print("[TransferZ] Sort buffer fallback failed: could not create internal cargo buffer");
+            return -1;
+        }
+
+        int staged = 0;
+        for (int stageIndex = 0; stageIndex < layoutRecords.Count(); stageIndex++)
+        {
+            TransferZSortRecord layoutRecord = layoutRecords.Get(stageIndex);
+            if (RecordAtTargetV4(layoutRecord, stageIndex, targetFlips))
+                continue;
+
+            if (!TryMoveToSortBuffer(player, source, buffer, layoutRecord.item))
+            {
+                bool stageRollback = RecoverBufferedSort(player, source, buffer, originalRecords);
+                Print("[TransferZ] Sort buffer fallback failed during staging staged=" + staged.ToString() + " rollback=" + stageRollback.ToString());
+                return -1;
+            }
+            staged++;
+        }
+
+        int placed = 0;
+        for (int placeIndex = 0; placeIndex < layoutRecords.Count(); placeIndex++)
+        {
+            TransferZSortRecord placeRecord = layoutRecords.Get(placeIndex);
+            if (RecordAtTargetV4(placeRecord, placeIndex, targetFlips))
+                continue;
+
+            bool targetFlip = targetFlips.Get(placeIndex) != 0;
+            if (!TryMoveFromSortBuffer(player, source, buffer, placeRecord.item, placeRecord.cargoIndex, placeRecord.targetRow, placeRecord.targetCol, targetFlip))
+            {
+                bool placeRollback = RecoverBufferedSort(player, source, buffer, originalRecords);
+                Print("[TransferZ] Sort buffer fallback failed during placement placed=" + placed.ToString() + "/" + staged.ToString() + " rollback=" + placeRollback.ToString());
+                return -1;
+            }
+            placed++;
+        }
+
+        if (!VerifyLayout(source, expectedRecords))
+        {
+            bool verifyRollback = RecoverBufferedSort(player, source, buffer, originalRecords);
+            Print("[TransferZ] Sort buffer fallback failed target verification rollback=" + verifyRollback.ToString());
+            return -1;
+        }
+
+        if (!DeleteSortBufferIfEmpty(buffer))
+        {
+            bool cleanupRollback = RecoverBufferedSort(player, source, buffer, originalRecords);
+            Print("[TransferZ] Sort buffer fallback failed cleanup rollback=" + cleanupRollback.ToString());
+            return -1;
+        }
+
+        return staged + placed;
+    }
+
     override static int Sort(PlayerBase player, EntityAI source)
     {
         if (!player || !source || !TransferZServerService.IsReachable(player, source) || !source.GetInventory().GetCargo())
@@ -304,8 +576,13 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         ref array<ref TransferZSortMove> moves = new array<ref TransferZSortMove>();
         if (!BuildSortPlanV4(player, source, plannedRecords, cargoWidth, cargoHeight, moves))
         {
-            Print("[TransferZ] Sort transactional failed: no bounded in-cargo rearrangement plan for " + source.GetType());
-            return -1;
+            // The target layout is valid but the source grid has no bounded
+            // intermediary path. Fall back to the hidden native cargo buffer;
+            // the same EntityAI objects remain alive throughout the transaction.
+            int bufferedResult = SortWithNativeBuffer(player, source, originalRecords, cargoWidth, cargoHeight);
+            if (bufferedResult < 0)
+                Print("[TransferZ] Sort transactional failed: in-cargo plan and native buffer fallback both failed for " + source.GetType());
+            return bufferedResult;
         }
         if (moves.Count() == 0)
             return 0;
