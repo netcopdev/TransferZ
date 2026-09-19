@@ -20,7 +20,7 @@ The target layout is deterministic and rotation-aware.
 
 Sort snapshots the exact original row, column and orientation of every direct cargo child before any move. It computes the complete target layout and a bounded rearrangement plan before execution. If the target layout already matches the snapshot, Sort is a successful no-op.
 
-Planning is entirely virtual. A cloned record set is used while the planner resolves blockers and cycles, so the authoritative original snapshot remains unchanged for rollback verification. The planner uses genuinely free cells inside the **same cargo grid** as temporary parking when a direct target move is blocked.
+Planning is entirely virtual. A cloned record set is used while the planner resolves blockers and cycles, so the authoritative original snapshot remains unchanged for rollback verification. The planner uses genuinely free cells inside the **same cargo grid** as temporary parking when a direct target move is blocked. When a target is occupied by one compatible equal-size item, TransferZ can instead plan DayZ's native atomic inventory swap; this exchanges the two cargo locations without requiring any empty intermediary cell.
 
 Sort never uses the ground/vicinity, player inventory, or another container as hidden temporary storage. If there is not enough in-cargo workspace for the bounded planner to reach the target layout, Sort fails before moving the first item.
 
