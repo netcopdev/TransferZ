@@ -288,7 +288,7 @@ Hold `Alt` and left-drag one representative stack of that exact classname from t
 
 ### Repack a messy container
 
-Click Sort on the right side of that container's header. TransferZ computes a rotation-aware compact layout and a bounded in-cargo move sequence, then either verifies the complete final layout or reverses the executed moves and restores the complete original snapshot on failure.
+Click Sort on the right side of that container's header. TransferZ computes a rotation-aware compact layout and first tries a bounded in-cargo sequence. If that geometry has no safe intermediary path, it uses the hidden native sort buffer, then verifies the complete final layout. Any normal failure restores and verifies the exact original snapshot.
 
 ### Consolidate partial stacks
 
