@@ -14,7 +14,8 @@ class TransferZCFModule : CF_ModuleWorld
 
     override int GetRPCMax()
     {
-        return TransferZMaintenanceRPC.RESULT;
+        // CF treats the upper RPC bound as exclusive.
+        return TransferZMaintenanceRPC.RESULT + 1;
     }
 
     override void OnRPC(Class sender, CF_EventArgs args)
