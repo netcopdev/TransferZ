@@ -346,15 +346,32 @@ modded class WidgetEventHandler
             TransferZOperationDrag.ArmNativeDropSuppression();
 
             Widget nativeDrag = GetDragWidget();
+            ItemManager itemManager = ItemManager.GetInstance();
+            if (itemManager)
+            {
+                Icon draggedIcon = itemManager.GetDraggedIcon();
+                if (draggedIcon)
+                {
+                    draggedIcon.DestroyWhiteBackground();
+                }
+                else if (nativeDrag)
+                {
+                    SlotsIcon draggedSlotsIcon;
+                    nativeDrag.GetUserData(draggedSlotsIcon);
+                    if (draggedSlotsIcon)
+                        draggedSlotsIcon.OnIconDrop(nativeDrag);
+                }
+            }
+
             if (nativeDrag)
                 CancelWidgetDragging();
 
-            ItemManager itemManager = ItemManager.GetInstance();
             if (itemManager)
             {
                 itemManager.HideDropzones();
                 itemManager.SetIsDragging(false);
             }
+
             TransferZHeaderControls.CompleteModifierDragAtMousePosition();
             return true;
         }
