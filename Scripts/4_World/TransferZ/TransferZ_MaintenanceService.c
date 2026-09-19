@@ -550,7 +550,7 @@ class TransferZMaintenanceService
         dst.SetCargo(source, item, src.GetIdx(), row, col, flip);
 
         HumanInventory humanInventory = player.GetHumanInventory();
-        if (humanInventory && humanInventory.FindCollidingUserReservedLocationIndex(item, dst) >= 0)
+        if (humanInventory && humanInventory.GetUserReservedLocationCount() > 0 && humanInventory.FindCollidingUserReservedLocationIndex(item, dst) >= 0)
         {
             Print("[TransferZ] Sort move rejected: destination collides with DayZ user-reserved location item=" + item.GetType() + " dst=" + row.ToString() + "," + col.ToString());
             return false;
@@ -567,11 +567,14 @@ class TransferZMaintenanceService
             return false;
         }
 
-        bool moved;
-        if (GetGame().IsMultiplayer())
-            moved = source.ServerTakeToDst(src, dst);
-        else
-            moved = source.LocalTakeToDst(src, dst);
+        InventoryMode moveMode = InventoryMode.SERVER;
+        if (!GetGame().IsMultiplayer())
+            moveMode = InventoryMode.LOCAL;
+
+        // Use the moved item's generic GameInventory. On dedicated servers this
+        // commits each authoritative cargo-to-cargo step synchronously so the
+        // next planned move validates against the state just produced.
+        bool moved = item.GetInventory().TakeToDst(moveMode, src, dst);
 
         if (!moved)
             Print("[TransferZ] Sort move rejected: native TakeToDst returned false item=" + item.GetType() + " src=" + src.GetRow().ToString() + "," + src.GetCol().ToString() + " dst=" + row.ToString() + "," + col.ToString() + " flip=" + flip.ToString());
