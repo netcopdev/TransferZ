@@ -383,62 +383,57 @@ class TransferZSortPlanner : TransferZMaintenanceService
         }
     }
 
-    protected static int CountForeignCurrentOverlapsV4(notnull array<ref TransferZSortRecord> records, notnull array<int> targetWidths, notnull array<int> targetHeights, int recordIndex, int targetRow, int targetCol)
-    {
-        int overlapCount = 0;
-        int targetWidth = targetWidths.Get(recordIndex);
-        int targetHeight = targetHeights.Get(recordIndex);
-
-        for (int otherIndex = 0; otherIndex < records.Count(); otherIndex++)
-        {
-            if (otherIndex == recordIndex)
-                continue;
-
-            TransferZSortRecord other = records.Get(otherIndex);
-            if (RectOverlaps(targetRow, targetCol, targetWidth, targetHeight, other.row, other.col, other.width, other.height))
-                overlapCount++;
-        }
-
-        return overlapCount;
-    }
-
-    protected static int TargetAssignmentCostV4(notnull array<ref TransferZSortRecord> records, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips, int recordIndex, int targetRow, int targetCol)
-    {
-        TransferZSortRecord record = records.Get(recordIndex);
-        int foreignOverlap = CountForeignCurrentOverlapsV4(records, targetWidths, targetHeights, recordIndex, targetRow, targetCol);
-        int distance = Math.AbsInt(record.row - targetRow) + Math.AbsInt(record.col - targetCol);
-        int rotationPenalty = 0;
-        bool targetFlip = targetFlips.Get(recordIndex) != 0;
-        if (record.flip != targetFlip)
-            rotationPenalty = 1;
-        return foreignOverlap * 10000 + distance * 2 + rotationPenalty;
-    }
-
     protected static void BuildEquivalentAssignmentCostCacheV4(notnull array<ref TransferZSortRecord> records, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips, notnull array<int> slotRows, notnull array<int> slotCols, notnull array<ref TransferZSortAssignmentCostRow> costRows)
     {
         slotRows.Clear();
         slotCols.Clear();
         costRows.Clear();
 
+        ref array<int> slotOverlapCounts = new array<int>();
         for (int slotIndex = 0; slotIndex < records.Count(); slotIndex++)
         {
             TransferZSortRecord slotRecord = records.Get(slotIndex);
             slotRows.Insert(slotRecord.targetRow);
             slotCols.Insert(slotRecord.targetCol);
+
+            int overlapCount = 0;
+            int slotWidth = targetWidths.Get(slotIndex);
+            int slotHeight = targetHeights.Get(slotIndex);
+            for (int currentIndex = 0; currentIndex < records.Count(); currentIndex++)
+            {
+                TransferZSortRecord currentRecord = records.Get(currentIndex);
+                if (RectOverlaps(slotRecord.targetRow, slotRecord.targetCol, slotWidth, slotHeight, currentRecord.row, currentRecord.col, currentRecord.width, currentRecord.height))
+                    overlapCount++;
+            }
+            slotOverlapCounts.Insert(overlapCount);
         }
 
-        // Target-assignment cost depends only on the record and the target slot,
-        // not on which other record currently owns that slot. Cache it once.
-        // The previous optimizer recalculated four O(n) overlap scans for every
-        // pair on every pass, which became very expensive in large cargo grids.
+        // For equivalent target rectangles, the set of current records overlapped
+        // by a slot is slot-owned data. Compute that count once per slot, then
+        // subtract the candidate itself when applicable. This turns the old
+        // repeated O(n) overlap scan for every record/slot cost into O(1).
         for (int recordIndex = 0; recordIndex < records.Count(); recordIndex++)
         {
+            TransferZSortRecord record = records.Get(recordIndex);
             ref TransferZSortAssignmentCostRow costRow = new TransferZSortAssignmentCostRow();
             for (int targetSlotIndex = 0; targetSlotIndex < records.Count(); targetSlotIndex++)
             {
                 int cost = -1;
                 if (targetWidths.Get(recordIndex) == targetWidths.Get(targetSlotIndex) && targetHeights.Get(recordIndex) == targetHeights.Get(targetSlotIndex))
-                    cost = TargetAssignmentCostV4(records, targetWidths, targetHeights, targetFlips, recordIndex, slotRows.Get(targetSlotIndex), slotCols.Get(targetSlotIndex));
+                {
+                    int targetRow = slotRows.Get(targetSlotIndex);
+                    int targetCol = slotCols.Get(targetSlotIndex);
+                    int foreignOverlap = slotOverlapCounts.Get(targetSlotIndex);
+                    if (RectOverlaps(targetRow, targetCol, targetWidths.Get(recordIndex), targetHeights.Get(recordIndex), record.row, record.col, record.width, record.height))
+                        foreignOverlap--;
+
+                    int distance = Math.AbsInt(record.row - targetRow) + Math.AbsInt(record.col - targetCol);
+                    int rotationPenalty = 0;
+                    bool targetFlip = targetFlips.Get(recordIndex) != 0;
+                    if (record.flip != targetFlip)
+                        rotationPenalty = 1;
+                    cost = foreignOverlap * 10000 + distance * 2 + rotationPenalty;
+                }
                 costRow.costs.Insert(cost);
             }
             costRows.Insert(costRow);
