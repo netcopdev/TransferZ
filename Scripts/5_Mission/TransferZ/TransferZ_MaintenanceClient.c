@@ -56,7 +56,7 @@ class TransferZMaintenanceClient
         {
             if (operation == TransferZMaintenanceOperation.SORT)
             {
-                int sortResult = TransferZExternalStagingSortPlanner.Sort(player, source);
+                int sortResult = TransferZTransactionalSortPlanner.Sort(player, source);
                 TransferZMaintenanceResultState.PublishLocal(operation, source, sortResult >= 0);
                 return sortResult >= 0;
             }
