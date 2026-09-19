@@ -102,7 +102,11 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
         if (!GetGame().IsMultiplayer())
             moveMode = InventoryMode.LOCAL;
 
-        bool moved = player.GetInventory().TakeToDst(moveMode, src, dst);
+        // Transactional sort requires each placement to be visible to the next
+        // validation step immediately. DayZPlayerInventory SERVER moves are
+        // deferred sync junctures on dedicated servers; GameInventory SERVER
+        // moves commit synchronously and still emit the authoritative move.
+        bool moved = record.item.GetInventory().TakeToDst(moveMode, src, dst);
         if (!moved)
             Print("[TransferZ] Sort transactional " + phase + " TakeToDst failed item=" + record.item.GetType() + " dst=" + row.ToString() + "," + col.ToString() + " flip=" + flip.ToString());
         return moved;
