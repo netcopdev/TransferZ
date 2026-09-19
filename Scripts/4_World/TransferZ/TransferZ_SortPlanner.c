@@ -125,7 +125,7 @@ class TransferZSortPlanner : TransferZMaintenanceService
             return true;
 
         HumanInventory humanInventory = player.GetHumanInventory();
-        if (!humanInventory)
+        if (!humanInventory || humanInventory.GetUserReservedLocationCount() == 0)
             return false;
 
         InventoryLocation destination = new InventoryLocation();
