@@ -649,10 +649,18 @@ class TransferZMaintenanceService
             if (!target || !IsDirectCargoItem(source, target))
                 continue;
 
+            InventoryLocation targetLocation = new InventoryLocation();
+            if (!target.GetInventory().GetCurrentInventoryLocation(targetLocation) || !GameInventory.CheckRequestSrc(player, targetLocation, GameInventory.c_MaxItemDistanceRadius))
+                continue;
+
             for (int sourceIndex = targetIndex + 1; sourceIndex < items.Count(); sourceIndex++)
             {
                 ItemBase donor = ItemBase.Cast(items.Get(sourceIndex));
                 if (!donor || !IsDirectCargoItem(source, donor))
+                    continue;
+
+                InventoryLocation donorLocation = new InventoryLocation();
+                if (!donor.GetInventory().GetCurrentInventoryLocation(donorLocation) || !GameInventory.CheckRequestSrc(player, donorLocation, GameInventory.c_MaxItemDistanceRadius))
                     continue;
                 if (!target.CanBeCombined(donor, false, false))
                     continue;

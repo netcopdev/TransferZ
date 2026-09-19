@@ -7,9 +7,10 @@ TransferZ Sort is a server-authoritative rearrangement of a container's direct c
 The target layout is deterministic and rotation-aware.
 
 - The target packer scans the cargo from the first free cell at the top-left downward.
-- At each free anchor it evaluates both valid orientations for every non-square remaining item and selects the largest candidate that fits best there.
-- Equal-quality choices prefer the item's current orientation so Sort does not rotate items without a packing benefit.
-- This lets long weapons, cases, bandages, magazines, and other rectangular items use either orientation when that improves fit and overall packing.
+- Sort first attempts a complete compact layout with **every item kept in its current orientation**. A horizontal saw stays horizontal; a vertical spray can stays vertical.
+- If that cannot produce a complete layout, the fallback packers may rotate non-square items. Even then, an unrotated candidate is preferred at an anchor, and first-fit searches the entire cargo in the current orientation before trying the alternate orientation.
+- Detachable magazines retain their vertical-orientation preference only as a secondary fallback after an all-current-orientation layout has failed.
+- Rotation is therefore a packing escape hatch for tight layouts, not a normal part of tidying an already roomy container.
 - Equivalent-size target assignments are optimized before movement so interchangeable shapes do not create unnecessary identity swaps.
 - Smaller items fill otherwise wasted gaps in the compact target layout; there is no dedicated bottom zone for small items.
 - DayZ user-reserved inventory cells are treated as unavailable.

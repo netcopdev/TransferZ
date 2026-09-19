@@ -18,6 +18,11 @@ class TransferZMaintenanceClient
         if (root.IsMan())
             return false;
 
+        // Vehicle cargo can be valid from an access point well away from the
+        // vehicle model origin. The server validates each actual inventory move.
+        if (root.IsInherited(Transport))
+            return root.CanDisplayCargo();
+
         return GameInventory.CheckManipulatedObjectsDistances(source, player, GameInventory.c_MaxItemDistanceRadius);
     }
 

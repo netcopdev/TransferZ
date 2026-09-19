@@ -36,6 +36,13 @@ class TransferZServerService
         if (root.IsMan())
             return false;
 
+        // Vehicle inventory access is not represented by distance to the model
+        // origin. Large vehicles can expose valid cargo several metres from that
+        // origin, so accept displayable vehicle cargo at this coarse layer. Every
+        // mutating move is still checked by DayZ's native request validators.
+        if (root.IsInherited(Transport))
+            return root.CanDisplayCargo();
+
         return GameInventory.CheckManipulatedObjectsDistances(entity, player, GameInventory.c_MaxItemDistanceRadius);
     }
 
@@ -74,6 +81,12 @@ class TransferZServerService
         if (!item.GetInventory().GetCurrentInventoryLocation(src))
             return MoveFailure("source location unavailable", item, destination);
 
+        // A client-predicted representative drag can reach the requested cargo
+        // before its TransferZ batch RPC is processed. Treat that as an already
+        // completed member instead of relocating it inside the same cargo.
+        if (src.GetType() == InventoryLocationType.CARGO && src.GetParent() == destination)
+            return true;
+
         EntityAI sourceParent = src.GetParent();
         if (sourceParent && src.GetType() == InventoryLocationType.CARGO && !sourceParent.CanReleaseCargo(item))
             return MoveFailure("source cargo refuses release", item, destination);
@@ -98,7 +111,14 @@ class TransferZServerService
         if (!GetGame().IsMultiplayer())
             moveMode = InventoryMode.LOCAL;
 
-        if (!player.GetInventory().TakeToDst(moveMode, src, dst))
+        // Do not route server-authored batch moves through DayZPlayerInventory.
+        // Its SERVER path queues a sync juncture for the remote player and does
+        // not update the authoritative location immediately. A TransferZ batch
+        // then plans every following item against stale cargo state and usually
+        // only the first move survives. The item's GameInventory SERVER path
+        // performs LocationSyncMoveEntity immediately and emits the server move
+        // to clients, so each next batch step sees the committed state.
+        if (!item.GetInventory().TakeToDst(moveMode, src, dst))
             return MoveFailure("TakeToDst failed", item, destination);
 
         return true;
@@ -123,14 +143,21 @@ class TransferZServerService
         if (sourceParent && src.GetType() == InventoryLocationType.CARGO && !sourceParent.CanReleaseCargo(item))
             return MoveFailure("source cargo refuses release", item, null);
 
+        // Vehicle reachability above deliberately avoids distance to the model
+        // origin. Validate the exact source location before any server-authored
+        // drop so remote/inaccessible cargo cannot be manipulated.
+        if (!GameInventory.CheckDropRequest(player, src, GameInventory.c_MaxItemDistanceRadius))
+            return MoveFailure("CheckDropRequest failed", item, null);
+
         InventoryMode moveMode = InventoryMode.SERVER;
         if (!GetGame().IsMultiplayer())
             moveMode = InventoryMode.LOCAL;
 
         // Drop relative to the requesting player so VICINITY consistently means
         // the accessible ground area around that player, irrespective of where
-        // the source cargo sits in the UI hierarchy.
-        if (!player.GetInventory().DropEntity(moveMode, player, item))
+        // the source cargo sits in the UI hierarchy. Use the item's inventory
+        // for the same immediate authoritative semantics as exact-cargo moves.
+        if (!item.GetInventory().DropEntity(moveMode, player, item))
             return MoveFailure("DropEntity failed", item, null);
 
         return true;
@@ -258,7 +285,10 @@ class TransferZServerService
         InventoryLocation representativeLocation = new InventoryLocation();
         if (!representative.GetInventory().GetCurrentInventoryLocation(representativeLocation))
             return 0;
-        if (representativeLocation.GetType() != InventoryLocationType.CARGO || representativeLocation.GetParent() != source)
+
+        bool representativeInSource = representativeLocation.GetType() == InventoryLocationType.CARGO && representativeLocation.GetParent() == source;
+        bool representativeAtDestination = representativeLocation.GetType() == InventoryLocationType.CARGO && representativeLocation.GetParent() == destination;
+        if (!representativeInSource && !representativeAtDestination)
             return 0;
 
         string className = representative.GetType();
@@ -293,7 +323,10 @@ class TransferZServerService
         InventoryLocation representativeLocation = new InventoryLocation();
         if (!representative.GetInventory().GetCurrentInventoryLocation(representativeLocation))
             return 0;
-        if (representativeLocation.GetType() != InventoryLocationType.CARGO || representativeLocation.GetParent() != source)
+
+        bool representativeInSource = representativeLocation.GetType() == InventoryLocationType.CARGO && representativeLocation.GetParent() == source;
+        bool representativeAlreadyGround = representativeLocation.GetType() == InventoryLocationType.GROUND;
+        if (!representativeInSource && !representativeAlreadyGround)
             return 0;
 
         string className = representative.GetType();
