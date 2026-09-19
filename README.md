@@ -115,6 +115,13 @@ Current Sort behavior:
 
 Sort is transactional at the TransferZ level. The in-cargo path journals inverse moves/swaps and reverses them in strict reverse order on failure. The buffer path uses the immutable original snapshot to evacuate displaced items back through the buffer and restore exact original cells. The buffer is deleted only when verified empty. A rollback invariant violation is logged as critical rather than accepted as a partial sort.
 
+## Stack
+
+Stack scans the selected container's direct cargo and asks DayZ whether pairs can be combined. Only pairs accepted by DayZ's own `CanBeCombined` logic are merged with the native `CombineItems` behavior.
+
+TransferZ does not define its own ammo-family/category matching, does not merge through nested containers, and does not split stacks to manufacture a merge.
+
+
 ## Vicinity
 
 `VICINITY` behaves as a synthetic inventory zone:
