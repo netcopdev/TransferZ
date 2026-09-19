@@ -130,7 +130,7 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         if (!move || !move.item)
             return false;
 
-        ref TransferZSortRollbackMove rollbackMove;
+        TransferZSortRollbackMove rollbackMove;
         if (!CaptureRollbackMove(source, move.item, rollbackMove))
             return false;
 
