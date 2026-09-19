@@ -51,10 +51,11 @@ Sort is a server-authoritative maintenance operation over the source container's
 - If the deterministic final layout fits but no bounded in-cargo path exists, Sort MAY fall back to the dedicated `TransferZ_SortBuffer`: a hidden, non-interactive, non-physical native cargo entity created server-authoritatively only for the transaction. This is the only allowed external Sort workspace.
 - Sort MUST NOT use vicinity/ground, arbitrary player inventory, or arbitrary world/player containers as temporary staging. The sort buffer must preserve the same `EntityAI` objects; delete/recreate remains forbidden.
 - Planning is virtual. Keep the authoritative original snapshot untouched while the planner mutates cloned geometry.
-- Execute each planned cargo-to-cargo step through the moved item's generic `GameInventory` with the appropriate authoritative inventory mode so dedicated-server state is immediately visible to the next step.
-- Before each successful step, capture that item's exact current row, column and orientation as an inverse move. If any move or final verification fails, execute those inverse moves in strict reverse order and verify the exact original snapshot before returning failure.
+- Execute every source/source or source/buffer cargo step through the moved item's generic `GameInventory` with the appropriate authoritative inventory mode so dedicated-server state is immediately visible to the next step.
+- For the in-cargo path, journal inverse moves/swaps and reverse them in strict reverse order on failure. For the buffer path, use the immutable original snapshot: evacuate displaced tracked items back into the buffer as necessary, then restore exact original row/column/orientation.
 - Report success only after every tracked item is verified at the planner's exact final row, column and orientation.
-- No ordinary failed Sort may leave a partial target layout. A rollback invariant violation is critical and must be logged explicitly.
+- Delete the sort buffer only after its cargo is verified empty. Never delete a non-empty buffer; an incomplete restore is a critical invariant violation and must be logged explicitly.
+- No ordinary failed Sort may leave a partial target layout.
 - Do not serialize/reconstruct weapon, magazine, attachment, chamber, quantity or mod-defined state. Preservation comes from moving the same entity objects.
 
 Sort is not a replacement for Transfer and does not move nested contents independently of their direct container item.
