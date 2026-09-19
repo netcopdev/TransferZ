@@ -469,7 +469,6 @@ class TransferZHeaderControls
         }
 
         bool vicinityHandled = TransferZVicinityHeaderControls.CompleteModifierDragAtMousePosition(mouseX, mouseY);
-        if (!vicinityHandled && TransferZOperationDrag.IsActive())
         return vicinityHandled;
     }
 
