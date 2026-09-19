@@ -73,11 +73,8 @@ modded class TransferZHeaderControls
 
         if (TransferZMaintenanceResultState.WasSuccessful())
         {
-            Print("[TransferZ] Sort UI result: success");
             return;
         }
-
-        Print("[TransferZ] Sort UI result: failure");
         TransferZTriggerSortFailureVisual();
     }
 
@@ -130,8 +127,6 @@ modded class TransferZHeaderControls
     {
         if (button != MouseState.LEFT || !m_Entity)
             return;
-
-        Print("[TransferZ] Sort UI click source=" + m_Entity.GetType());
         TransferZMaintenanceClient.RequestSort(m_Entity);
 
         // DayZDiag/single-player resolves synchronously; multiplayer resolves later via RPC.
