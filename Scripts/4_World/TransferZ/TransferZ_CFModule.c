@@ -37,6 +37,9 @@ class TransferZCFModule : CF_ModuleWorld
         if (!player)
             return;
 
+        if (!TransferZServerService.CanPlayerManipulate(player))
+            return;
+
         if (rpc.ID == TransferZRPC.REQUEST)
             TransferZServerService.HandleRequest(player, rpc.Sender, rpc.Context);
         else if (rpc.ID == TransferZNestedUnpackRPC.REQUEST)

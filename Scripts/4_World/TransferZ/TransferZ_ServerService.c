@@ -21,9 +21,58 @@ class TransferZServerService
         return false;
     }
 
+    // Vanilla blocks inventory manipulation for dead, unconscious and restrained
+    // players and locks the inventory while swimming, climbing, on ladders and
+    // in vehicles. TransferZ requests do not go through the vanilla inventory
+    // input queue, so the server applies the same gate before dispatching them.
+    static bool CanPlayerManipulate(PlayerBase player)
+    {
+        if (!player || !player.IsAlive())
+            return false;
+        if (player.IsUnconscious() || player.IsRestrained())
+            return false;
+        if (player.GetInventory().IsInventoryLocked())
+            return false;
+        return true;
+    }
+
+    // Every cargo container between an entity and its hierarchy root must be
+    // displayable and must release that child, as the vanilla inventory UI
+    // requires before it shows the cargo. Otherwise an entity nested below a
+    // closed or hidden container (a crate buried in an underground stash, a
+    // pouch inside a closed barrel) is only checked against its direct parent.
+    static bool IsCargoChainAccessible(EntityAI entity)
+    {
+        if (!entity)
+            return false;
+
+        InventoryLocation hop = new InventoryLocation();
+        EntityAI child = entity;
+        EntityAI parent = entity.GetHierarchyParent();
+        while (parent)
+        {
+            if (!child.GetInventory().GetCurrentInventoryLocation(hop))
+                return false;
+
+            int hopType = hop.GetType();
+            if (hopType == InventoryLocationType.CARGO || hopType == InventoryLocationType.PROXYCARGO)
+            {
+                if (!parent.CanDisplayCargo() || !parent.CanReleaseCargo(child))
+                    return false;
+            }
+
+            child = parent;
+            parent = parent.GetHierarchyParent();
+        }
+        return true;
+    }
+
     static bool IsReachable(PlayerBase player, EntityAI entity)
     {
         if (!player || !entity)
+            return false;
+
+        if (!IsCargoChainAccessible(entity))
             return false;
 
         EntityAI root = entity.GetHierarchyRoot();
@@ -87,6 +136,14 @@ class TransferZServerService
         if (src.GetType() == InventoryLocationType.CARGO && src.GetParent() == destination)
             return true;
 
+        // TransferZ routes cargo children and loose vicinity items only. Items in
+        // hands or attachment slots have vanilla state machines and restrictions
+        // (for example PlayerBase.CanDropEntity while restrained) that the raw
+        // GameInventory move below would bypass.
+        int srcType = src.GetType();
+        if (srcType != InventoryLocationType.CARGO && srcType != InventoryLocationType.GROUND)
+            return MoveFailure("source is not cargo or ground", item, destination);
+
         EntityAI sourceParent = src.GetParent();
         if (sourceParent && src.GetType() == InventoryLocationType.CARGO && !sourceParent.CanReleaseCargo(item))
             return MoveFailure("source cargo refuses release", item, destination);
@@ -138,6 +195,12 @@ class TransferZServerService
         InventoryLocation src = new InventoryLocation();
         if (!item.GetInventory().GetCurrentInventoryLocation(src))
             return MoveFailure("source location unavailable", item, null);
+
+        // Only cargo children are dropped to vicinity. A GROUND item is already
+        // there (dropping it again would re-place it at the requesting player's
+        // feet), and hands/attachment sources stay under vanilla control.
+        if (src.GetType() != InventoryLocationType.CARGO)
+            return MoveFailure("vicinity move requires a cargo source", item, null);
 
         EntityAI sourceParent = src.GetParent();
         if (sourceParent && src.GetType() == InventoryLocationType.CARGO && !sourceParent.CanReleaseCargo(item))
