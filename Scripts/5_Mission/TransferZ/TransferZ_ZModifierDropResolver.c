@@ -65,7 +65,7 @@ modded class TransferZHeaderControls
         if (right <= left || bottom <= top)
             return false;
 
-        return mouseX >= left && mouseX <= right && mouseY >= top && mouseY <= bottom;
+        return mouseX >= left && mouseX < right && mouseY >= top && mouseY < bottom;
     }
 
     static bool CompleteModifierDragAtMousePosition()
@@ -78,9 +78,44 @@ modded class TransferZHeaderControls
         GetMousePos(mouseX, mouseY);
 
         EntityAI source = TransferZOperationDrag.GetSource();
+        Widget hovered = GetWidgetUnderCursor();
+
+        // Prefer the live drop-target widget beneath the cursor. This reflects
+        // the UI's actual current hit result and avoids guessing between nearby
+        // or adjacent cargo panels from their container geometry.
+        if (hovered && s_Instances)
+        {
+            for (int hoverIndex = s_Instances.Count() - 1; hoverIndex >= 0; hoverIndex--)
+            {
+                TransferZHeaderControls hoveredControls = s_Instances.Get(hoverIndex);
+                if (!hoveredControls || !hoveredControls.m_Entity || !hoveredControls.m_DropTarget || !hoveredControls.m_DropTarget.IsVisibleHierarchy() || !hoveredControls.IsOpenTarget())
+                    continue;
+                if (!hoveredControls.m_Entity.GetInventory().GetCargo())
+                    continue;
+
+                if (source && source == hoveredControls.m_Entity)
+                {
+                    bool hoveredSelfUnpack = TransferZOperationDrag.GetOperation() == TransferZOperation.UNPACK && !TransferZOperationDrag.IsClassTransfer() && !TransferZOperationDrag.IsFromVicinity();
+                    if (!hoveredSelfUnpack)
+                        continue;
+                }
+
+                if (!WidgetIsWithin(hovered, hoveredControls.m_DropTarget))
+                    continue;
+
+                bool hoveredHandled = TransferZOperationDrag.Complete(hoveredControls.m_Entity);
+                TransferZOperationDrag.ClearWheelCapture();
+                SetOperationDropTargetsVisible(false);
+                RefreshAll();
+                return hoveredHandled;
+            }
+        }
+
         TransferZHeaderControls best;
         float bestArea = 999999999.0;
 
+        // Mouse capture can occasionally prevent GetWidgetUnderCursor() from
+        // exposing the overlay. Fall back to live container screen geometry.
         if (s_Instances)
         {
             for (int i = s_Instances.Count() - 1; i >= 0; i--)
@@ -194,7 +229,7 @@ modded class TransferZVicinityHeaderControls
 
         if (right <= left || bottom <= top)
             return false;
-        if (mouseX < left || mouseX > right || mouseY < top || mouseY > bottom)
+        if (mouseX < left || mouseX >= right || mouseY < top || mouseY >= bottom)
             return false;
 
         bool handled = TransferZOperationDrag.CompleteToVicinity();
