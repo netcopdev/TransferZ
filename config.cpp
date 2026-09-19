@@ -2,7 +2,7 @@ class CfgPatches
 {
     class TransferZ_Core
     {
-        units[] = {};
+        units[] = {"TransferZ_SortBuffer"};
         weapons[] = {};
         requiredVersion = 0.1;
         requiredAddons[] =
@@ -59,5 +59,26 @@ class CfgMods
                 };
             };
         };
+    };
+};
+
+
+class CfgVehicles
+{
+    class Container_Base;
+
+    // Internal, model-less transaction workspace. TransferZ creates this only
+    // while a server-authoritative Sort fallback is active.
+    class TransferZ_SortBuffer : Container_Base
+    {
+        scope = 1;
+        displayName = "TransferZ Sort Buffer";
+        descriptionShort = "";
+        model = "";
+        weight = 0;
+        itemSize[] = {1,1};
+        itemsCargoSize[] = {20,500};
+        rotationFlags = 17;
+        canBeDigged = 0;
     };
 };
