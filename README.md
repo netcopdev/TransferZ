@@ -113,7 +113,7 @@ Current Sort behavior:
 - native DayZ move validation remains authoritative for every step;
 - if no bounded in-cargo rearrangement exists, Sort uses the dedicated hidden native cargo buffer; a normal failure restores the exact original layout and never falls back to ground staging.
 
-Sort is transactional at the TransferZ level. Before each successful cargo-to-cargo move, TransferZ records its inverse. If execution or final verification fails, successful moves are reversed in strict reverse order and the exact original snapshot is verified before failure is reported. A rollback invariant violation is logged as critical rather than accepted as a partial sort.
+Sort is transactional at the TransferZ level. The in-cargo path journals inverse moves/swaps and reverses them in strict reverse order on failure. The buffer path uses the immutable original snapshot to evacuate displaced items back through the buffer and restore exact original cells. The buffer is deleted only when verified empty. A rollback invariant violation is logged as critical rather than accepted as a partial sort.
 
 ## Vicinity
 
