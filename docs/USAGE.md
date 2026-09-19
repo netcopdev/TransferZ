@@ -113,8 +113,9 @@ When movement is required, Sort temporarily stages the tracked direct cargo item
 Current behavior:
 
 - larger direct cargo items are packed first while smaller items fill available gaps;
-- non-square items may use either cargo orientation when the alternate orientation improves packing;
-- when two orientations are otherwise equivalent, Sort prefers to keep the item's current orientation;
+- Sort first tries to keep every item's current orientation, so already-horizontal and already-vertical items normally stay that way;
+- rotation is allowed only after an all-current-orientation layout fails; fallback packing still prefers unrotated candidates and searches for an unrotated position before rotating an item;
+- detachable magazines prefer vertical orientation only as a secondary fallback when some rotation is already required;
 - nested containers are treated as ordinary direct cargo items and stay intact;
 - DayZ user-reserved cells are treated as unavailable;
 - the same original `EntityAI` objects are moved; Sort does not recreate weapons, magazines, nested containers or their state;
