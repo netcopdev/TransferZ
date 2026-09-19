@@ -4,5 +4,6 @@ dist/
 *.biprivatekey
 *.bikey
 *.log
+diag-profile/
 .vscode/
 .idea/

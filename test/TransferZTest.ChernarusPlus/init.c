@@ -7,7 +7,13 @@ ItemBase TZTest_CreateStack(EntityAI owner, string typeName, int quantity)
         return NULL;
 
     ItemBase item = ItemBase.Cast(owner.GetInventory().CreateInInventory(typeName));
-    if (item)
+
+    // Ammunition piles keep their count in the magazine ammo state, not in
+    // the ItemBase quantity; SetQuantity does not change the round count.
+    Magazine pile = Magazine.Cast(item);
+    if (pile)
+        pile.ServerSetAmmoCount(quantity);
+    else if (item)
         item.SetQuantity(quantity);
 
     return item;
