@@ -900,6 +900,12 @@ class TransferZSortPlanner : TransferZMaintenanceService
             return false;
         }
 
+        // Common repeat-sort case: deterministic assignment already describes
+        // the current layout. Equivalent-slot optimization cannot improve a
+        // zero-move plan, so avoid its quadratic assignment pass.
+        if (AllRecordsAtTargetV4(records, targetFlips))
+            return true;
+
         OptimizeEquivalentTargetAssignmentsV4(records, targetWidths, targetHeights, targetFlips);
         SortRecordsByTargetV4(records, targetWidths, targetHeights, targetFlips);
 
