@@ -789,6 +789,8 @@ class TransferZSortPlanner : TransferZMaintenanceService
             return false;
         if (record.width != blocker.width || record.height != blocker.height)
             return false;
+        if (!GameInventory.CanSwapEntitiesEx(record.item, blocker.item))
+            return false;
 
         AddPlannedSwapV4(state.moves, record, blocker);
         SwapRecordsInGridV4(state, recordIndex, blockerIndex);
