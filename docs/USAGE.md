@@ -110,23 +110,21 @@ Sort reorganizes the selected container's **direct cargo grid only** while prese
 
 TransferZ first snapshots every direct cargo item's exact row, column and orientation and calculates a deterministic compacted rotation-aware target layout. If the target already matches the snapshot, Sort is a successful no-op.
 
-When movement is required, Sort temporarily stages the tracked direct cargo items through DayZ's normal vicinity/ground path. It does not use arbitrary player cargo as hidden staging. Emptying the source removes in-cargo cycles and lets the final layout be placed directly rather than solved through an expensive recursive rearrangement search.
+When movement is required, TransferZ computes a complete bounded **in-cargo move sequence** before touching the authoritative inventory. Free cells inside that same cargo grid may be used temporarily to clear blockers or break move cycles. Sort does not put items on the ground, into vicinity, into player inventory, or into another container as hidden workspace.
 
-Current behavior:
+Current packing behavior:
 
-- larger direct cargo items are packed first while smaller items fill available gaps;
+- larger items are placed first and smaller items fill gaps;
 - Sort first tries to keep every item's current orientation, so already-horizontal and already-vertical items normally stay that way;
-- rotation is allowed only after an all-current-orientation layout fails; fallback packing still prefers unrotated candidates and searches for an unrotated position before rotating an item;
-- detachable magazines prefer vertical orientation only as a secondary fallback when some rotation is already required;
-- nested containers are treated as ordinary direct cargo items and stay intact;
+- rotation is introduced only when a complete layout cannot otherwise be produced;
+- detachable magazines prefer vertical orientation only as a secondary fallback once rotation is actually needed;
+- equivalent-size items already occupying valid final slots are kept there when possible to avoid pointless identity swaps;
 - DayZ user-reserved cells are treated as unavailable;
-- the same original `EntityAI` objects are moved; Sort does not recreate weapons, magazines, nested containers or their state;
-- after staging, every exact final target is preflighted before the first target placement;
-- success is reported only after every tracked item is verified at its exact final row, column and orientation.
+- the same original `EntityAI` objects are moved; Sort does not recreate weapons, magazines, nested containers or their state.
 
-If staging, target preflight, target placement, or final verification fails, Sort rolls the whole operation back. Partial target placements are cleared, every tracked item is restored to its exact original row, column and orientation, and the original snapshot is verified before a normal failure is returned. No ordinary failed Sort should intentionally leave tracked items in vicinity or leave the source partially sorted.
+Each authoritative step is an exact cargo-to-cargo move. Before a successful step, TransferZ records its inverse. If any move or final verification fails, those successful moves are reversed in strict reverse order and the exact original snapshot is verified before failure is returned.
 
-A `CRITICAL rollback incomplete` log entry means DayZ itself refused one or more reverse native inventory moves despite repeated recovery attempts. TransferZ then attempts to contain every recoverable item back in the source, but treats that condition as an invariant violation rather than an acceptable partial result.
+If the bounded planner cannot reach the requested compact layout using only space inside the source cargo, Sort fails **before moving anything**. It does not fall back to ground staging.
 
 ### Stack — right-side maintenance control
 
@@ -290,7 +288,7 @@ Hold `Alt` and left-drag one representative stack of that exact classname from t
 
 ### Repack a messy container
 
-Click Sort on the right side of that container's header. TransferZ computes a rotation-aware compact layout, temporarily stages the original entities through vicinity, preflights exact placements, and either verifies the complete final layout or restores the complete original snapshot on failure.
+Click Sort on the right side of that container's header. TransferZ computes a rotation-aware compact layout and a bounded in-cargo move sequence, then either verifies the complete final layout or reverses the executed moves and restores the complete original snapshot on failure.
 
 ### Consolidate partial stacks
 
