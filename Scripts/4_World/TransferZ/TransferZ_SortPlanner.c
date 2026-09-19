@@ -197,6 +197,11 @@ class TransferZSortPlanner : TransferZMaintenanceService
         ResetGrid(targetHeights, records.Count());
         ResetGrid(targetFlips, records.Count());
 
+        bool checkUserReservations = false;
+        HumanInventory compactHumanInventory = player.GetHumanInventory();
+        if (compactHumanInventory && compactHumanInventory.GetUserReservedLocationCount() > 0)
+            checkUserReservations = true;
+
         int assignedCount = 0;
         int skippedCells = 0;
         while (assignedCount < records.Count())
@@ -235,7 +240,7 @@ class TransferZSortPlanner : TransferZMaintenanceService
                         continue;
                     if (!RectFree(targetGrid, cargoWidth, cargoHeight, anchorRow, anchorCol, candidateWidth, candidateHeight))
                         continue;
-                    if (CollidesWithUserReservationV4(player, source, candidate, anchorRow, anchorCol, candidateFlip))
+                    if (checkUserReservations && CollidesWithUserReservationV4(player, source, candidate, anchorRow, anchorCol, candidateFlip))
                         continue;
 
                     int candidateWaste = AnchorFitWasteV4(targetGrid, cargoWidth, cargoHeight, anchorRow, anchorCol, candidateWidth, candidateHeight);
@@ -282,6 +287,11 @@ class TransferZSortPlanner : TransferZMaintenanceService
         ResetGrid(targetHeights, records.Count());
         ResetGrid(targetFlips, records.Count());
 
+        bool checkUserReservations = false;
+        HumanInventory firstFitHumanInventory = player.GetHumanInventory();
+        if (firstFitHumanInventory && firstFitHumanInventory.GetUserReservedLocationCount() > 0)
+            checkUserReservations = true;
+
         for (int targetIndex = 0; targetIndex < records.Count(); targetIndex++)
         {
             TransferZSortRecord record = records.Get(targetIndex);
@@ -309,7 +319,7 @@ class TransferZSortPlanner : TransferZMaintenanceService
                     {
                         if (!RectFree(targetGrid, cargoWidth, cargoHeight, targetRow, targetCol, targetWidth, targetHeight))
                             continue;
-                        if (CollidesWithUserReservationV4(player, source, record, targetRow, targetCol, targetFlip))
+                        if (checkUserReservations && CollidesWithUserReservationV4(player, source, record, targetRow, targetCol, targetFlip))
                             continue;
 
                         record.targetRow = targetRow;
@@ -373,7 +383,7 @@ class TransferZSortPlanner : TransferZMaintenanceService
         }
     }
 
-    protected static int EquivalentTargetSlotCostV4(notnull array<ref TransferZSortRecord> records, TransferZSortRecord record, int targetRow, int targetCol, int targetWidth, int targetHeight, int slotOverlapCount)
+    protected static int EquivalentTargetSlotCostV4(TransferZSortRecord record, int targetRow, int targetCol, int targetWidth, int targetHeight, int slotOverlapCount)
     {
         int foreignOverlap = slotOverlapCount;
         if (RectOverlaps(targetRow, targetCol, targetWidth, targetHeight, record.row, record.col, record.width, record.height))
@@ -461,7 +471,7 @@ class TransferZSortPlanner : TransferZMaintenanceService
                 if (targetWidths.Get(remainingIndex) != targetWidths.Get(candidateSlot) || targetHeights.Get(remainingIndex) != targetHeights.Get(candidateSlot))
                     continue;
 
-                int candidateCost = EquivalentTargetSlotCostV4(records, remainingRecord, slotRows.Get(candidateSlot), slotCols.Get(candidateSlot), targetWidths.Get(remainingIndex), targetHeights.Get(remainingIndex), slotOverlapCounts.Get(candidateSlot));
+                int candidateCost = EquivalentTargetSlotCostV4(remainingRecord, slotRows.Get(candidateSlot), slotCols.Get(candidateSlot), targetWidths.Get(remainingIndex), targetHeights.Get(remainingIndex), slotOverlapCounts.Get(candidateSlot));
                 if (bestSlot >= 0 && candidateCost >= bestCost)
                     continue;
 
