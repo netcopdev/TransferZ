@@ -101,10 +101,11 @@ TransferZ does not assign any routing operation to right click, right drag, or d
 
 In particular, normal right-click stack splitting must remain available without TransferZ gesture detection competing for the same button.
 
-TransferZ may influence only the destination chosen for the native split in these established cases, while DayZ still owns the split quantity/state and item-manipulation protocol:
+TransferZ may influence only the destination chosen for the native split, in this order (see `docs/SPLIT_ROUTING.md`), while DayZ still owns the split quantity/state and item-manipulation protocol:
 
-- If a resolved preferred destination (`P*`) exists and its exact cargo can accept the new split entity, `P*` overrides normal placement.
-- If the stack is in cargo at or below a container currently held in hands and `P*` is not usable, keep the result in the exact immediate source cargo when space is available.
+- If an active destination (`D*`) is selected, place the new split entity in its exact cargo, or through DayZ ground placement around the player for `VICINITY`. If `D*` cannot accept it, leave normal DayZ fallback in control.
+- Otherwise, if a preferred destination (`P*`) is configured, place it in `P*`'s exact cargo. If `P*` cannot currently resolve or accept it, leave normal DayZ fallback in control; do not fall back to the source container.
+- Otherwise, if the stack is in cargo, keep the result in the exact immediate source cargo when space is available.
 - Otherwise leave normal DayZ fallback behavior in control.
 
 This destination selection is not a new RMB gesture and must not change whether or how DayZ decides that an item can be split.
@@ -234,7 +235,7 @@ Therefore:
 
 - No arbitrary item-category filtering; exact-class matching is available through `Alt + Left Drag`.
 - No persistent world-container links.
-- No TransferZ-owned stack splitting; DayZ owns split quantity/state and TransferZ only applies the documented preferred/source destination selection around native splits.
+- No TransferZ-owned stack splitting; DayZ owns split quantity/state and TransferZ only applies the documented `D*`/`P*`/source destination selection around native splits.
 - No automatic relocation of empty nested containers after Unpack.
 - No persistent preferred personal targets for containers nested in cargo rather than attached through slots.
 - No class allowlists for container support.
@@ -245,7 +246,7 @@ Therefore:
 
 - VICINITY has no implicit ownership boundary. Shift-dragging a cargo-bearing ground container moves only that dragged container. Shift-dragging loose ground loot batches eligible loose items but excludes cargo-bearing ground containers. Alt-drag remains the explicit homogeneous batch operation and includes same-class cargo-bearing siblings. Container contents remain inside moved containers; unpack is a separate operation.
 
-- Sort orientation preference: detachable magazines (`MagazineStorage`) prefer vertical placement (height >= width). The planner first attempts a complete layout with that preference enforced for every magazine, then falls back to unrestricted rotation only when a complete preferred layout is impossible. Ammunition piles are not treated as magazines for this rule.
+- Sort orientation preference: the planner first attempts a complete layout that keeps every item's current orientation. Only if that fails does it retry with detachable magazines (`MagazineStorage`) preferring vertical placement (height >= width), and only if that also fails does it allow unrestricted rotation. Ammunition piles are not treated as magazines for this rule.
 
 - Dedicated-server inventory batches MUST NOT execute sequential server-authored cargo/ground moves through `player.GetInventory()` / `DayZPlayerInventory`. Its `InventoryMode.SERVER` path queues remote-player sync junctures and leaves authoritative locations stale until later simulation processing. TransferZ batch/transaction code uses the moved item's `GameInventory` with `InventoryMode.SERVER`, which commits the location immediately and emits the server move to clients. This is required for multi-item Transfer/Class Transfer and transactional Sort correctness on dedicated servers.
 - CF module RPC ranges use an exclusive upper bound. `GetRPCMax()` must therefore return one past the highest TransferZ RPC ID that the module handles.

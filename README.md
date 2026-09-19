@@ -57,11 +57,14 @@ Different classnames are never included just because they are similar items. For
 
 ## Native stack splitting and P*
 
-TransferZ does not replace DayZ's stack-splitting rules. Right click still invokes the native split behavior.
+TransferZ does not replace DayZ's stack-splitting rules. Right click still invokes the native split behavior; TransferZ only chooses where the new split stack is placed, in this order:
 
-When the stack itself is held in hands, TransferZ tries to place the native split result into the resolved preferred destination (`P*`) when that exact cargo has room. If `P*` cannot accept it, normal DayZ fallback behavior remains in control.
+1. the active destination (`D*`), when one is selected: that container's exact cargo, or DayZ's normal ground placement around the player for `VICINITY`;
+2. otherwise the preferred destination (`P*`), when one is configured;
+3. otherwise, for a stack in cargo, the same immediate container when it has room for the new stack;
+4. otherwise normal DayZ behavior.
 
-For a stack inside cargo below a container currently held in hands, the established order is: exact source cargo, then `P*`, then normal DayZ fallback.
+A selected `D*` or `P*` that cannot accept the split falls back to normal DayZ behavior; it never falls through to the next rule. See [`docs/SPLIT_ROUTING.md`](docs/SPLIT_ROUTING.md).
 
 ## Destination behavior
 
