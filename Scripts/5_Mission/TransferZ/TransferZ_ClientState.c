@@ -80,6 +80,14 @@ class TransferZClientState
         if (root.IsMan())
             return false;
 
+        // Vehicle cargo is exposed by DayZ while the player is at an inventory
+        // access point that may be farther than c_MaxItemDistanceRadius from the
+        // vehicle's model origin (truck cargo is the obvious case). Do not reject
+        // an already-visible vehicle participant on that coarse origin-distance
+        // check; the server validates every actual inventory move natively.
+        if (root.IsInherited(Transport))
+            return root.CanDisplayCargo();
+
         return GameInventory.CheckManipulatedObjectsDistances(entity, player, GameInventory.c_MaxItemDistanceRadius);
     }
 
