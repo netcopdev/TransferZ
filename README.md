@@ -102,7 +102,7 @@ Attachments are not traversed by Unpack in 0.1.0.
 
 Sort reorganizes the selected container's **direct cargo only** while preserving the original item entities.
 
-TransferZ snapshots each direct item's exact row, column and orientation, computes a complete deterministic rotation-aware target layout, and then computes a bounded move sequence that stays entirely inside the same cargo grid. Free cargo cells may be used temporarily to clear blockers and break cycles, while compatible equal-size items may be exchanged with DayZ's native atomic swap without any empty intermediary cell. Sort does **not** use the ground/vicinity or player inventory as hidden staging.
+TransferZ snapshots each direct item's exact row, column and orientation and computes a deterministic rotation-aware target layout. It first tries a bounded move sequence entirely inside the source cargo, using free cells and native atomic swaps where useful. If the final layout fits but no in-cargo path exists, TransferZ stages the same item entities through its own hidden, non-physical native cargo buffer and places them directly into their final cells. Sort never uses ground/vicinity or arbitrary player inventory as staging, and it never deletes/recreates items.
 
 Current Sort behavior:
 
