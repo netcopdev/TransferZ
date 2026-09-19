@@ -214,7 +214,6 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
 
         OptimizeEquivalentTargetAssignmentsV4(records, targetWidths, targetHeights, targetFlips);
         SortRecordsByTargetV4(records, targetWidths, targetHeights, targetFlips);
-        LogTargetsV4(records, targetWidths, targetHeights, targetFlips);
         return true;
     }
 
