@@ -185,7 +185,7 @@ From a cargo container:
 From vicinity:
 
 - the source is the currently shown loose vicinity list;
-- only shown loose, takeable, removable non-container items with the same exact `GetType()` are selected;
+- only shown loose, takeable, removable items with the same exact `GetType()` are selected, including same-class containers, which move intact with their contents;
 - drop onto an open container to move those matches there;
 - vicinity-to-vicinity is a no-op because those items are already there.
 

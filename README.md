@@ -51,7 +51,7 @@ Unmodified left drag remains vanilla DayZ drag behavior. `Ctrl` interactions rem
 
 From a cargo container, `Alt + Left Drag` on one item selects all direct cargo items in that same source container whose exact `GetType()` matches the representative item. Drop onto another open TransferZ container to move those matches there. Dropping onto `VICINITY` moves those matching source-cargo items to the ground.
 
-From `VICINITY`, `Alt + Left Drag` selects currently shown loose, takeable, removable non-container items whose exact `GetType()` matches the representative item and moves that set into the destination container. Vicinity-to-vicinity is a no-op because those items are already there.
+From `VICINITY`, `Alt + Left Drag` selects currently shown loose, takeable, removable items whose exact `GetType()` matches the representative item, including same-class containers (which move intact with their contents), and moves that set into the destination container. Vicinity-to-vicinity is a no-op because those items are already there.
 
 Different classnames are never included just because they are similar items. For example, Alt-dragging one ammunition classname moves only that exact ammunition classname.
 
