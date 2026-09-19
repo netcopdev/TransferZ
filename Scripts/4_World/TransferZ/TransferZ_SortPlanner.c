@@ -164,14 +164,18 @@ class TransferZSortPlanner : TransferZMaintenanceService
         if (!best)
             return true;
 
+        // Preserve player orientation whenever there is any viable
+        // unrotated candidate for this anchor. Packing efficiency may choose
+        // rotation only after current-orientation choices are exhausted.
+        if (candidateOrientation != bestOrientation)
+            return candidateOrientation == 0;
+
         int candidateArea = candidateWidth * candidateHeight;
         int bestArea = bestWidth * bestHeight;
         if (candidateArea != bestArea)
             return candidateArea > bestArea;
         if (candidateWaste != bestWaste)
             return candidateWaste < bestWaste;
-        if (candidateOrientation != bestOrientation)
-            return candidateOrientation == 0;
         if (candidateWidth != bestWidth)
             return candidateWidth > bestWidth;
         if (candidateHeight != bestHeight)
@@ -183,7 +187,7 @@ class TransferZSortPlanner : TransferZMaintenanceService
         return candidate.typeHash < best.typeHash;
     }
 
-    protected static bool AssignCompactTargetsV4(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips, bool preferVerticalMagazines = false)
+    protected static bool AssignCompactTargetsV4(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips, bool preferVerticalMagazines = false, bool preserveCurrentOrientation = false)
     {
         ref array<int> targetGrid = new array<int>();
         ref array<int> assigned = new array<int>();
@@ -225,6 +229,8 @@ class TransferZSortPlanner : TransferZMaintenanceService
                     bool candidateFlip;
                     GetOrientationV4(candidate, orientationIndex, candidateWidth, candidateHeight, candidateFlip);
 
+                    if (preserveCurrentOrientation && orientationIndex != 0)
+                        continue;
                     if (!MatchesPreferredOrientationV4(candidate, candidateWidth, candidateHeight, preferVerticalMagazines))
                         continue;
                     if (!RectFree(targetGrid, cargoWidth, cargoHeight, anchorRow, anchorCol, candidateWidth, candidateHeight))
@@ -268,7 +274,7 @@ class TransferZSortPlanner : TransferZMaintenanceService
         return true;
     }
 
-    protected static bool AssignFirstFitTargetsV4(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips, bool preferVerticalMagazines = false)
+    protected static bool AssignFirstFitTargetsV4(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips, bool preferVerticalMagazines = false, bool preserveCurrentOrientation = false)
     {
         ref array<int> targetGrid = new array<int>();
         ResetGrid(targetGrid, cargoWidth * cargoHeight);
@@ -280,21 +286,27 @@ class TransferZSortPlanner : TransferZMaintenanceService
         {
             TransferZSortRecord record = records.Get(targetIndex);
             bool placed = false;
+            int orientationCount = OrientationCountV4(record);
+            if (preserveCurrentOrientation)
+                orientationCount = 1;
 
-            for (int targetRow = 0; targetRow < cargoHeight && !placed; targetRow++)
+            // Search every position in the current orientation before allowing
+            // the alternate orientation. This prevents an early rotated fit
+            // from winning when the original orientation fits slightly later.
+            for (int orientationIndex = 0; orientationIndex < orientationCount && !placed; orientationIndex++)
             {
-                for (int targetCol = 0; targetCol < cargoWidth && !placed; targetCol++)
-                {
-                    int orientationCount = OrientationCountV4(record);
-                    for (int orientationIndex = 0; orientationIndex < orientationCount; orientationIndex++)
-                    {
-                        int targetWidth;
-                        int targetHeight;
-                        bool targetFlip;
-                        GetOrientationV4(record, orientationIndex, targetWidth, targetHeight, targetFlip);
+                int targetWidth;
+                int targetHeight;
+                bool targetFlip;
+                GetOrientationV4(record, orientationIndex, targetWidth, targetHeight, targetFlip);
 
-                        if (!MatchesPreferredOrientationV4(record, targetWidth, targetHeight, preferVerticalMagazines))
-                            continue;
+                if (!MatchesPreferredOrientationV4(record, targetWidth, targetHeight, preferVerticalMagazines))
+                    continue;
+
+                for (int targetRow = 0; targetRow < cargoHeight && !placed; targetRow++)
+                {
+                    for (int targetCol = 0; targetCol < cargoWidth && !placed; targetCol++)
+                    {
                         if (!RectFree(targetGrid, cargoWidth, cargoHeight, targetRow, targetCol, targetWidth, targetHeight))
                             continue;
                         if (CollidesWithUserReservationV4(player, source, record, targetRow, targetCol, targetFlip))
@@ -308,7 +320,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
                             targetFlips.Set(targetIndex, 1);
                         MarkRect(targetGrid, cargoWidth, targetRow, targetCol, targetWidth, targetHeight, targetIndex + 1);
                         placed = true;
-                        break;
                     }
                 }
             }
@@ -802,11 +813,22 @@ class TransferZSortPlanner : TransferZMaintenanceService
         ref array<int> targetHeights = new array<int>();
         ref array<int> targetFlips = new array<int>();
 
-        bool assigned = AssignCompactTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips, true);
+        // First try to repack without rotating anything at all. The player's
+        // existing orientation is the primary layout preference.
+        bool assigned = AssignCompactTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips, false, true);
+        if (!assigned)
+            assigned = AssignFirstFitTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips, false, true);
+
+        // If some rotation is genuinely required, retain the detachable-magazine
+        // vertical preference as a secondary policy. The assigners still prefer
+        // current-orientation candidates before rotated ones.
+        if (!assigned)
+            assigned = AssignCompactTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips, true);
         if (!assigned)
             assigned = AssignFirstFitTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips, true);
 
-        // Preferred orientation must not make an otherwise valid sort fail.
+        // Final fallback removes the magazine preference as well: fitting every
+        // item safely is more important than any orientation preference.
         if (!assigned)
             assigned = AssignCompactTargetsV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips);
         if (!assigned)
