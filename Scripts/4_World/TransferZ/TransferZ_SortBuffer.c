@@ -5,6 +5,8 @@ class TransferZ_SortBuffer : Container_Base
         super.EEInit();
         SetAllowDamage(false);
         DisableSimulation(true);
+        SetInvisible(true);
+        OnInvisibleSet(true);
     }
 
     override bool IsInventoryVisible()
