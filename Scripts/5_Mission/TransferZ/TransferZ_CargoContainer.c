@@ -420,11 +420,8 @@ class TransferZHeaderControls
                 ScrollWidget hoveredScroll = hoveredControls.FindScrollWidget();
                 if (!TransferZPointInsideClippedWidget(hoveredControls.m_DropHost, hoveredScroll, mouseX, mouseY))
                 {
-                    Print("[TransferZ][DragResolve] rejected stale hovered candidate=" + hoveredControls.m_Entity.GetType() + " hovered=" + hoveredName + " mouse=" + mouseX.ToString() + "," + mouseY.ToString() + " wheelRecent=" + wheelState);
                     continue;
                 }
-
-                Print("[TransferZ][DragResolve] path=hovered source=" + sourceName + " destination=" + hoveredControls.m_Entity.GetType() + " hovered=" + hoveredName + " mouse=" + mouseX.ToString() + "," + mouseY.ToString() + " wheelRecent=" + wheelState);
                 bool hoveredHandled = TransferZOperationDrag.Complete(hoveredControls.m_Entity);
                 TransferZOperationDrag.ClearWheelCapture();
                 SetOperationDropTargetsVisible(false);
@@ -477,7 +474,6 @@ class TransferZHeaderControls
 
         if (best)
         {
-            Print("[TransferZ][DragResolve] path=geometry source=" + sourceName + " destination=" + best.m_Entity.GetType() + " hovered=" + hoveredName + " mouse=" + mouseX.ToString() + "," + mouseY.ToString() + " wheelRecent=" + wheelState);
             bool handled = TransferZOperationDrag.Complete(best.m_Entity);
             TransferZOperationDrag.ClearWheelCapture();
             SetOperationDropTargetsVisible(false);
@@ -487,7 +483,6 @@ class TransferZHeaderControls
 
         bool vicinityHandled = TransferZVicinityHeaderControls.CompleteModifierDragAtMousePosition(mouseX, mouseY);
         if (!vicinityHandled && TransferZOperationDrag.IsActive())
-            Print("[TransferZ][DragResolve] path=no-target source=" + sourceName + " hovered=" + hoveredName + " mouse=" + mouseX.ToString() + "," + mouseY.ToString() + " wheelRecent=" + wheelState);
 
         TransferZOperationDrag.ClearWheelCapture();
         return vicinityHandled;
@@ -501,7 +496,6 @@ class TransferZHeaderControls
 
         if (TransferZOperationDrag.IsModifierItemDrag())
         {
-            Print("[TransferZ][DragResolve] entry=legacy-widget-complete");
             return CompleteModifierDragAtMousePosition();
         }
 
@@ -1186,15 +1180,12 @@ class TransferZHeaderControls
             string hoveredName = "<none>";
             if (hovered)
                 hoveredName = hovered.GetName();
-
-            Print("[TransferZ][DragWheelGuard] ignored premature drop while LMB held receiver=" + receiverName + " hovered=" + hoveredName + " mouse=" + mouseX.ToString() + "," + mouseY.ToString());
             SetOperationDropTargetsVisible(true);
             return;
         }
 
         if (TransferZOperationDrag.IsModifierItemDrag())
         {
-            Print("[TransferZ][DragResolve] entry=registered-drop-fallback");
             CompleteModifierDragAtMousePosition();
             return;
         }
