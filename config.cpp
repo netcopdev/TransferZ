@@ -9,6 +9,7 @@ class CfgPatches
         {
             "DZ_Data",
             "DZ_Scripts",
+            "DZ_Gear_Containers",
             "JM_CF_Scripts"
         };
     };
