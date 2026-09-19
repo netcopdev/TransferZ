@@ -777,15 +777,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
         return true;
     }
 
-    protected static void LogTargetsV4(notnull array<ref TransferZSortRecord> records, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips)
-    {
-        for (int recordIndex = 0; recordIndex < records.Count(); recordIndex++)
-        {
-            TransferZSortRecord record = records.Get(recordIndex);
-            bool targetFlip = targetFlips.Get(recordIndex) != 0;
-        }
-    }
-
     protected static bool BuildSortPlanV4(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<ref TransferZSortMove> moves)
     {
         moves.Clear();
@@ -805,7 +796,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
 
         OptimizeEquivalentTargetAssignmentsV4(records, targetWidths, targetHeights, targetFlips);
         SortRecordsByTargetV4(records, targetWidths, targetHeights, targetFlips);
-        LogTargetsV4(records, targetWidths, targetHeights, targetFlips);
 
         ref TransferZSortPlannerState state = new TransferZSortPlannerState();
         state.player = player;
