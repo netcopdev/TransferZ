@@ -241,26 +241,46 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
         return true;
     }
 
-    protected static bool SourceCargoEmpty(EntityAI source)
+    protected static bool SourceContainsOnlyStationaryRecords(EntityAI source, notnull array<ref TransferZSortRecord> records, notnull array<int> targetFlips)
     {
         if (!source)
             return false;
 
         CargoBase cargo = source.GetInventory().GetCargo();
-        return cargo && cargo.GetItemCount() == 0;
+        if (!cargo)
+            return false;
+
+        int stationaryCount = 0;
+        for (int recordIndex = 0; recordIndex < records.Count(); recordIndex++)
+        {
+            TransferZSortRecord record = records.Get(recordIndex);
+            if (!IsDirectCargoItem(source, record.item))
+                continue;
+
+            // Anything deliberately left in cargo must already be correct in
+            // both layouts. Such records never need staging, commit or rollback.
+            if (!RecordAtOriginalLocation(source, record) || !RecordAtTargetLocation(source, record, recordIndex, targetFlips))
+                return false;
+            stationaryCount++;
+        }
+
+        // Detect concurrent/foreign cargo changes after the original snapshot.
+        return cargo.GetItemCount() == stationaryCount;
     }
 
-    protected static bool PreflightOriginalMoves(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records)
+    protected static bool PreflightOriginalMoves(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, notnull array<int> targetFlips)
     {
-        if (!SourceCargoEmpty(source))
+        if (!SourceContainsOnlyStationaryRecords(source, records, targetFlips))
         {
-            Print("[TransferZ] Sort transactional rollback preflight failed: source cargo not empty");
+            Print("[TransferZ] Sort transactional rollback preflight failed: unexpected cargo remained after staging");
             return false;
         }
 
         for (int recordIndex = 0; recordIndex < records.Count(); recordIndex++)
         {
             TransferZSortRecord record = records.Get(recordIndex);
+            if (RecordAtOriginalLocation(source, record))
+                continue;
             if (!CanMoveToExactCargoLocation(player, source, record, record.row, record.col, record.flip))
             {
                 Print("[TransferZ] Sort transactional rollback preflight failed item=" + record.item.GetType() + " original=" + record.row.ToString() + "," + record.col.ToString() + " flip=" + record.flip.ToString());
@@ -273,15 +293,18 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
 
     protected static bool PreflightTargetMoves(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, notnull array<int> targetFlips)
     {
-        if (!SourceCargoEmpty(source))
+        if (!SourceContainsOnlyStationaryRecords(source, records, targetFlips))
         {
-            Print("[TransferZ] Sort transactional target preflight failed: source cargo not empty");
+            Print("[TransferZ] Sort transactional target preflight failed: unexpected cargo remained after staging");
             return false;
         }
 
         for (int recordIndex = 0; recordIndex < records.Count(); recordIndex++)
         {
             TransferZSortRecord record = records.Get(recordIndex);
+            if (RecordAtTargetLocation(source, record, recordIndex, targetFlips))
+                continue;
+
             bool targetFlip = targetFlips.Get(recordIndex) != 0;
             if (!CanMoveToExactCargoLocation(player, source, record, record.targetRow, record.targetCol, targetFlip))
             {
@@ -345,10 +368,13 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
         for (int stageIndex = 0; stageIndex < records.Count(); stageIndex++)
         {
             TransferZSortRecord stageRecord = records.Get(stageIndex);
+            if (RecordAtTargetLocation(source, stageRecord, stageIndex, targetFlips))
+                continue;
+
             if (!StageToVicinity(player, stageRecord.item, "stage"))
             {
                 bool rolledBackAfterStageFailure = RestoreOriginalLayout(player, source, records);
-                Print("[TransferZ] Sort transactional failed during staging staged=" + stagedCount.ToString() + "/" + records.Count().ToString() + " rollback=" + rolledBackAfterStageFailure.ToString());
+                Print("[TransferZ] Sort transactional failed during staging staged=" + stagedCount.ToString() + " rollback=" + rolledBackAfterStageFailure.ToString());
                 return -1;
             }
             stagedCount++;
@@ -356,17 +382,17 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
 
         int stagingFinishedAt = GetGame().GetTime();
 
-        if (!SourceCargoEmpty(source))
+        if (!SourceContainsOnlyStationaryRecords(source, records, targetFlips))
         {
             bool rolledBackAfterEmptyCheck = RestoreOriginalLayout(player, source, records);
-            Print("[TransferZ] Sort transactional failed: source did not empty after staging rollback=" + rolledBackAfterEmptyCheck.ToString());
+            Print("[TransferZ] Sort transactional failed: unexpected cargo remained after selective staging rollback=" + rolledBackAfterEmptyCheck.ToString());
             return -1;
         }
 
         // Fail closed unless DayZ validates the complete exact original layout from
         // the current staged state. This establishes a tested rollback path before
         // any target placement is allowed to begin.
-        if (!PreflightOriginalMoves(player, source, records))
+        if (!PreflightOriginalMoves(player, source, records, targetFlips))
         {
             bool rolledBackAfterRollbackPreflightFailure = RestoreOriginalLayout(player, source, records);
             Print("[TransferZ] Sort transactional failed during rollback preflight rollback=" + rolledBackAfterRollbackPreflightFailure.ToString());
@@ -385,11 +411,14 @@ class TransferZExternalStagingSortPlanner : TransferZSortPlanner
         for (int targetIndex = 0; targetIndex < records.Count(); targetIndex++)
         {
             TransferZSortRecord targetRecord = records.Get(targetIndex);
+            if (RecordAtTargetLocation(source, targetRecord, targetIndex, targetFlips))
+                continue;
+
             bool targetFlip = targetFlips.Get(targetIndex) != 0;
             if (!TryMoveToExactCargoLocation(player, source, targetRecord, targetRecord.targetRow, targetRecord.targetCol, targetFlip, "commit"))
             {
                 bool rolledBackAfterCommitFailure = RestoreOriginalLayout(player, source, records);
-                Print("[TransferZ] Sort transactional failed during commit placed=" + placedCount.ToString() + "/" + records.Count().ToString() + " rollback=" + rolledBackAfterCommitFailure.ToString());
+                Print("[TransferZ] Sort transactional failed during commit placed=" + placedCount.ToString() + "/" + stagedCount.ToString() + " rollback=" + rolledBackAfterCommitFailure.ToString());
                 return -1;
             }
             placedCount++;
