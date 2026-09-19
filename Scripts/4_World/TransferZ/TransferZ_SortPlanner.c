@@ -1,3 +1,13 @@
+class TransferZSortAssignmentCostRow
+{
+    ref array<int> costs;
+
+    void TransferZSortAssignmentCostRow()
+    {
+        costs = new array<int>();
+    }
+}
+
 class TransferZSortPlannerState
 {
     PlayerBase player;
@@ -404,11 +414,56 @@ class TransferZSortPlanner : TransferZMaintenanceService
         return foreignOverlap * 10000 + distance * 2 + rotationPenalty;
     }
 
+    protected static void BuildEquivalentAssignmentCostCacheV4(notnull array<ref TransferZSortRecord> records, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips, notnull array<int> slotRows, notnull array<int> slotCols, notnull array<ref TransferZSortAssignmentCostRow> costRows)
+    {
+        slotRows.Clear();
+        slotCols.Clear();
+        costRows.Clear();
+
+        for (int slotIndex = 0; slotIndex < records.Count(); slotIndex++)
+        {
+            TransferZSortRecord slotRecord = records.Get(slotIndex);
+            slotRows.Insert(slotRecord.targetRow);
+            slotCols.Insert(slotRecord.targetCol);
+        }
+
+        // Target-assignment cost depends only on the record and the target slot,
+        // not on which other record currently owns that slot. Cache it once.
+        // The previous optimizer recalculated four O(n) overlap scans for every
+        // pair on every pass, which became very expensive in large cargo grids.
+        for (int recordIndex = 0; recordIndex < records.Count(); recordIndex++)
+        {
+            ref TransferZSortAssignmentCostRow costRow = new TransferZSortAssignmentCostRow();
+            for (int targetSlotIndex = 0; targetSlotIndex < records.Count(); targetSlotIndex++)
+            {
+                int cost = -1;
+                if (targetWidths.Get(recordIndex) == targetWidths.Get(targetSlotIndex) && targetHeights.Get(recordIndex) == targetHeights.Get(targetSlotIndex))
+                    cost = TargetAssignmentCostV4(records, targetWidths, targetHeights, targetFlips, recordIndex, slotRows.Get(targetSlotIndex), slotCols.Get(targetSlotIndex));
+                costRow.costs.Insert(cost);
+            }
+            costRows.Insert(costRow);
+        }
+    }
+
     protected static void OptimizeEquivalentTargetAssignmentsV4(notnull array<ref TransferZSortRecord> records, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips)
     {
+        if (records.Count() < 2)
+            return;
+
+        ref array<int> slotRows = new array<int>();
+        ref array<int> slotCols = new array<int>();
+        ref array<int> assignedSlots = new array<int>();
+        ref array<ref TransferZSortAssignmentCostRow> costRows = new array<ref TransferZSortAssignmentCostRow>();
+        BuildEquivalentAssignmentCostCacheV4(records, targetWidths, targetHeights, targetFlips, slotRows, slotCols, costRows);
+
+        for (int assignedIndex = 0; assignedIndex < records.Count(); assignedIndex++)
+            assignedSlots.Insert(assignedIndex);
+
         bool changed = true;
         int passCount = 0;
-        int passLimit = records.Count() * records.Count() + 1;
+        int passLimit = records.Count();
+        if (passLimit > 32)
+            passLimit = 32;
 
         while (changed && passCount < passLimit)
         {
@@ -418,14 +473,19 @@ class TransferZSortPlanner : TransferZMaintenanceService
             for (int leftIndex = 0; leftIndex < records.Count(); leftIndex++)
             {
                 TransferZSortRecord left = records.Get(leftIndex);
+                TransferZSortAssignmentCostRow leftCosts = costRows.Get(leftIndex);
                 for (int rightIndex = leftIndex + 1; rightIndex < records.Count(); rightIndex++)
                 {
                     TransferZSortRecord right = records.Get(rightIndex);
                     if (targetWidths.Get(leftIndex) != targetWidths.Get(rightIndex) || targetHeights.Get(leftIndex) != targetHeights.Get(rightIndex))
                         continue;
 
-                    int currentCost = TargetAssignmentCostV4(records, targetWidths, targetHeights, targetFlips, leftIndex, left.targetRow, left.targetCol) + TargetAssignmentCostV4(records, targetWidths, targetHeights, targetFlips, rightIndex, right.targetRow, right.targetCol);
-                    int swappedCost = TargetAssignmentCostV4(records, targetWidths, targetHeights, targetFlips, leftIndex, right.targetRow, right.targetCol) + TargetAssignmentCostV4(records, targetWidths, targetHeights, targetFlips, rightIndex, left.targetRow, left.targetCol);
+                    int leftSlot = assignedSlots.Get(leftIndex);
+                    int rightSlot = assignedSlots.Get(rightIndex);
+                    TransferZSortAssignmentCostRow rightCosts = costRows.Get(rightIndex);
+
+                    int currentCost = leftCosts.costs.Get(leftSlot) + rightCosts.costs.Get(rightSlot);
+                    int swappedCost = leftCosts.costs.Get(rightSlot) + rightCosts.costs.Get(leftSlot);
                     if (swappedCost >= currentCost)
                         continue;
 
@@ -435,6 +495,9 @@ class TransferZSortPlanner : TransferZMaintenanceService
                     left.targetCol = right.targetCol;
                     right.targetRow = swapRow;
                     right.targetCol = swapCol;
+
+                    assignedSlots.Set(leftIndex, rightSlot);
+                    assignedSlots.Set(rightIndex, leftSlot);
                     changed = true;
                 }
             }
