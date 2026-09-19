@@ -15,6 +15,8 @@ Cargo headers show two compact groups:
 
 A destination always means that exact container's own cargo. TransferZ does not silently search through other player inventory space when the chosen destination cannot accept an item.
 
+Open vehicle cargo is a supported source and destination for TransferZ routing and maintenance operations. Vehicle access is not judged from the vehicle model origin; actual item moves remain subject to DayZ's native source/destination access and distance validation.
+
 ## Header controls
 
 ### Destination — target icon
