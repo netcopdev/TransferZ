@@ -731,6 +731,41 @@ modded class SlotsIcon
         return TRANSFERZ_VICINITY_MODIFIER_ALT;
     }
 
+    protected bool TransferZBuildShiftItems(VicinitySlotsContainer vicinity, EntityAI representative, notnull array<EntityAI> matches)
+    {
+        matches.Clear();
+        if (!vicinity || !representative)
+            return false;
+
+        ref array<EntityAI> visible = new array<EntityAI>();
+        vicinity.TransferZSnapshotVisibleItems(visible);
+        bool representativeStillVisible = false;
+        bool representativeIsContainer = representative.GetInventory().GetCargo() != null;
+
+        foreach (EntityAI item : visible)
+        {
+            if (!item)
+                continue;
+            if (item == representative)
+                representativeStillVisible = true;
+
+            // VICINITY has no ownership boundary. Shift on a ground container
+            // therefore means that container only; Shift on loose loot batches
+            // loose items but deliberately leaves ground containers alone.
+            if (representativeIsContainer && item != representative)
+                continue;
+            if (!representativeIsContainer && item.GetInventory().GetCargo())
+                continue;
+
+            ItemBase itemBase = ItemBase.Cast(item);
+            if (!itemBase || !itemBase.IsTakeable() || !item.GetInventory().CanRemoveEntity())
+                continue;
+            matches.Insert(item);
+        }
+
+        return representativeStillVisible && matches.Count() > 0;
+    }
+
     protected bool TransferZBuildExactClassItems(VicinitySlotsContainer vicinity, EntityAI representative, notnull array<EntityAI> matches)
     {
         matches.Clear();
@@ -781,7 +816,8 @@ modded class SlotsIcon
         ref array<EntityAI> items = new array<EntityAI>();
         if (mode == TRANSFERZ_VICINITY_MODIFIER_SHIFT)
         {
-            vicinity.TransferZSnapshotVisibleItems(items);
+            if (!TransferZBuildShiftItems(vicinity, m_Obj, items))
+                return;
         }
         else if (!TransferZBuildExactClassItems(vicinity, m_Obj, items))
         {
