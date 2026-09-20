@@ -18,10 +18,28 @@ class TransferZSortPlannerState
     int maxSearch;
     int stepCount;
     int searchCount;
+    int maxCandidateChecks;
+    int candidateChecks;
+    bool candidateBudgetExceeded;
 }
 
 class TransferZSortPlanner : TransferZMaintenanceService
 {
+    protected static bool ConsumePlannerCandidateV4(notnull TransferZSortPlannerState state)
+    {
+        if (state.candidateBudgetExceeded)
+            return false;
+
+        if (state.candidateChecks >= state.maxCandidateChecks)
+        {
+            state.candidateBudgetExceeded = true;
+            return false;
+        }
+
+        state.candidateChecks++;
+        return true;
+    }
+
     protected static int LongSideV4(TransferZSortRecord record)
     {
         if (record.width > record.height)
@@ -614,6 +632,8 @@ class TransferZSortPlanner : TransferZMaintenanceService
             {
                 for (int tempCol = state.cargoWidth - itemWidth; tempCol >= 0; tempCol--)
                 {
+                    if (!ConsumePlannerCandidateV4(state))
+                        return false;
                     if (tempRow == record.row && tempCol == record.col && itemFlip == record.flip)
                         continue;
                     if (tempRow == record.targetRow && tempCol == record.targetCol)
@@ -902,6 +922,11 @@ class TransferZSortPlanner : TransferZMaintenanceService
             {
                 for (int candidateCol = state.cargoWidth - candidateWidth; candidateCol >= 0; candidateCol--)
                 {
+                    if (!ConsumePlannerCandidateV4(state))
+                    {
+                        state.activeParking.Set(recordIndex, 0);
+                        return false;
+                    }
                     if (state.searchCount >= state.maxSearch || state.stepCount >= state.maxSteps)
                         break;
                     if (candidateRow == record.row && candidateCol == record.col && candidateFlip == record.flip)
@@ -1047,14 +1072,11 @@ class TransferZSortPlanner : TransferZMaintenanceService
         return true;
     }
 
-    protected static bool BuildSortPlanV4(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<ref TransferZSortMove> moves)
+    protected static bool BuildSortPlanFromTargetsV4(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips, notnull array<ref TransferZSortMove> moves)
     {
         moves.Clear();
 
-        ref array<int> targetWidths = new array<int>();
-        ref array<int> targetHeights = new array<int>();
-        ref array<int> targetFlips = new array<int>();
-        if (!BuildTargetLayoutV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
+        if (targetWidths.Count() != records.Count() || targetHeights.Count() != records.Count() || targetFlips.Count() != records.Count())
             return false;
 
         if (AllRecordsAtTargetV4(records, targetFlips))
@@ -1106,14 +1128,24 @@ class TransferZSortPlanner : TransferZMaintenanceService
         if (state.maxSearch > 2048)
             state.maxSearch = 2048;
 
+        state.maxCandidateChecks = records.Count() * 256 + cargoWidth * cargoHeight * 8;
+        if (state.maxCandidateChecks < 16384)
+            state.maxCandidateChecks = 16384;
+        if (state.maxCandidateChecks > 131072)
+            state.maxCandidateChecks = 131072;
+
         state.maxDepth = records.Count() + 4;
         state.stepCount = 0;
         state.searchCount = 0;
+        state.candidateChecks = 0;
+        state.candidateBudgetExceeded = false;
 
         for (int planIndex = 0; planIndex < records.Count(); planIndex++)
         {
             if (!EnsureRecordAtTargetV4(state, planIndex))
             {
+                if (state.candidateBudgetExceeded)
+                    Print("[TransferZ] Sort planner V4 stopped: candidate work budget exhausted checks=" + state.candidateChecks.ToString() + "/" + state.maxCandidateChecks.ToString());
                 moves.Clear();
                 return false;
             }

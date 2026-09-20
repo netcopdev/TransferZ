@@ -311,11 +311,9 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
     {
         if (!player || !source || !buffer)
             return false;
-
         InventoryMode moveMode = InventoryMode.SERVER;
         if (!GetGame().IsMultiplayer())
             moveMode = InventoryMode.LOCAL;
-
         bool allDropped = true;
         int dropped = 0;
         foreach (TransferZSortRecord record : originalRecords)
@@ -327,7 +325,6 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
             }
             if (RecordAtCargoLocation(source, record))
                 continue;
-
             InventoryLocation current = new InventoryLocation();
             if (!record.item.GetInventory().GetCurrentInventoryLocation(current))
             {
@@ -339,14 +336,12 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
                 allDropped = false;
                 continue;
             }
-
             EntityAI currentParent = current.GetParent();
             if (currentParent != source && currentParent != buffer)
             {
                 allDropped = false;
                 continue;
             }
-
             if (!record.item.GetInventory().DropEntity(moveMode, player, record.item))
             {
                 allDropped = false;
@@ -354,12 +349,10 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
             }
             dropped++;
         }
-
         CargoBase bufferCargo = buffer.GetInventory().GetCargo();
         bool bufferEmpty = bufferCargo && bufferCargo.GetItemCount() == 0;
         if (bufferEmpty)
             buffer.Delete();
-
         Print("[TransferZ] Sort EMERGENCY ground drop reason=" + reason + " dropped=" + dropped.ToString() + " complete=" + allDropped.ToString() + " bufferEmpty=" + bufferEmpty.ToString());
         return allDropped && bufferEmpty;
     }
@@ -584,23 +577,16 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
             DeleteSortBufferIfEmpty(buffer);
             return true;
         }
-
         bool emergencyDropped = EmergencyDropUnrestoredItems(player, source, buffer, originalRecords, "rollback-incomplete");
         Print("[TransferZ] Sort buffer CRITICAL rollback incomplete accepted=" + accepted.ToString() + " exact=" + exact.ToString() + " bufferEmpty=" + bufferEmpty.ToString() + " emergencyDropped=" + emergencyDropped.ToString());
         return false;
     }
 
-    protected static int SortWithNativeBuffer(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> originalRecords, int cargoWidth, int cargoHeight)
+    protected static int SortWithNativeBuffer(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> originalRecords, notnull array<ref TransferZSortRecord> layoutRecords, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips)
     {
-        ref array<ref TransferZSortRecord> layoutRecords = new array<ref TransferZSortRecord>();
-        CloneSortRecords(originalRecords, layoutRecords);
         if (layoutRecords.Count() != originalRecords.Count())
             return -1;
-
-        ref array<int> targetWidths = new array<int>();
-        ref array<int> targetHeights = new array<int>();
-        ref array<int> targetFlips = new array<int>();
-        if (!BuildTargetLayoutV4(player, source, layoutRecords, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
+        if (targetWidths.Count() != layoutRecords.Count() || targetHeights.Count() != layoutRecords.Count() || targetFlips.Count() != layoutRecords.Count())
             return -1;
         if (AllRecordsAtTargetV4(layoutRecords, targetFlips))
             return 0;
@@ -708,20 +694,42 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
 
         SortRecordsV4(originalRecords);
 
+        // Compute the deterministic target layout exactly once. Both execution
+        // strategies use the same immutable layout, so falling back from the
+        // bounded in-cargo planner does not repeat the expensive packing passes.
+        ref array<ref TransferZSortRecord> layoutRecords = new array<ref TransferZSortRecord>();
+        CloneSortRecords(originalRecords, layoutRecords);
+        if (layoutRecords.Count() != originalRecords.Count())
+        {
+            Print("[TransferZ] Sort transactional rejected: layout snapshot clone failed");
+            return -1;
+        }
+
+        ref array<int> targetWidths = new array<int>();
+        ref array<int> targetHeights = new array<int>();
+        ref array<int> targetFlips = new array<int>();
+        if (!BuildTargetLayoutV4(player, source, layoutRecords, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
+        {
+            Print("[TransferZ] Sort transactional rejected: target layout failed for " + source.GetType());
+            return -1;
+        }
+        if (AllRecordsAtTargetV4(layoutRecords, targetFlips))
+            return 0;
+
         ref array<ref TransferZSortRecord> plannedRecords = new array<ref TransferZSortRecord>();
-        CloneSortRecords(originalRecords, plannedRecords);
-        if (plannedRecords.Count() != originalRecords.Count())
+        CloneSortRecords(layoutRecords, plannedRecords);
+        if (plannedRecords.Count() != layoutRecords.Count())
         {
             Print("[TransferZ] Sort transactional rejected: planning snapshot clone failed");
             return -1;
         }
 
         ref array<ref TransferZSortMove> moves = new array<ref TransferZSortMove>();
-        if (!BuildSortPlanV4(player, source, plannedRecords, cargoWidth, cargoHeight, moves))
+        if (!BuildSortPlanFromTargetsV4(player, source, plannedRecords, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips, moves))
         {
-            int bufferedResult = SortWithNativeBuffer(player, source, originalRecords, cargoWidth, cargoHeight);
+            int bufferedResult = SortWithNativeBuffer(player, source, originalRecords, layoutRecords, targetWidths, targetHeights, targetFlips);
             if (bufferedResult < 0)
-                Print("[TransferZ] Sort transactional failed: in-cargo plan and native buffer fallback both failed for " + source.GetType());
+                Print("[TransferZ] Sort transactional failed: bounded in-cargo plan and native buffer fallback both failed for " + source.GetType());
             return bufferedResult;
         }
         if (moves.Count() == 0)
