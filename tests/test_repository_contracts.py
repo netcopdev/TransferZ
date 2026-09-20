@@ -98,6 +98,19 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("SortRecordsV4(originalRecords)", transactional)
         self.assertIn("BuildSortPlanFromTargetsV4", transactional)
 
+    def test_sort_exact_class_equality_does_not_use_hash_identity(self) -> None:
+        planner = read("Scripts/4_World/TransferZ/TransferZ_SortPlanner.c")
+        same_class = function_body(planner, "protected static bool SameExactClassV4(")
+        optimize = function_body(planner, "protected static void OptimizeEquivalentTargetAssignmentsV4(")
+        direct_swap = function_body(planner, "protected static bool TryPlanDirectSwapToTargetV4(")
+
+        self.assertIn("left.item.GetType() == right.item.GetType()", same_class)
+        self.assertIn("SameExactClassV4", optimize)
+        self.assertIn("SameExactClassV4", direct_swap)
+        self.assertNotIn("record.typeHash != records.Get(stationarySlot).typeHash", optimize)
+        self.assertNotIn("remainingRecord.typeHash != records.Get(candidateSlot).typeHash", optimize)
+        self.assertNotIn("record.typeHash != blocker.typeHash", direct_swap)
+
     def test_sort_reuses_one_target_layout_and_bounds_parking_search(self) -> None:
         planner = read("Scripts/4_World/TransferZ/TransferZ_SortPlanner.c")
         transactional = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")
