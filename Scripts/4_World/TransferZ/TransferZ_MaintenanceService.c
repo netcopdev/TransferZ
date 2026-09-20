@@ -37,6 +37,16 @@ class TransferZMaintenanceService
         return location.GetType() == InventoryLocationType.CARGO && location.GetParent() == source;
     }
 
+    // CombineItems can synchronously mark an emptied donor for deletion while
+    // the object remains in cargo until DayZ processes that deletion. Never use
+    // such a donor again during this same Stack pass: CanBeCombined does not
+    // reject IsSetForDeletion(), and refilling it would put live quantity into
+    // an entity that is still going to disappear.
+    protected static bool IsLiveStackItem(ItemBase item)
+    {
+        return item && !item.IsSetForDeletion();
+    }
+
     protected static bool SortBefore(TransferZSortRecord left, TransferZSortRecord right)
     {
         int leftArea = left.width * left.height;
@@ -652,7 +662,7 @@ class TransferZMaintenanceService
         for (int targetIndex = 0; targetIndex < items.Count(); targetIndex++)
         {
             ItemBase target = ItemBase.Cast(items.Get(targetIndex));
-            if (!target || !IsDirectCargoItem(source, target))
+            if (!IsLiveStackItem(target) || !IsDirectCargoItem(source, target))
                 continue;
 
             InventoryLocation targetLocation = new InventoryLocation();
@@ -662,7 +672,7 @@ class TransferZMaintenanceService
             for (int sourceIndex = targetIndex + 1; sourceIndex < items.Count(); sourceIndex++)
             {
                 ItemBase donor = ItemBase.Cast(items.Get(sourceIndex));
-                if (!donor || !IsDirectCargoItem(source, donor))
+                if (!IsLiveStackItem(donor) || !IsDirectCargoItem(source, donor))
                     continue;
 
                 InventoryLocation donorLocation = new InventoryLocation();
