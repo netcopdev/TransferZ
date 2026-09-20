@@ -149,6 +149,172 @@ void TZTest_SpawnWorldFixtures(PlayerBase player)
     TZTest_CreateStack(TZTest_CreateWorldItem("AmmoBox", basePos + "-0.8 0 1.4"), "Ammo_556x45", 13);
 }
 
+
+int g_TZTestFailures = 0;
+
+void TZTest_Check(bool condition, string name)
+{
+    if (condition)
+    {
+        Print("[TransferZTest] PASS " + name);
+        return;
+    }
+
+    g_TZTestFailures++;
+    Print("[TransferZTest] FAIL " + name);
+}
+
+bool TZTest_IsDirectCargoChild(EntityAI owner, EntityAI item)
+{
+    if (!owner || !item)
+        return false;
+
+    InventoryLocation location = new InventoryLocation();
+    if (!item.GetInventory().GetCurrentInventoryLocation(location))
+        return false;
+
+    return location.GetType() == InventoryLocationType.CARGO && location.GetParent() == owner;
+}
+
+int TZTest_SumAmmo(EntityAI owner, string typeName)
+{
+    if (!owner)
+        return 0;
+
+    CargoBase cargo = owner.GetInventory().GetCargo();
+    if (!cargo)
+        return 0;
+
+    int total = 0;
+    for (int i = 0; i < cargo.GetItemCount(); i++)
+    {
+        EntityAI entity = cargo.GetItem(i);
+        if (!entity || entity.GetType() != typeName)
+            continue;
+
+        Magazine magazine = Magazine.Cast(entity);
+        if (magazine && !magazine.IsSetForDeletion())
+            total += magazine.GetAmmoCount();
+    }
+    return total;
+}
+
+void TZTest_DeleteFixture(EntityAI entity)
+{
+    if (entity)
+        GetGame().ObjectDelete(entity);
+}
+
+void TZTest_RunTransferSelfTest(PlayerBase player)
+{
+    vector basePos = player.GetPosition();
+    EntityAI source = TZTest_CreateWorldItem("WoodenCrate", basePos + "1.2 0 -0.8");
+    EntityAI destination = TZTest_CreateWorldItem("WoodenCrate", basePos + "-1.2 0 -0.8");
+    EntityAI apple = TZTest_CreateItem(source, "Apple");
+    EntityAI bandage = TZTest_CreateItem(source, "BandageDressing");
+
+    int moved = TransferZServerService.Transfer(player, source, destination);
+    TZTest_Check(moved == 2, "transfer moved all direct cargo");
+    TZTest_Check(TZTest_IsDirectCargoChild(destination, apple), "transfer preserved apple identity");
+    TZTest_Check(TZTest_IsDirectCargoChild(destination, bandage), "transfer preserved bandage identity");
+
+    TZTest_DeleteFixture(source);
+    TZTest_DeleteFixture(destination);
+}
+
+void TZTest_RunUnpackSelfTest(PlayerBase player)
+{
+    vector basePos = player.GetPosition();
+    EntityAI source = TZTest_CreateWorldItem("WoodenCrate", basePos + "1.2 0 -0.8");
+    EntityAI destination = TZTest_CreateWorldItem("WoodenCrate", basePos + "-1.2 0 -0.8");
+    EntityAI directApple = TZTest_CreateItem(source, "Apple");
+    EntityAI nested = TZTest_CreateItem(source, "SmallProtectorCase");
+    EntityAI nestedBandage = TZTest_CreateItem(nested, "BandageDressing");
+    EntityAI nestedBattery = TZTest_CreateItem(nested, "Battery9V");
+
+    int moved = TransferZServerService.Unpack(player, source, destination);
+    TZTest_Check(moved == 2, "unpack moved nested leaves only");
+    TZTest_Check(TZTest_IsDirectCargoChild(source, directApple), "unpack kept direct loose cargo");
+    TZTest_Check(TZTest_IsDirectCargoChild(source, nested), "unpack kept nested container");
+    TZTest_Check(TZTest_IsDirectCargoChild(destination, nestedBandage), "unpack moved nested bandage");
+    TZTest_Check(TZTest_IsDirectCargoChild(destination, nestedBattery), "unpack moved nested battery");
+
+    TZTest_DeleteFixture(source);
+    TZTest_DeleteFixture(destination);
+}
+
+void TZTest_RunClassTransferSelfTest(PlayerBase player)
+{
+    vector basePos = player.GetPosition();
+    EntityAI source = TZTest_CreateWorldItem("WoodenCrate", basePos + "1.2 0 -0.8");
+    EntityAI destination = TZTest_CreateWorldItem("WoodenCrate", basePos + "-1.2 0 -0.8");
+    EntityAI appleA = TZTest_CreateItem(source, "Apple");
+    EntityAI appleB = TZTest_CreateItem(source, "Apple");
+    EntityAI bandage = TZTest_CreateItem(source, "BandageDressing");
+
+    int moved = TransferZServerService.TransferClass(player, source, destination, appleA);
+    TZTest_Check(moved == 2, "class transfer moved exact class batch");
+    TZTest_Check(TZTest_IsDirectCargoChild(destination, appleA) && TZTest_IsDirectCargoChild(destination, appleB), "class transfer moved both exact-class items");
+    TZTest_Check(TZTest_IsDirectCargoChild(source, bandage), "class transfer left other class in source");
+
+    TZTest_DeleteFixture(source);
+    TZTest_DeleteFixture(destination);
+}
+
+void TZTest_RunStackSelfTest(PlayerBase player)
+{
+    vector basePos = player.GetPosition();
+    EntityAI source = TZTest_CreateWorldItem("WoodenCrate", basePos + "1.2 0 -0.8");
+    TZTest_CreateStack(source, "Ammo_556x45", 3);
+    TZTest_CreateStack(source, "Ammo_556x45", 5);
+
+    int before = TZTest_SumAmmo(source, "Ammo_556x45");
+    int combined = TransferZMaintenanceService.Stack(player, source);
+    int after = TZTest_SumAmmo(source, "Ammo_556x45");
+
+    TZTest_Check(before == 8, "stack fixture quantity initialized");
+    TZTest_Check(combined > 0, "stack combined compatible partial stacks");
+    TZTest_Check(after == before, "stack preserved total quantity");
+
+    TZTest_DeleteFixture(source);
+}
+
+void TZTest_RunSortSelfTest(PlayerBase player)
+{
+    vector basePos = player.GetPosition();
+    EntityAI source = TZTest_CreateWorldItem("WoodenCrate", basePos + "1.2 0 -0.8");
+    EntityAI apple = TZTest_CreateItem(source, "Apple");
+    EntityAI bandage = TZTest_CreateItem(source, "BandageDressing");
+    EntityAI magazine = TZTest_CreateItem(source, "Mag_STANAG_30Rnd");
+    EntityAI protector = TZTest_CreateItem(source, "SmallProtectorCase");
+
+    int result = TransferZTransactionalSortPlanner.Sort(player, source);
+    TZTest_Check(result >= 0, "sort completed transactionally");
+    TZTest_Check(TZTest_IsDirectCargoChild(source, apple), "sort preserved apple identity");
+    TZTest_Check(TZTest_IsDirectCargoChild(source, bandage), "sort preserved bandage identity");
+    TZTest_Check(TZTest_IsDirectCargoChild(source, magazine), "sort preserved magazine identity");
+    TZTest_Check(TZTest_IsDirectCargoChild(source, protector), "sort preserved container identity");
+
+    TZTest_DeleteFixture(source);
+}
+
+void TZTest_RunSelfTests(PlayerBase player)
+{
+    g_TZTestFailures = 0;
+    Print("[TransferZTest] SUITE START");
+
+    TZTest_RunTransferSelfTest(player);
+    TZTest_RunUnpackSelfTest(player);
+    TZTest_RunClassTransferSelfTest(player);
+    TZTest_RunStackSelfTest(player);
+    TZTest_RunSortSelfTest(player);
+
+    if (g_TZTestFailures == 0)
+        Print("[TransferZTest] SUITE PASS");
+    else
+        Print("[TransferZTest] SUITE FAIL count=" + g_TZTestFailures.ToString());
+}
+
 void main()
 {
     vector spawnPos = "2200 10 2200";
@@ -156,6 +322,7 @@ void main()
     if (!player)
         return;
 
+    TZTest_RunSelfTests(player);
     TZTest_FillPlayer(player);
     TZTest_SpawnWorldFixtures(player);
     GetGame().SelectPlayer(NULL, player);
