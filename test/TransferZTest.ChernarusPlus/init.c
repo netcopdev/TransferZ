@@ -326,11 +326,17 @@ void TZTest_RunSelfTests(PlayerBase player)
     g_TZTestFailures = 0;
     Print("[TransferZTest] SUITE START");
 
+    Print("[TransferZTest] RUN transfer");
     TZTest_RunTransferSelfTest(player);
+    Print("[TransferZTest] RUN unpack");
     TZTest_RunUnpackSelfTest(player);
+    Print("[TransferZTest] RUN class-transfer");
     TZTest_RunClassTransferSelfTest(player);
+    Print("[TransferZTest] RUN stack");
     TZTest_RunStackSelfTest(player);
+    Print("[TransferZTest] RUN sort");
     TZTest_RunSortSelfTest(player);
+    Print("[TransferZTest] RUN sort-emergency-drop");
     TZTest_RunSortEmergencyDropSelfTest(player);
 
     if (g_TZTestFailures == 0)

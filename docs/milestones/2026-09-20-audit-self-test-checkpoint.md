@@ -27,7 +27,9 @@ The active stack was rebuilt from the original known-good PR trees after review,
 
 A first real user-run DayZDiag compile of the audit branch exposed Enforce Script rejecting the C/C++-style empty-condition loop `for (...; ; ...)` in `TransferZ_ServerService.c`. The same construct was also found in `TransferZ_OperationPreview.c`. Both runtime occurrences were rewritten as explicit `while (true)` loops, and the repository contracts now scan all runtime/test `.c` files to prevent that parser-incompatible pattern from returning.
 
-The connector environment still cannot itself claim a DayZ runtime pass. The repository contains `tools/run-transferz-self-test.ps1` and the DayZDiag fixture for the exact-build runtime gate on a Windows machine with DayZ/DayZDiag and CF installed.
+The next real DayZDiag run compiled successfully and started the suite. Transfer completed and preserved item identity, then execution stopped when Unpack began. The failure exposed an exact-cargo helper bug: `GameInventory.GetCargoFromIndex()` cannot be treated as a null-terminated cargo-grid iterator. `TransferZCargo.Get()` now validates the returned native cargo's `GetOwnerCargoIndex()` against the requested index before accepting it. This both terminates recursive multi-grid traversal correctly and strengthens exact cargo-grid identity globally. The fixture now emits per-test `RUN` markers and the runner reports the last progress marker on timeout.
+
+The connector environment still cannot itself claim a complete DayZ runtime pass. The repository contains `tools/run-transferz-self-test.ps1` and the DayZDiag fixture for the exact-build runtime gate on a Windows machine with DayZ/DayZDiag and CF installed.
 
 ## Decisions retained
 

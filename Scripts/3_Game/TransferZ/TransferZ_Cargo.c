@@ -4,7 +4,11 @@ class TransferZCargo
     {
         if (!owner || cargoIndex < 0)
             return null;
-        return owner.GetInventory().GetCargoFromIndex(cargoIndex);
+
+        CargoBase cargo = owner.GetInventory().GetCargoFromIndex(cargoIndex);
+        if (!cargo || cargo.GetOwnerCargoIndex() != cargoIndex)
+            return null;
+        return cargo;
     }
 
     static bool Exists(EntityAI owner, int cargoIndex = 0)
