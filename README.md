@@ -8,7 +8,7 @@ For the complete control reference and examples, see [`docs/USAGE.md`](docs/USAG
 
 ## Quick start
 
-1. Use **D (Destination)** on the container that should receive items. The active destination is highlighted. The same `D` control on `VICINITY` selects the ground/vicinity zone instead.
+1. Use **D (Destination)** on the cargo grid that should receive items. The active destination grid is highlighted. The same `D` control on `VICINITY` selects the ground/vicinity zone instead.
 2. Use **T (Transfer)** on a source container to move its direct cargo children to the active destination.
 3. Use **U (Unpack)** on a source container to extract leaf items from nested cargo containers while leaving the nested containers and the source's existing direct loose cargo in place.
 4. Drag `T` or `U` directly onto another open container for a one-off operation without changing the active destination.
@@ -21,11 +21,11 @@ Transfer/navigation controls remain on the **left** side of cargo headers. Conta
 
 | Control | Meaning |
 | --- | --- |
-| `D` — Destination | Select or clear this container as the active destination. |
+| `D` — Destination | Select or clear this exact cargo grid as the active destination. |
 | `T` — Transfer | Move the source container's direct cargo children to the active destination. Also draggable. |
 | `U` — Unpack | Move leaf items out of nested cargo containers while leaving direct loose cargo and the nested containers in place. Also draggable. |
-| `L` — Link | Start, complete, replace, or remove the current temporary container link pair. |
-| `P` — Preferred | Store or clear this worn/attached cargo container as the persistent preferred personal destination. |
+| `L` — Link | Start, complete, replace, or remove the current temporary cargo-grid link pair. |
+| `P` — Preferred | Store or clear this worn/attached cargo grid as the persistent preferred personal destination. |
 | Sort | Compact/reorder this container's direct cargo in place. |
 | Stack | Merge compatible partial stacks in this container using DayZ's own combine rules. |
 
@@ -59,8 +59,8 @@ Different classnames are never included just because they are similar items. For
 
 TransferZ does not replace DayZ's stack-splitting rules. Right click still invokes the native split behavior; TransferZ only chooses where the new split stack is placed, in this order:
 
-1. the active destination (`D*`), when one is selected: that container's exact cargo, or DayZ's normal ground placement around the player for `VICINITY`;
-2. otherwise, for a stack in cargo, the same immediate container when it has room for the new stack;
+1. the active destination (`D*`), when one is selected: that exact cargo grid, or DayZ's normal ground placement around the player for `VICINITY`;
+2. otherwise, for a stack in cargo, the same immediate cargo grid when it has room for the new stack;
 3. otherwise the preferred destination (`P*`), when one is configured;
 4. otherwise normal DayZ behavior.
 
@@ -68,7 +68,7 @@ If `D*` cannot accept the split, routing continues to the original source cargo,
 
 ## Destination behavior
 
-A selected container always means that container's own cargo. TransferZ does not silently fall back to arbitrary player inventory or cargo nested inside the destination.
+A selected destination is the exact `(owner entity, cargo grid index)` shown by that header. TransferZ does not silently fall back to another grid on the same entity, arbitrary player inventory, or cargo nested inside the destination.
 
 Selecting another destination replaces the current one. Container destinations are transient and are cleared automatically when the selected participant is no longer a valid open/in-hand reachable container. A `VICINITY` destination is cleared when the vicinity panel is closed.
 
@@ -103,7 +103,7 @@ Attachments are not traversed by Unpack in 0.1.0.
 
 ## Sort
 
-Sort reorganizes the selected container's **direct cargo only** while preserving the original item entities.
+Sort reorganizes the selected **cargo grid's direct items only** while preserving the original item entities.
 
 TransferZ snapshots each direct item's exact row, column and orientation and computes a deterministic rotation-aware target layout. It first tries a bounded move sequence entirely inside the source cargo, using free cells to resolve blockers; single-player may also use synchronous native atomic swaps. Multiplayer avoids DayZ's asynchronous direct-swap command so every transactional step remains immediately verifiable. If the final layout fits but no bounded in-cargo path exists, TransferZ stages the same item entities through its own hidden, non-physical native cargo buffer and places them directly into their final cells. Sort never uses ground/vicinity or arbitrary player inventory as staging, and it never deletes/recreates items.
 
@@ -120,7 +120,7 @@ Sort is transactional at the TransferZ level. The in-cargo path journals inverse
 
 ## Stack
 
-Stack scans the selected container's direct cargo and asks DayZ whether pairs can be combined. Only pairs accepted by DayZ's own `CanBeCombined` logic are merged with the native `CombineItems` behavior.
+Stack scans the selected cargo grid and asks DayZ whether pairs can be combined. Only pairs accepted by DayZ's own `CanBeCombined` logic are merged with the native `CombineItems` behavior.
 
 TransferZ does not define its own ammo-family/category matching, does not merge through nested containers, and does not split stacks to manufacture a merge.
 
@@ -141,7 +141,7 @@ With `VICINITY` itself selected, vicinity Transfer is a no-op and vicinity Unpac
 
 ## Links and double-click routing
 
-Use Link on one container and then Link on another to create one temporary link pair.
+Use Link on one cargo grid and then Link on another to create one temporary link pair. Two grids on the same owning entity are distinct link participants.
 
 - A pending first participant is highlighted separately from an active pair.
 - Clicking Link on a linked participant removes the pair.
@@ -158,7 +158,7 @@ For vicinity, left double-click routes the selected item to the preferred destin
 
 ## Preferred destination
 
-The Preferred control is available on cargo-bearing items in the player's attachment hierarchy, including nested attachments such as a pouch attached to a belt or vest.
+The Preferred control is available on cargo-bearing items in the player's attachment hierarchy, including nested attachments such as a pouch attached to a belt or vest. The stored preference includes that item's selected cargo-grid index.
 
 TransferZ stores the ordered attachment-slot path, for example:
 
