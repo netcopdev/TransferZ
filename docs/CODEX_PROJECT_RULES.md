@@ -47,7 +47,7 @@ Sort is a server-authoritative maintenance operation over the source container's
 - Consider both valid cargo orientations for non-square items. Preserve the current orientation whenever a complete layout permits it; detachable-magazine vertical preference is secondary and rotation remains a packing fallback.
 - Keep equivalent-target assignment bounded for large cargo. Preserve records already occupying valid equivalent target slots first, then assign remaining records directly using cached slot-overlap data. Do not use iterative all-pairs improvement passes.
 - If the computed target layout already matches the snapshot, Sort is a successful no-op.
-- Build a complete bounded **in-cargo** rearrangement plan first. The planner may use genuinely free cells inside the same source cargo as temporary workspace and SHOULD use DayZ native atomic swaps for compatible equal-size blockers/cycles.
+- Build a complete bounded **in-cargo** rearrangement plan first. The planner may use genuinely free cells inside the same source cargo as temporary workspace. DayZ native atomic swaps may be used only where their result is synchronously observable; multiplayer/dedicated-server Sort must not plan the asynchronous server-swap path.
 - If the deterministic final layout fits but no bounded in-cargo path exists, Sort MAY fall back to the dedicated `TransferZ_SortBuffer`: a hidden, non-interactive, non-physical native cargo entity created server-authoritatively only for the transaction. This is the only allowed external Sort workspace.
 - Sort MUST NOT use vicinity/ground, arbitrary player inventory, or arbitrary world/player containers as temporary staging. The sort buffer must preserve the same `EntityAI` objects; delete/recreate remains forbidden.
 - Planning is virtual. Keep the authoritative original snapshot untouched while the planner mutates cloned geometry.
@@ -83,7 +83,7 @@ TransferZ owns two left-button modifier drags:
 
 For a direct cargo child, the source zone is its immediate cargo owner. Shift selects all direct cargo children of that source. Alt selects only direct cargo children whose exact `GetType()` matches the dragged item.
 
-For an item shown in `VICINITY`, Shift selects the currently shown eligible loose vicinity items. Alt selects only shown eligible loose items whose exact `GetType()` matches the dragged item. Cargo-bearing vicinity containers are excluded from the exact-class loose-item batch.
+For an item shown in `VICINITY`, Shift depends on the representative: a loose item selects the currently shown eligible non-container vicinity items, while a cargo-bearing ground container selects only itself. Alt selects shown eligible items whose exact `GetType()` matches the dragged item, including same-class cargo-bearing ground containers. Moved containers keep their contents intact.
 
 Both modifier drags may target another visible cargo container. A cargo-source Shift or Alt drag may also target `VICINITY`; a vicinity-source Shift or Alt drag to vicinity is a no-op because those loose items are already there.
 
@@ -135,8 +135,8 @@ The `VICINITY` header exposes Destination, Transfer, and Unpack controls.
 - If a selected container destination is itself in vicinity, skip it as a source and allow it to receive the other items.
 - With vicinity itself selected, vicinity Transfer is a no-op because those loose items are already there; vicinity Unpack unpacks shown containers onto the ground.
 - Vicinity Transfer and Unpack may also be dragged onto a visible cargo container field for a one-off direct batch action.
-- `Shift + Left Drag` from a vicinity item selects the shown eligible loose items for transfer.
-- `Alt + Left Drag` from a vicinity item selects shown eligible loose items of that exact class.
+- `Shift + Left Drag` from loose vicinity loot selects the shown eligible non-container items; from a cargo-bearing ground container it selects only that dragged container.
+- `Alt + Left Drag` from a vicinity item selects shown eligible items of that exact class, including same-class cargo-bearing containers.
 
 ### Links and double-click routing
 

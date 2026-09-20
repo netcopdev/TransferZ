@@ -9,7 +9,7 @@ TransferZ only influences the destination chosen for a native split.
 The split destination is resolved in this order:
 
 1. **Active destination (`D*`)** — when a valid transient destination is selected, it is the explicit split target. A container destination means that container's exact cargo. A `VICINITY` destination means DayZ's normal ground placement around the player.
-2. **Immediate source cargo** — when no `D*` is active and the stack is already in cargo, keep the split in that same immediate container whenever it has room for the new entity.
+2. **Immediate source cargo** — when no usable `D*` route exists and the stack is already in cargo, keep the split in that same immediate container whenever it has room for the new entity.
 3. **Preferred destination (`P*`)** — use the configured preferred cargo only when there is no usable immediate source cargo, including when the original stack is not in cargo or its source cargo has no room.
 4. **Vanilla DayZ fallback** — use DayZ's normal behavior in every remaining case.
 

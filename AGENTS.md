@@ -22,8 +22,8 @@ Before modifying this repository, read this file and `docs/CODEX_PROJECT_RULES.m
 - Container `Unpack` moves non-container leaf items found inside cargo-bearing child containers while leaving the source's direct loose cargo and the nested containers themselves in place.
 - Vicinity `Unpack` operates on the shown cargo-bearing vicinity containers and ignores loose vicinity items.
 - `Shift + Click` routes one cargo/vicinity item to the active destination; `Alt + Click` routes one cargo/vicinity item to the resolved preferred destination.
-- `Shift + Left Drag` is a source-zone batch Transfer: from cargo it moves all direct cargo children; from vicinity it moves the shown eligible loose items.
-- `Alt + Left Drag` is an exact-class batch move using the dragged item's exact `GetType()`: from cargo it selects matching direct cargo children; from vicinity it selects matching shown eligible loose items.
+- `Shift + Left Drag` is a source-zone batch Transfer: from cargo it moves all direct cargo children; from vicinity, a loose representative batches shown eligible non-container items while a cargo-bearing ground-container representative moves only that container.
+- `Alt + Left Drag` is an exact-class batch move using the dragged item's exact `GetType()`: from cargo it selects matching direct cargo children; from vicinity it selects matching shown eligible items, including same-class cargo-bearing ground containers.
 - Right-click interactions belong to vanilla DayZ. TransferZ must not assign RMB click, RMB drag, or RMB double-click gestures to routing operations.
 - Native stack splitting remains DayZ-owned. TransferZ only chooses the destination of the new split entity in this preference order: active `D*` (exact cargo, or ground placement for `VICINITY`), then the stack's own immediate cargo container when it has room, then configured `P*`, then vanilla. If any preferred route cannot accept the split, continue to the next rule (`docs/SPLIT_ROUTING.md`).
 - Container links are session-local unless a future specification explicitly makes them persistent.

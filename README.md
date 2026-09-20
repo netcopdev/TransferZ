@@ -8,10 +8,10 @@ For the complete control reference and examples, see [`docs/USAGE.md`](docs/USAG
 
 ## Quick start
 
-1. Use the **Destination** target icon on the container that should receive items. The active destination is highlighted. The same control on `VICINITY` selects the ground/vicinity zone instead.
-2. Use the **Transfer** arrow on a source container to move its direct cargo children to the active destination.
-3. Use **Unpack** on a source container to extract leaf items from nested cargo containers while leaving the nested containers and the source's existing direct loose cargo in place.
-4. Drag Transfer or Unpack directly onto another open container for a one-off operation without changing the active destination.
+1. Use **D (Destination)** on the container that should receive items. The active destination is highlighted. The same `D` control on `VICINITY` selects the ground/vicinity zone instead.
+2. Use **T (Transfer)** on a source container to move its direct cargo children to the active destination.
+3. Use **U (Unpack)** on a source container to extract leaf items from nested cargo containers while leaving the nested containers and the source's existing direct loose cargo in place.
+4. Drag `T` or `U` directly onto another open container for a one-off operation without changing the active destination.
 5. Use the **Sort** and **Stack** controls on the right side of a cargo header to organize that container in place.
 6. Use `Shift + Left Drag` for a whole source-zone transfer and `Alt + Left Drag` for an exact-class batch move.
 
@@ -21,11 +21,11 @@ Transfer/navigation controls remain on the **left** side of cargo headers. Conta
 
 | Control | Meaning |
 | --- | --- |
-| Destination target | Select or clear this container as the active destination. |
-| Transfer arrow | Move the source container's direct cargo children to the active destination. Also draggable. |
-| Unpack | Move leaf items out of nested cargo containers while leaving direct loose cargo and the nested containers in place. Also draggable. |
-| Link | Start, complete, replace, or remove the current temporary container link pair. |
-| Preferred pin | Store or clear this worn/attached cargo container as the persistent preferred personal destination. |
+| `D` — Destination | Select or clear this container as the active destination. |
+| `T` — Transfer | Move the source container's direct cargo children to the active destination. Also draggable. |
+| `U` — Unpack | Move leaf items out of nested cargo containers while leaving direct loose cargo and the nested containers in place. Also draggable. |
+| `L` — Link | Start, complete, replace, or remove the current temporary container link pair. |
+| `P` — Preferred | Store or clear this worn/attached cargo container as the persistent preferred personal destination. |
 | Sort | Compact/reorder this container's direct cargo in place. |
 | Stack | Merge compatible partial stacks in this container using DayZ's own combine rules. |
 
@@ -39,7 +39,7 @@ Hover a control for a short explanation. Transfer and Unpack also show a subdued
 | --- | --- |
 | `Shift + Click` | Move the clicked item to the active destination. |
 | `Alt + Click` | Move the clicked item to the preferred personal destination. |
-| `Shift + Left Drag` | Move the source container's direct cargo as a batch. From vicinity, move the shown eligible loose items. |
+| `Shift + Left Drag` | From cargo, move all direct cargo as a batch. From vicinity, dragging loose loot batches shown eligible non-container items; dragging a cargo-bearing ground container moves only that container. |
 | `Alt + Left Drag` | Move all eligible items of the dragged item's exact `GetType()` from the same source zone. |
 | `Double Left Click` | Use link/preferred routing when TransferZ owns the route; otherwise preserve vanilla DayZ behavior. |
 
@@ -51,7 +51,7 @@ Unmodified left drag remains vanilla DayZ drag behavior. `Ctrl` interactions rem
 
 From a cargo container, `Alt + Left Drag` on one item selects all direct cargo items in that same source container whose exact `GetType()` matches the representative item. Drop onto another open TransferZ container to move those matches there. Dropping onto `VICINITY` moves those matching source-cargo items to the ground.
 
-From `VICINITY`, `Alt + Left Drag` selects currently shown loose, takeable, removable items whose exact `GetType()` matches the representative item, including same-class containers (which move intact with their contents), and moves that set into the destination container. Vicinity-to-vicinity is a no-op because those items are already there.
+From `VICINITY`, `Alt + Left Drag` selects currently shown takeable, removable items whose exact `GetType()` matches the representative item. Same-class cargo-bearing ground containers are included and move intact with their contents. Vicinity-to-vicinity is a no-op because those items are already there.
 
 Different classnames are never included just because they are similar items. For example, Alt-dragging one ammunition classname moves only that exact ammunition classname.
 
@@ -134,7 +134,7 @@ TransferZ does not define its own ammo-family/category matching, does not merge 
 - Unpack: unpack currently shown vicinity cargo containers into the destination while leaving those containers in place.
 - `Shift + Click`: move one shown item to the active destination.
 - `Alt + Click`: move one shown item to the preferred personal destination.
-- `Shift + Left Drag`: move the shown eligible loose items as a transfer batch.
+- `Shift + Left Drag`: when started on loose ground loot, move the shown eligible non-container items as a transfer batch; when started on a cargo-bearing ground container, move only that container.
 - `Alt + Left Drag`: move shown eligible items of the dragged item's exact class, including same-class cargo-bearing containers.
 
 With `VICINITY` itself selected, vicinity Transfer is a no-op and vicinity Unpack empties shown cargo containers onto the ground.
@@ -188,9 +188,11 @@ Sort has an additional rollback contract: original cargo coordinates and orienta
 
 ## Install
 
+TransferZ Workshop: https://steamcommunity.com/sharedfiles/filedetails/?id=3799485223
+
 TransferZ requires **Community Framework (CF)** on both client and server:
 
-- Steam Workshop: https://steamcommunity.com/sharedfiles/filedetails/?id=1559212036
+- CF Workshop: https://steamcommunity.com/sharedfiles/filedetails/?id=1559212036
 - Load CF before TransferZ, for example: `-mod=@CF;@TransferZ`
 
 Load `@TransferZ` on both client and server. Copy the supplied public `.bikey` into the server root `keys` directory.
