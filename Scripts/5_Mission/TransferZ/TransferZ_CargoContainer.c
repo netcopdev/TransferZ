@@ -239,6 +239,40 @@ class TransferZHeaderControls : Managed
         PrepareSolidImage(image, ARGB(0, 0, 0, 0), false);
     }
 
+    static void OnInventoryClosed()
+    {
+        if (s_Instances)
+        {
+            for (int i = s_Instances.Count() - 1; i >= 0; i--)
+            {
+                TransferZHeaderControls controls = s_Instances.Get(i);
+                if (!controls)
+                    continue;
+
+                controls.HideTooltip();
+                controls.HideOperationStatus();
+                if (controls.m_DestinationHover)
+                    controls.m_DestinationHover.Show(false);
+                if (controls.m_TransferHover)
+                    controls.m_TransferHover.Show(false);
+                if (controls.m_UnpackHover)
+                    controls.m_UnpackHover.Show(false);
+                if (controls.m_LinkHover)
+                    controls.m_LinkHover.Show(false);
+                if (controls.m_PreferredHover)
+                    controls.m_PreferredHover.Show(false);
+                if (controls.m_SortHover)
+                    controls.m_SortHover.Show(false);
+                if (controls.m_StackHover)
+                    controls.m_StackHover.Show(false);
+                if (controls.m_DropTarget)
+                    controls.m_DropTarget.Show(false);
+            }
+        }
+
+        TransferZVicinityHeaderControls.OnInventoryClosed();
+    }
+
     static void RefreshAll()
     {
         if (s_Instances)
