@@ -780,6 +780,16 @@ class TransferZSortPlanner : TransferZMaintenanceService
         if (recordIndex < 0 || recordIndex >= state.records.Count())
             return false;
 
+        // The multiplayer native swap path is asynchronous
+        // (InventoryInputUserData.SendServerSwap), while Sort executes and
+        // verifies every planned step synchronously. Planning such a swap can
+        // therefore make an otherwise valid transaction fail when the immediate
+        // verifier still sees the pre-swap state. In multiplayer, use ordinary
+        // in-cargo evacuation moves instead; when no bounded path exists, the
+        // existing hidden native sort buffer provides the safe fallback.
+        if (GetGame().IsMultiplayer())
+            return false;
+
         TransferZSortRecord record = state.records.Get(recordIndex);
         int targetWidth = state.targetWidths.Get(recordIndex);
         int targetHeight = state.targetHeights.Get(recordIndex);

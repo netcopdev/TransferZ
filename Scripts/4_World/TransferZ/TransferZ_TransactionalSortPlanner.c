@@ -642,7 +642,13 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
             if (!ExecutePlannedMove(player, source, move, rollbackMoves))
             {
                 bool rolledBackAfterMoveFailure = RollbackExecutedMoves(player, source, rollbackMoves, originalRecords);
-                Print("[TransferZ] Sort transactional failed during in-cargo execution moved=" + moved.ToString() + "/" + moves.Count().ToString() + " rollback=" + rolledBackAfterMoveFailure.ToString());
+                string failedKind = "move";
+                if (move.swapItem)
+                    failedKind = "swap";
+                string failedItem = "null";
+                if (move.item)
+                    failedItem = move.item.GetType();
+                Print("[TransferZ] Sort transactional failed during in-cargo execution moved=" + moved.ToString() + "/" + moves.Count().ToString() + " kind=" + failedKind + " item=" + failedItem + " target=" + move.row.ToString() + "," + move.col.ToString() + " flip=" + move.flip.ToString() + " rollback=" + rolledBackAfterMoveFailure.ToString());
                 return -1;
             }
             moved++;
