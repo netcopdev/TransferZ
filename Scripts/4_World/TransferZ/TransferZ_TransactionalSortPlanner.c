@@ -275,7 +275,7 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         if (!player)
             return null;
 
-        int flags = ECE_SETUP | ECE_KEEPHEIGHT | ECE_NOLIFETIME | ECE_NOPERSISTENCY_WORLD | ECE_NOPERSISTENCY_CHAR;
+        int flags = ECE_SETUP | ECE_KEEPHEIGHT | ECE_NOLIFETIME;
         TransferZ_SortBuffer buffer = TransferZ_SortBuffer.Cast(GetGame().CreateObjectEx("TransferZ_SortBuffer", player.GetPosition(), flags, RF_IGNORE));
         if (!buffer)
             return null;
@@ -292,6 +292,30 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         }
 
         return buffer;
+    }
+
+    protected static void PreserveSortBufferForRecovery(PlayerBase player, EntityAI source, TransferZ_SortBuffer buffer, string reason)
+    {
+        if (!buffer)
+            return;
+
+        vector recoveryPosition = buffer.GetPosition();
+        if (player)
+            recoveryPosition = player.GetPosition();
+        else if (source)
+            recoveryPosition = source.GetPosition();
+
+        recoveryPosition[0] = recoveryPosition[0] + 1.5;
+        buffer.SetPosition(recoveryPosition);
+        buffer.PlaceOnSurface();
+        buffer.EnableRecoveryMode();
+
+        CargoBase cargo = buffer.GetInventory().GetCargo();
+        int stranded = 0;
+        if (cargo)
+            stranded = cargo.GetItemCount();
+
+        Print("[TransferZ] Sort recovery crate preserved reason=" + reason + " stranded=" + stranded.ToString() + " position=" + recoveryPosition.ToString());
     }
 
     protected static bool DeleteSortBufferIfEmpty(TransferZ_SortBuffer buffer)
@@ -522,10 +546,18 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         bool exact = VerifyLayout(source, originalRecords);
         CargoBase bufferCargo = buffer.GetInventory().GetCargo();
         bool bufferEmpty = bufferCargo && bufferCargo.GetItemCount() == 0;
-        if (exact && bufferEmpty)
+
+        if (bufferEmpty)
+        {
             DeleteSortBufferIfEmpty(buffer);
+        }
         else
-            Print("[TransferZ] Sort buffer CRITICAL rollback incomplete accepted=" + accepted.ToString() + " exact=" + exact.ToString() + " bufferEmpty=" + bufferEmpty.ToString());
+        {
+            PreserveSortBufferForRecovery(player, source, buffer, "rollback-incomplete");
+        }
+
+        if (!exact || !bufferEmpty)
+            Print("[TransferZ] Sort buffer CRITICAL rollback incomplete accepted=" + accepted.ToString() + " exact=" + exact.ToString() + " bufferEmpty=" + bufferEmpty.ToString() + " recovery=" + (!bufferEmpty).ToString());
 
         return exact && bufferEmpty;
     }
@@ -620,6 +652,12 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         if (!DeleteSortBufferIfEmpty(buffer))
         {
             bool cleanupRollback = RecoverBufferedSort(player, source, buffer, originalRecords);
+            if (!cleanupRollback)
+            {
+                CargoBase recoveryCargo = buffer.GetInventory().GetCargo();
+                if (recoveryCargo && recoveryCargo.GetItemCount() > 0 && !buffer.IsRecoveryMode())
+                    PreserveSortBufferForRecovery(player, source, buffer, "cleanup-incomplete");
+            }
             Print("[TransferZ] Sort buffer fallback failed cleanup rollback=" + cleanupRollback.ToString());
             return -1;
         }
