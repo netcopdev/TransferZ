@@ -51,16 +51,7 @@ jobs:
             exit "$validator_code"
           fi
 
-          python - "$RUNNER_TEMP/dayz-script-validator.json" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-errors = report.get("errors", [])
-if errors:
-    raise SystemExit(f"DayZ script validator reported {len(errors)} error(s)")
-PY
+          python -c 'import json,sys; from pathlib import Path; report=json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")); errors=report.get("errors", []); print(f"DayZ validator errors: {len(errors)}"); sys.exit(1 if errors else 0)' "$RUNNER_TEMP/dayz-script-validator.json"
 
           set +e
           python "$PACK/tools/dayz-script-validator/scripts/ui_reconcile.py" "$GITHUB_WORKSPACE" --json > "$RUNNER_TEMP/dayz-ui-reconcile.json"
