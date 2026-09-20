@@ -219,8 +219,17 @@ modded class ItemBase
             return false;
         }
 
-        // P is the next explicit route. A configured but temporarily unresolved
-        // or full P must not cause an implicit move back to the source container.
+        // With no D selected, first keep a cargo stack in its immediate source
+        // container whenever there is room for the newly created entity. This is
+        // the least surprising result for an ordinary right-click split: the new
+        // stack stays beside the original instead of being routed elsewhere.
+        EntityAI source;
+        if (TransferZResolveCargoSource(source) && TransferZExecuteSplitTo(source, false))
+            return true;
+
+        // P is the fallback only when there is no usable immediate source cargo:
+        // for example the stack is in hands/attachments/on the ground, or its
+        // source cargo has no room for the newly created split entity.
         bool preferredConfigured;
         EntityAI preferred = TransferZSplitPreferenceResolver.Resolve(player, preferredConfigured);
         if (preferredConfigured)
@@ -230,14 +239,8 @@ modded class ItemBase
             return false;
         }
 
-        // With neither D nor P selected, keep a cargo stack in its immediate
-        // source container whenever there is room for the newly created entity.
-        EntityAI source;
-        if (TransferZResolveCargoSource(source) && TransferZExecuteSplitTo(source, false))
-            return true;
-
-        // A stack in hands/attachments/on the ground, or cargo with no room,
-        // remains entirely under vanilla DayZ fallback behavior.
+        // With no D, no usable source cargo and no P, leave the operation entirely
+        // to vanilla DayZ.
         return false;
     }
 
