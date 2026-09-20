@@ -34,7 +34,7 @@ def function_body(source: str, signature_fragment: str) -> str:
 
 class RepositoryContracts(unittest.TestCase):
     def test_enforce_for_loops_do_not_use_empty_conditions(self) -> None:
-        pattern = re.compile(r"for\\s*\\([^;\\n]*;\\s*;")
+        pattern = re.compile(r"for\s*\([^;\n]*;\s*;")
         offenders: list[str] = []
 
         for root_name in ("Scripts", "test"):
