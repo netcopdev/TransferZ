@@ -11,7 +11,8 @@ The target layout is deterministic and rotation-aware.
 - If that cannot produce a complete layout, the fallback packers may rotate non-square items. Even then, an unrotated candidate is preferred at an anchor, and first-fit searches the entire cargo in the current orientation before trying the alternate orientation.
 - Detachable magazines retain their vertical-orientation preference only as a secondary fallback after an all-current-orientation layout has failed.
 - Rotation is therefore a packing escape hatch for tight layouts, not a normal part of tidying an already roomy container.
-- Equivalent-size target assignments are optimized before movement so interchangeable shapes do not create unnecessary identity swaps.
+- When packing geometry and orientation are equivalent, identical item classes are kept in contiguous runs where possible instead of being interleaved with other same-footprint items.
+- Equivalent-size target assignments are optimized before movement only within the same item class, so movement minimization does not undo that grouping.
 - Smaller items fill otherwise wasted gaps in the compact target layout; there is no dedicated bottom zone for small items.
 - DayZ user-reserved inventory cells are treated as unavailable.
 - If the compact anchor packer cannot assign every item, Sort falls back to a deterministic rotation-aware first-fit target layout rather than failing solely because of the packing heuristic.
