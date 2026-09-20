@@ -679,7 +679,13 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         int sourceLow;
         int sourceHigh;
         int sourceCargoIndex;
-        if (!ctx.Read(operation) || !ctx.Read(sourceLow) || !ctx.Read(sourceHigh) || !ctx.Read(sourceCargoIndex))
+        if (!ctx.Read(operation))
+            return;
+        if (!ctx.Read(sourceLow))
+            return;
+        if (!ctx.Read(sourceHigh))
+            return;
+        if (!ctx.Read(sourceCargoIndex))
             return;
 
         if (sourceCargoIndex < 0)
