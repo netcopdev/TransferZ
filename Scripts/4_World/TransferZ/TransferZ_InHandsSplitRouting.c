@@ -126,7 +126,10 @@ modded class ItemBase
         if (verifyReceive && !destinationEntity.CanReceiveItemIntoCargo(this))
             return false;
 
-        if (!destinationEntity.GetInventory().FindFirstFreeLocationForNewEntity(GetType(), FindInventoryLocationType.CARGO, destination))
+        // Match vanilla DayZ's native right-click split placement search.
+        // FindFreeLocationFor(this, ...) evaluates the actual item footprint and
+        // may return a rotated cargo location via destination.GetFlip().
+        if (!destinationEntity.GetInventory().FindFreeLocationFor(this, FindInventoryLocationType.CARGO, destination))
             return false;
         if (!destination.IsValid() || destination.GetType() != InventoryLocationType.CARGO || destination.GetParent() != destinationEntity)
             return false;
@@ -202,25 +205,35 @@ modded class ItemBase
         if (!player || player.GetInventory().HasInventoryReservation(this, null))
             return false;
 
-        // The transient active D is the most explicit routing choice. If it is
-        // selected but cannot accept the split, do not silently choose P or source.
+        // The transient active D is the first routing preference. If it cannot
+        // accept the split, continue through source cargo and P before giving
+        // control back to vanilla DayZ.
         if (TransferZSplitDestinationBridge.HasDestination())
         {
             if (TransferZSplitDestinationBridge.IsVicinity())
             {
                 if (TransferZExecuteSplitToVicinity())
                     return true;
-                return false;
             }
-
-            EntityAI destination = TransferZSplitDestinationBridge.GetCargo();
-            if (destination && TransferZExecuteSplitTo(destination, true))
-                return true;
-            return false;
+            else
+            {
+                EntityAI destination = TransferZSplitDestinationBridge.GetCargo();
+                if (destination && TransferZExecuteSplitTo(destination, true))
+                    return true;
+            }
         }
 
-        // P is the next explicit route. A configured but temporarily unresolved
-        // or full P must not cause an implicit move back to the source container.
+        // If D is absent or unusable, first keep a cargo stack in its immediate source
+        // container whenever there is room for the newly created entity. This is
+        // the least surprising result for an ordinary right-click split: the new
+        // stack stays beside the original instead of being routed elsewhere.
+        EntityAI source;
+        if (TransferZResolveCargoSource(source) && TransferZExecuteSplitTo(source, false))
+            return true;
+
+        // P is the fallback only when there is no usable immediate source cargo:
+        // for example the stack is in hands/attachments/on the ground, or its
+        // source cargo has no room for the newly created split entity.
         bool preferredConfigured;
         EntityAI preferred = TransferZSplitPreferenceResolver.Resolve(player, preferredConfigured);
         if (preferredConfigured)
@@ -230,14 +243,8 @@ modded class ItemBase
             return false;
         }
 
-        // With neither D nor P selected, keep a cargo stack in its immediate
-        // source container whenever there is room for the newly created entity.
-        EntityAI source;
-        if (TransferZResolveCargoSource(source) && TransferZExecuteSplitTo(source, false))
-            return true;
-
-        // A stack in hands/attachments/on the ground, or cargo with no room,
-        // remains entirely under vanilla DayZ fallback behavior.
+        // With no D, no usable source cargo and no P, leave the operation entirely
+        // to vanilla DayZ.
         return false;
     }
 

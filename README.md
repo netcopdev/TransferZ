@@ -60,11 +60,11 @@ Different classnames are never included just because they are similar items. For
 TransferZ does not replace DayZ's stack-splitting rules. Right click still invokes the native split behavior; TransferZ only chooses where the new split stack is placed, in this order:
 
 1. the active destination (`D*`), when one is selected: that container's exact cargo, or DayZ's normal ground placement around the player for `VICINITY`;
-2. otherwise the preferred destination (`P*`), when one is configured;
-3. otherwise, for a stack in cargo, the same immediate container when it has room for the new stack;
+2. otherwise, for a stack in cargo, the same immediate container when it has room for the new stack;
+3. otherwise the preferred destination (`P*`), when one is configured;
 4. otherwise normal DayZ behavior.
 
-A selected `D*` or `P*` that cannot accept the split falls back to normal DayZ behavior; it never falls through to the next rule. See [`docs/SPLIT_ROUTING.md`](docs/SPLIT_ROUTING.md).
+If `D*` cannot accept the split, routing continues to the original source cargo, then `P*`. If the source cannot take it, routing continues to `P*`; if `P*` also cannot accept it, normal DayZ behavior takes over. See [`docs/SPLIT_ROUTING.md`](docs/SPLIT_ROUTING.md).
 
 ## Destination behavior
 
