@@ -29,9 +29,11 @@ Before the buffer is created, every tracked item must still be in the requested 
 
 Both paths move the same original entity objects through DayZ's native inventory system. The buffer path therefore preserves chambers, attachments, nested cargo, quantities and mod-defined entity state by object identity rather than serialization/reconstruction. The buffer is networked so clients observe a valid native inventory parent while an item is staged; it is not a local-only phantom parent.
 
-If buffered staging or placement fails, TransferZ uses the immutable original snapshot to evacuate displaced tracked items back into the buffer as necessary and restore exact original row/column/orientation. The buffer is deleted only after the original or final layout has been verified and its cargo is empty. A non-empty buffer is never deleted; failure to restore the exact snapshot is logged as `CRITICAL rollback incomplete`.
+If buffered staging or placement fails, TransferZ uses the immutable original snapshot to evacuate displaced tracked items back into the buffer as necessary and restore exact original row/column/orientation. An empty buffer is deleted after recovery. If rollback cannot restore every item and the buffer still contains tracked items, TransferZ **does not leave those items in an invisible staging object**: the same buffer is moved beside the player and switched into a visible, persistent, read-only **TransferZ Recovery Crate**. Its cargo can be opened and items can be removed, but new items cannot be inserted and the crate itself cannot be taken into hands/cargo. The critical log identifies the recovery condition.
 
-Normal world-drop physics and vicinity/drop callbacks are therefore not part of sorting. A hard server-process termination during the short buffered transaction cannot be made fully atomic in script, but normal execution never deletes/recreates the player's items.
+The normal staging buffer is now world-persistent rather than being created with DayZ's `ECE_NOPERSISTENCY_WORLD`/`ECE_NOPERSISTENCY_CHAR` flags. This matters if the server saves or restarts while a failed transaction still owns items: a persisted non-empty buffer enables recovery mode automatically in `AfterStoreLoad()`. A persisted empty orphan deletes itself. This substantially reduces item-loss exposure, but a process crash before the engine has persisted the newly created transaction object still cannot be made fully atomic in script.
+
+Normal world-drop physics and vicinity/drop callbacks are therefore not part of successful sorting. TransferZ still never deletes/recreates the player's sorted items.
 
 ## UI feedback
 
