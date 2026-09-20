@@ -319,6 +319,34 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         return current.GetType() == InventoryLocationType.CARGO && current.GetParent() == buffer;
     }
 
+    protected static bool ValidateBufferedSortAuthorization(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records)
+    {
+        if (!player || !source || !TransferZServerService.IsReachable(player, source))
+            return false;
+
+        foreach (TransferZSortRecord record : records)
+        {
+            if (!record || !record.item)
+                return false;
+
+            InventoryLocation current = new InventoryLocation();
+            if (!record.item.GetInventory().GetCurrentInventoryLocation(current))
+                return false;
+            if (!TransferZCargo.LocationMatches(current, source, record.cargoIndex))
+                return false;
+            if (!record.item.GetInventory().CanRemoveEntity())
+                return false;
+            if (!source.CanReleaseCargo(record.item))
+                return false;
+            if (!GameInventory.CheckRequestSrc(player, current, GameInventory.c_MaxItemDistanceRadius))
+                return false;
+            if (TransferZServerService.HasNativeInventoryJuncture(record.item))
+                return false;
+        }
+
+        return true;
+    }
+
     protected static bool TryMoveToSortBuffer(PlayerBase player, EntityAI source, int sourceCargoIndex, TransferZ_SortBuffer buffer, EntityAI item)
     {
         if (!player || !source || !buffer || !item || !IsDirectCargoItem(source, item, sourceCargoIndex))
@@ -328,6 +356,8 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
 
         InventoryLocation src = new InventoryLocation();
         if (!item.GetInventory().GetCurrentInventoryLocation(src) || !TransferZCargo.LocationMatches(src, source, sourceCargoIndex))
+            return false;
+        if (!GameInventory.CheckRequestSrc(player, src, GameInventory.c_MaxItemDistanceRadius))
             return false;
 
         InventoryLocation dst = new InventoryLocation();
@@ -352,6 +382,8 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
     protected static bool TryMoveFromSortBuffer(PlayerBase player, EntityAI source, TransferZ_SortBuffer buffer, EntityAI item, int cargoIndex, int row, int col, bool flip)
     {
         if (!player || !source || !buffer || !item || !TransferZCargo.Exists(source, cargoIndex) || !ItemInSortBuffer(buffer, item))
+            return false;
+        if (!TransferZServerService.IsReachable(player, source))
             return false;
         if (!item.GetInventory().CanRemoveEntity() || !buffer.CanReleaseCargo(item) || !source.CanReceiveItemIntoCargo(item))
             return false;
@@ -520,6 +552,16 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
 
         if (!VerifyLayout(source, originalRecords))
             return -1;
+
+        // The hidden buffer is server-internal workspace, not a player-accessible
+        // destination. Authorize the actual player-visible source through DayZ's
+        // native anti-cheat gate before any item leaves that source. Each staging
+        // move repeats CheckRequestSrc against its current authoritative location.
+        if (!ValidateBufferedSortAuthorization(player, source, originalRecords))
+        {
+            Print("[TransferZ] Sort buffer fallback rejected: native source authorization failed");
+            return -1;
+        }
 
         TransferZ_SortBuffer buffer = CreateSortBuffer(player);
         if (!buffer)
