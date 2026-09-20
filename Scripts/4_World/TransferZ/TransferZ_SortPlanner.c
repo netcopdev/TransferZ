@@ -1092,45 +1092,4 @@ class TransferZSortPlanner : TransferZMaintenanceService
         return true;
     }
 
-    override static void HandleRequest(PlayerBase player, PlayerIdentity sender, ParamsReadContext ctx)
-    {
-        if (!player)
-            return;
-
-        if (GetGame().IsMultiplayer())
-        {
-            PlayerIdentity playerIdentity = player.GetIdentity();
-            if (!sender || !playerIdentity || sender.GetId() != playerIdentity.GetId())
-            {
-                Print("[TransferZ] Maintenance RPC rejected: sender does not own player");
-                return;
-            }
-        }
-
-        int operation;
-        int sourceLow;
-        int sourceHigh;
-        if (!ctx.Read(operation) || !ctx.Read(sourceLow) || !ctx.Read(sourceHigh))
-            return;
-
-        EntityAI source = TransferZServerService.ResolveEntity(sourceLow, sourceHigh);
-        if (!source)
-        {
-            if (operation == TransferZMaintenanceOperation.SORT)
-                SendResult(player, operation, sourceLow, sourceHigh, false);
-            return;
-        }
-
-        if (operation == TransferZMaintenanceOperation.SORT)
-        {
-            int sortResult = Sort(player, source);
-            SendResult(player, operation, sourceLow, sourceHigh, sortResult >= 0);
-            player.UpdateInventoryMenu();
-        }
-        else if (operation == TransferZMaintenanceOperation.STACK)
-        {
-            Stack(player, source);
-            player.UpdateInventoryMenu();
-        }
-    }
 }
