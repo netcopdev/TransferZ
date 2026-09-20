@@ -25,10 +25,6 @@ class TransferZVicinityHeaderControls : Managed
     protected float m_HeaderLabelY;
     protected float m_HeaderLabelW;
     protected float m_HeaderLabelH;
-    protected ImageWidget m_BlockBackground;
-    protected ImageWidget m_DestinationHover;
-    protected ImageWidget m_TransferHover;
-    protected ImageWidget m_UnpackHover;
     protected ImageWidget m_DestinationState;
 
     void TransferZVicinityHeaderControls(Widget parent, VicinitySlotsContainer source, VicinityContainer owner)
@@ -80,20 +76,11 @@ class TransferZVicinityHeaderControls : Managed
         m_UnpackButton = ButtonWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityUnpack"));
         m_TransferStatus = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityTransferStatus"));
         m_UnpackStatus = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityUnpackStatus"));
-        m_BlockBackground = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityBlockBackground"));
-        m_DestinationHover = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityDestinationHover"));
-        m_TransferHover = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityTransferHover"));
-        m_UnpackHover = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityUnpackHover"));
         m_DestinationState = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityDestinationState"));
 
-        PrepareSolidImage(m_BlockBackground, ARGB(105, 0, 0, 0), true);
-        PrepareSolidImage(m_DestinationHover, ARGB(55, 255, 255, 255), false);
-        PrepareSolidImage(m_TransferHover, ARGB(45, 255, 255, 255), false);
-        PrepareSolidImage(m_UnpackHover, ARGB(45, 255, 255, 255), false);
         PrepareSolidImage(m_DestinationState, ARGB(115, 48, 122, 62), false);
         PrepareStatusImage(m_TransferStatus);
         PrepareStatusImage(m_UnpackStatus);
-        PrepareIcons();
 
         RegisterButton(m_DestinationButton, "OnDestination");
         RegisterOperationButton(m_TransferButton, "OnTransfer");
@@ -134,26 +121,6 @@ class TransferZVicinityHeaderControls : Managed
         image.Show(show);
     }
 
-    protected void PrepareIcon(ImageWidget image, string imagePath)
-    {
-        if (!image)
-            return;
-
-        image.LoadImageFile(0, imagePath);
-        image.SetImage(0);
-        image.SetColor(ARGB(235, 235, 235, 235));
-        image.Show(true);
-    }
-
-    protected void PrepareIcons()
-    {
-        PrepareSolidImage(ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityDestinationIconOuter")), ARGB(235, 235, 235, 235), true);
-        PrepareSolidImage(ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityDestinationIconInner")), ARGB(255, 25, 25, 25), true);
-        PrepareSolidImage(ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityDestinationIconCenter")), ARGB(235, 235, 235, 235), true);
-        PrepareIcon(ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityTransferIcon")), "set:dayz_gui image:arrow_int");
-        PrepareIcon(ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_VicinityUnpackIcon")), "set:dayz_gui image:icon_open");
-    }
-
     protected void PrepareStatusImage(ImageWidget image)
     {
         if (!image)
@@ -169,12 +136,6 @@ class TransferZVicinityHeaderControls : Managed
 
         s_Instance.HideTooltip();
         s_Instance.HideOperationStatus();
-        if (s_Instance.m_DestinationHover)
-            s_Instance.m_DestinationHover.Show(false);
-        if (s_Instance.m_TransferHover)
-            s_Instance.m_TransferHover.Show(false);
-        if (s_Instance.m_UnpackHover)
-            s_Instance.m_UnpackHover.Show(false);
         if (s_Instance.m_DropTarget)
             s_Instance.m_DropTarget.Show(false);
     }
@@ -237,11 +198,6 @@ class TransferZVicinityHeaderControls : Managed
 
     // Kept only so the older header helper still compiles on this feature branch.
     // No RMB event path calls it after right-click routing was removed.
-    static bool CompleteRightDragAtWidget(Widget widget)
-    {
-        return false;
-    }
-
     protected void RegisterButton(ButtonWidget button, string clickFunction)
     {
         if (!button)
@@ -497,17 +453,6 @@ class TransferZVicinityHeaderControls : Managed
         ShowOperationStatus(hovered);
     }
 
-    protected ImageWidget HoverImageFor(Widget w)
-    {
-        if (w == m_DestinationButton)
-            return m_DestinationHover;
-        if (w == m_TransferButton)
-            return m_TransferHover;
-        if (w == m_UnpackButton)
-            return m_UnpackHover;
-        return null;
-    }
-
     protected void RestoreHeaderText()
     {
         if (!m_HeaderLabel)
@@ -534,8 +479,6 @@ class TransferZVicinityHeaderControls : Managed
         float blockY = labelY + (labelH - 29.0) * 0.5;
         m_Root.SetScreenPos(labelX, blockY, false);
         m_Root.SetScreenSize(65.0, 29.0, false);
-        if (m_BlockBackground)
-            m_BlockBackground.SetSize(65.0, 27.0, false);
     }
 
     protected void UpdateDropTargetPosition()
@@ -570,9 +513,6 @@ class TransferZVicinityHeaderControls : Managed
     bool OnButtonMouseEnter(Widget w, int x, int y)
     {
         ShowTooltip(w);
-        ImageWidget hover = HoverImageFor(w);
-        if (hover)
-            hover.Show(true);
         if (w == m_TransferButton || w == m_UnpackButton)
             ShowOperationStatus(w);
         return true;
@@ -581,9 +521,6 @@ class TransferZVicinityHeaderControls : Managed
     bool OnButtonMouseLeave(Widget w, Widget enter_w, int x, int y)
     {
         HideTooltip();
-        ImageWidget hover = HoverImageFor(w);
-        if (hover)
-            hover.Show(false);
         if (w == m_TransferButton || w == m_UnpackButton)
             HideOperationStatus();
         return true;
