@@ -82,6 +82,15 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("RollbackExecutedMoves", body)
         self.assertIn("SortWithNativeBuffer", body)
 
+    def test_recovery_buffer_cannot_be_used_as_large_storage(self) -> None:
+        buffer_source = read("Scripts/4_World/TransferZ/TransferZ_SortBuffer.c")
+        receive = function_body(buffer_source, "override bool CanReceiveItemIntoCargo(")
+        takeable = function_body(buffer_source, "override bool IsTakeable(")
+
+        self.assertIn("if (m_RecoveryMode)", receive)
+        self.assertIn("return false;", receive)
+        self.assertIn("return false;", takeable)
+
     def test_sort_buffer_requires_native_source_authorization(self) -> None:
         planner = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")
         authorize = function_body(planner, "protected static bool ValidateBufferedSortAuthorization(")
@@ -98,15 +107,27 @@ class RepositoryContracts(unittest.TestCase):
             fallback.index("CreateSortBuffer(player)"),
         )
 
-    def test_sort_buffer_is_hidden_and_nonpersistent(self) -> None:
+    def test_sort_buffer_is_hidden_normally_but_recoverable(self) -> None:
         buffer_source = read("Scripts/4_World/TransferZ/TransferZ_SortBuffer.c")
         planner = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")
+        config = read("config.cpp")
         create_body = function_body(planner, "protected static TransferZ_SortBuffer CreateSortBuffer(")
+        recover_body = function_body(planner, "protected static bool RecoverBufferedSort(")
 
-        self.assertIn("IsInventoryVisible", buffer_source)
-        self.assertIn("return false;", buffer_source)
-        self.assertIn("ECE_NOPERSISTENCY_WORLD", create_body)
-        self.assertIn("ECE_NOPERSISTENCY_CHAR", create_body)
+        self.assertIn('model = "\\\\dz\\\\gear\\\\camping\\\\wooden_case.p3d";', config)
+        self.assertIn('"DZ_Gear_Camping"', config)
+        self.assertNotIn("ECE_NOPERSISTENCY_WORLD", create_body)
+        self.assertNotIn("ECE_NOPERSISTENCY_CHAR", create_body)
+        self.assertIn("ECE_NOLIFETIME", create_body)
+
+        self.assertIn('RegisterNetSyncVariableBool("m_RecoveryMode")', buffer_source)
+        self.assertIn("override void AfterStoreLoad()", buffer_source)
+        self.assertIn("EnableRecoveryMode()", buffer_source)
+        self.assertIn("return m_RecoveryMode;", buffer_source)
+        self.assertIn("CanReceiveItemIntoCargo", buffer_source)
+
+        self.assertIn("PreserveSortBufferForRecovery", recover_body)
+        self.assertIn("if (bufferEmpty)", recover_body)
 
     def test_rpc_entry_checks_player_state_and_service_rechecks_sender(self) -> None:
         dispatcher = read("Scripts/4_World/TransferZ/TransferZ_CFModule.c")
