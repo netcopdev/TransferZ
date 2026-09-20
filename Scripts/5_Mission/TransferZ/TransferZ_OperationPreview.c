@@ -206,6 +206,14 @@ class TransferZOperationPreview
         if (requiredArea > freeArea)
             return TransferZOperationPreviewResult.PARTIAL;
 
+        // Individual fits plus aggregate free area do not prove that several
+        // items can be packed together without fragmentation. TransferZ's
+        // server moves items authoritatively one-by-one, so only a single-item
+        // cargo preview can honestly claim READY here. A multi-item batch is
+        // advisory PARTIAL/uncertain until the server executes it.
+        if (candidates.Count() > 1)
+            return TransferZOperationPreviewResult.PARTIAL;
+
         return TransferZOperationPreviewResult.READY;
     }
 
