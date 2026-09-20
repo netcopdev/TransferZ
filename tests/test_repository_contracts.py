@@ -92,12 +92,15 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("ECE_NOPERSISTENCY_WORLD", create_body)
         self.assertIn("ECE_NOPERSISTENCY_CHAR", create_body)
 
-    def test_server_rpc_rechecks_sender_and_player_state(self) -> None:
-        source = read("Scripts/4_World/TransferZ/TransferZ_ServerService.c")
-        body = function_body(source, "static void HandleRequest(")
-        self.assertIn("sender.GetId()", body)
-        self.assertIn("playerIdentity.GetId()", body)
-        self.assertIn("CanPlayerManipulate(player)", body)
+    def test_rpc_entry_checks_player_state_and_service_rechecks_sender(self) -> None:
+        dispatcher = read("Scripts/4_World/TransferZ/TransferZ_CFModule.c")
+        dispatcher_body = function_body(dispatcher, "override void OnRPC(")
+        self.assertIn("TransferZServerService.CanPlayerManipulate(player)", dispatcher_body)
+
+        service = read("Scripts/4_World/TransferZ/TransferZ_ServerService.c")
+        service_body = function_body(service, "static void HandleRequest(")
+        self.assertIn("sender.GetId()", service_body)
+        self.assertIn("playerIdentity.GetId()", service_body)
 
     def test_diag_fixture_has_machine_readable_suite_marker(self) -> None:
         fixture = read("test/TransferZTest.ChernarusPlus/init.c")
