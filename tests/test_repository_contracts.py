@@ -82,6 +82,18 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("RollbackExecutedMoves", body)
         self.assertIn("SortWithNativeBuffer", body)
 
+    def test_dayzdiag_fixture_exercises_recovery_buffer_mode(self) -> None:
+        mission = read("test/TransferZTest.ChernarusPlus/init.c")
+        recovery = function_body(mission, "void TZTest_RunRecoveryBufferSelfTest(")
+        suite = function_body(mission, "void TZTest_RunSelfTests(")
+
+        self.assertIn('CreateObjectEx("TransferZ_SortBuffer"', recovery)
+        self.assertIn("EnableRecoveryMode()", recovery)
+        self.assertIn("CanDisplayCargo()", recovery)
+        self.assertIn("IsInventoryVisible()", recovery)
+        self.assertIn("CanReceiveItemIntoCargo", recovery)
+        self.assertIn("TZTest_RunRecoveryBufferSelfTest(player)", suite)
+
     def test_recovery_buffer_cannot_be_used_as_large_storage(self) -> None:
         buffer_source = read("Scripts/4_World/TransferZ/TransferZ_SortBuffer.c")
         receive = function_body(buffer_source, "override bool CanReceiveItemIntoCargo(")
