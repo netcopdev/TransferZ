@@ -23,6 +23,6 @@ This applies to normal cargo containers generally; it is not limited to containe
 
 ## Native execution
 
-Cargo destination checks use `FindFirstFreeLocationForNewEntity` because splitting creates a new entity. `VICINITY` uses DayZ's native ground-position resolution. The chosen destination is then passed through DayZ's native `INPUT_UDT_ITEM_MANIPULATION` split path rather than recreating an item or manually copying quantity/state.
+Cargo destination checks mirror vanilla DayZ right-click splitting and use `FindFreeLocationFor(this, FindInventoryLocationType.CARGO, ...)`, preserving the native placement search including a returned rotated (`flip`) cargo location when available. `VICINITY` uses DayZ's native ground-position resolution. The chosen destination is then passed through DayZ's native `INPUT_UDT_ITEM_MANIPULATION` split path rather than recreating an item or manually copying quantity/state.
 
 The lower-level split hook lives in `4_World`. The mission-side `TransferZClientState` mirrors only its already-validated transient `D*` state into the split bridge whenever destination state is set, queried, cleared, or revalidated. This avoids trying to mod `ItemBase` from the Mission script module while keeping split routing consistent with the visible active destination. Preferred state continues to come from the same `$profile:TransferZ/preferences.json` data used by the normal preferred-destination feature.
