@@ -810,6 +810,17 @@ class TransferZSortPlanner : TransferZMaintenanceService
             return false;
         if (record.width != blocker.width || record.height != blocker.height)
             return false;
+
+        // Grouping identical items deliberately creates exchanges between
+        // different classes with the same footprint. Do not use DayZ's native
+        // direct-swap command for those exchanges: on a dedicated server its
+        // result is not guaranteed to be synchronously observable by the
+        // transactional verifier. Let the planner evacuate through free cargo
+        // space instead; if no bounded in-cargo path exists, the transactional
+        // sorter will use its native hidden cargo buffer fallback.
+        if (record.typeHash != blocker.typeHash)
+            return false;
+
         if (!GameInventory.CanSwapEntitiesEx(record.item, blocker.item))
             return false;
 
