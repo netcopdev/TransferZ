@@ -1,6 +1,6 @@
 # Sort behavior
 
-TransferZ Sort is a server-authoritative rearrangement of a container's direct cargo children. It never deletes or recreates sorted items: the same `EntityAI` objects are moved through DayZ's native inventory system between exact cells of the source cargo until the planned layout is reached.
+TransferZ Sort is a server-authoritative rearrangement of one selected cargo grid. It never deletes or recreates sorted items: the same `EntityAI` objects are moved through DayZ's native inventory system between exact cells of that grid until the planned layout is reached.
 
 ## Layout policy
 
@@ -19,7 +19,7 @@ The target layout is deterministic and rotation-aware.
 
 ## Transactional execution
 
-Sort snapshots the exact original row, column and orientation of every direct cargo child before any move. It computes the complete target layout and a bounded rearrangement plan before execution. If the target layout already matches the snapshot, Sort is a successful no-op.
+Sort snapshots the exact original cargo index, row, column and orientation of every item in the selected grid before any move. It computes the complete target layout and a bounded rearrangement plan before execution. If the target layout already matches the snapshot, Sort is a successful no-op.
 
 Planning is entirely virtual. A cloned record set is used while the planner resolves blockers and cycles, so the authoritative original snapshot remains unchanged for rollback verification. The planner uses genuinely free cells inside the **same cargo grid** as temporary parking when a direct target move is blocked. In single-player, when a target is occupied by one compatible equal-size item of the same class, TransferZ can instead plan DayZ's synchronous native atomic inventory swap. Multiplayer/dedicated-server Sort deliberately does not plan direct swaps because DayZ's server swap command is asynchronous while the transactional executor verifies each step immediately. Multiplayer therefore resolves blockers through ordinary in-cargo evacuation moves and falls back to the transactional hidden buffer when no bounded in-cargo path exists.
 
@@ -33,4 +33,4 @@ Normal world-drop physics and vicinity/drop callbacks are therefore not part of 
 
 ## UI feedback
 
-A failed Sort request is reported back to the requesting client. The Sort button's full background flashes red for 500 ms and is cleared by a scheduled GUI callback. An already-sorted container or a container with fewer than two direct cargo items is a successful no-op and does not show the failure flash.
+A failed Sort request is reported back to the requesting client together with the owning entity and cargo-grid index. The matching Sort button's full background flashes red for 500 ms and is cleared by a scheduled GUI callback. An already-sorted container or a container with fewer than two direct cargo items is a successful no-op and does not show the failure flash.
