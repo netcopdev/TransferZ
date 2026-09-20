@@ -336,6 +336,8 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
             return false;
         if (!GameInventory.LocationCanMoveEntity(src, dst))
             return false;
+        if (TransferZServerService.HasNativeInventoryJuncture(item))
+            return false;
 
         InventoryMode moveMode = InventoryMode.SERVER;
         if (!GetGame().IsMultiplayer())
@@ -364,6 +366,8 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         if (humanInventory && humanInventory.GetUserReservedLocationCount() > 0 && humanInventory.FindCollidingUserReservedLocationIndex(item, dst) >= 0)
             return false;
         if (!GameInventory.LocationCanMoveEntity(src, dst))
+            return false;
+        if (TransferZServerService.HasNativeInventoryJuncture(item))
             return false;
 
         InventoryMode moveMode = InventoryMode.SERVER;
@@ -674,6 +678,15 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         int sourceHigh;
         if (!ctx.Read(operation) || !ctx.Read(sourceLow) || !ctx.Read(sourceHigh))
             return;
+
+        if (operation != TransferZMaintenanceOperation.SORT && operation != TransferZMaintenanceOperation.STACK)
+            return;
+
+        if (!AcceptServerMaintenanceRequest(player))
+        {
+            Print("[TransferZ] Maintenance RPC throttled for player=" + player.GetIdentity().GetId());
+            return;
+        }
 
         EntityAI source = TransferZServerService.ResolveEntity(sourceLow, sourceHigh);
         if (!source)

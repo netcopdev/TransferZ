@@ -32,6 +32,14 @@ class TransferZServerService
         return true;
     }
 
+    // DayZ owns inventory contention. TransferZ never acquires a parallel lock;
+    // it simply refuses to mutate an item that is already covered by a native
+    // inventory juncture.
+    static bool HasNativeInventoryJuncture(EntityAI item)
+    {
+        return item && GetGame().HasInventoryJunctureItem(item);
+    }
+
     // Validate every cargo hop, not only the direct source/destination. This
     // prevents an RPC from reaching through closed/hidden nested containers.
     static bool IsCargoChainAccessible(EntityAI entity)
@@ -157,6 +165,9 @@ class TransferZServerService
         if (!GameInventory.LocationCanMoveEntity(src, dst))
             return MoveFailure("native location move validation failed", item, destination);
 
+        if (HasNativeInventoryJuncture(item))
+            return MoveFailure("native inventory juncture active", item, destination);
+
         InventoryMode moveMode = InventoryMode.SERVER;
         if (!GetGame().IsMultiplayer())
             moveMode = InventoryMode.LOCAL;
@@ -203,6 +214,9 @@ class TransferZServerService
         // drop so remote/inaccessible cargo cannot be manipulated.
         if (!GameInventory.CheckDropRequest(player, src, GameInventory.c_MaxItemDistanceRadius))
             return MoveFailure("CheckDropRequest failed", item, null);
+
+        if (HasNativeInventoryJuncture(item))
+            return MoveFailure("native inventory juncture active", item, null);
 
         InventoryMode moveMode = InventoryMode.SERVER;
         if (!GetGame().IsMultiplayer())
