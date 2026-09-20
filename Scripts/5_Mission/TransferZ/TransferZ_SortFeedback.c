@@ -3,6 +3,7 @@ modded class TransferZHeaderControls
     protected int m_TransferZSeenMaintenanceResult;
     protected int m_TransferZSortFailureUntil;
     protected EntityAI m_TransferZFeedbackEntity;
+    protected int m_TransferZFeedbackCargoIndex = -1;
     protected ImageWidget m_TransferZSortFailureBackground;
 
     protected ImageWidget TransferZGetSortFailureBackground()
@@ -68,7 +69,7 @@ modded class TransferZHeaderControls
         m_TransferZSeenMaintenanceResult = sequence;
         if (TransferZMaintenanceResultState.GetOperation() != TransferZMaintenanceOperation.SORT)
             return;
-        if (!TransferZMaintenanceResultState.MatchesSource(m_Entity))
+        if (!TransferZMaintenanceResultState.MatchesSource(m_Entity, m_CargoIndex))
             return;
 
         if (TransferZMaintenanceResultState.WasSuccessful())
@@ -78,16 +79,17 @@ modded class TransferZHeaderControls
         TransferZTriggerSortFailureVisual();
     }
 
-    override void SetEntity(EntityAI entity)
+    override void SetEntity(EntityAI entity, int cargoIndex = 0)
     {
-        if (entity != m_TransferZFeedbackEntity)
+        if (entity != m_TransferZFeedbackEntity || cargoIndex != m_TransferZFeedbackCargoIndex)
         {
             m_TransferZFeedbackEntity = entity;
+            m_TransferZFeedbackCargoIndex = cargoIndex;
             m_TransferZSeenMaintenanceResult = TransferZMaintenanceResultState.GetSequence();
             TransferZResetSortFailureVisual();
         }
 
-        super.SetEntity(entity);
+        super.SetEntity(entity, cargoIndex);
     }
 
     override void UpdateControls()
@@ -127,7 +129,7 @@ modded class TransferZHeaderControls
     {
         if (button != MouseState.LEFT || !m_Entity)
             return;
-        TransferZMaintenanceClient.RequestSort(m_Entity);
+        TransferZMaintenanceClient.RequestSort(m_Entity, m_CargoIndex);
 
         // DayZDiag/single-player resolves synchronously; multiplayer resolves later via RPC.
         // Failure feedback comes only from the published result so it is not double-triggered.
