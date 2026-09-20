@@ -6,7 +6,7 @@ class TransferZUnpackScanBudget
 
 class TransferZServerService
 {
-    static const int MAX_BATCH_ITEMS = 512;
+    static const int MAX_BATCH_ITEMS = 1024;
     static const int MAX_UNPACK_SCAN_NODES = 2048;
     static const int MAX_UNPACK_DEPTH = 32;
 
@@ -633,10 +633,6 @@ class TransferZServerService
         if (sourceCargoIndex < 0 || destinationCargoIndex < 0)
             return;
 
-        EntityAI source = ResolveEntity(sourceLow, sourceHigh);
-        EntityAI destination = ResolveEntity(destinationLow, destinationHigh);
-        EntityAI item = ResolveEntity(itemLow, itemHigh);
-
         if (!CanPlayerManipulate(player))
             return;
 
@@ -645,6 +641,10 @@ class TransferZServerService
             Print("[TransferZ] RPC throttled");
             return;
         }
+
+        EntityAI source = ResolveEntity(sourceLow, sourceHigh);
+        EntityAI destination = ResolveEntity(destinationLow, destinationHigh);
+        EntityAI item = ResolveEntity(itemLow, itemHigh);
 
         if (destinationIsVicinity)
         {
