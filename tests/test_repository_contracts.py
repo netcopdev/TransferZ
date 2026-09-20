@@ -162,6 +162,19 @@ class RepositoryContracts(unittest.TestCase):
             fallback.index("CreateSortBuffer(player)"),
         )
 
+    def test_sort_buffer_capacity_is_a_single_hard_limit(self) -> None:
+        planner = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")
+        config = read("config.cpp")
+        fallback = function_body(planner, "protected static int SortWithNativeBuffer(")
+
+        self.assertNotIn("TransferZ_SortBufferWide", config)
+        self.assertNotIn("MAX_SORT_BUFFER_COUNT", planner)
+        self.assertNotIn("TryMoveToSortBufferPool", planner)
+        self.assertEqual(fallback.count("CreateSortBuffer(player)"), 1)
+        self.assertIn("if (!TryMoveToSortBuffer(player, source, layoutRecord.cargoIndex, buffer, layoutRecord.item))", fallback)
+        self.assertIn("Sort buffer fallback failed during staging", fallback)
+        self.assertIn("return -1;", fallback)
+
     def test_sort_buffer_is_hidden_normally_but_recoverable(self) -> None:
         buffer_source = read("Scripts/4_World/TransferZ/TransferZ_SortBuffer.c")
         planner = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")
