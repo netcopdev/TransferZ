@@ -82,6 +82,22 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("RollbackExecutedMoves", body)
         self.assertIn("SortWithNativeBuffer", body)
 
+    def test_sort_buffer_requires_native_source_authorization(self) -> None:
+        planner = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")
+        authorize = function_body(planner, "protected static bool ValidateBufferedSortAuthorization(")
+        stage = function_body(planner, "protected static bool TryMoveToSortBuffer(")
+        restore = function_body(planner, "protected static bool TryMoveFromSortBuffer(")
+        fallback = function_body(planner, "protected static int SortWithNativeBuffer(")
+
+        self.assertIn("GameInventory.CheckRequestSrc", authorize)
+        self.assertIn("GameInventory.CheckRequestSrc", stage)
+        self.assertIn("TransferZServerService.IsReachable(player, source)", restore)
+        self.assertIn("ValidateBufferedSortAuthorization(player, source, originalRecords)", fallback)
+        self.assertLess(
+            fallback.index("ValidateBufferedSortAuthorization(player, source, originalRecords)"),
+            fallback.index("CreateSortBuffer(player)"),
+        )
+
     def test_sort_buffer_is_hidden_and_nonpersistent(self) -> None:
         buffer_source = read("Scripts/4_World/TransferZ/TransferZ_SortBuffer.c")
         planner = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")
