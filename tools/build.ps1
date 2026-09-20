@@ -210,7 +210,8 @@ if (Test-Path -LiteralPath $metaCpp -PathType Leaf) {
 $releasePbo = Join-Path $releaseAddons "TransferZ.pbo"
 $releaseBisign = Join-Path $releaseAddons $signature.Name
 $releaseBikey = Join-Path $releaseKeys ([System.IO.Path]::GetFileName($publicKeyPath))
-if (-not (Test-Path -LiteralPath $releasePbo -PathType Leaf) -or -not (Test-Path -LiteralPath $releaseBisign -PathType Leaf) -or -not (Test-Path -LiteralPath $releaseBikey -PathType Leaf)) {
+$releaseMeta = Join-Path $releaseModRoot "meta.cpp"
+if (-not (Test-Path -LiteralPath $releasePbo -PathType Leaf) -or -not (Test-Path -LiteralPath $releaseBisign -PathType Leaf) -or -not (Test-Path -LiteralPath $releaseBikey -PathType Leaf) -or -not (Test-Path -LiteralPath $releaseMeta -PathType Leaf)) {
     throw "Release package verification failed."
 }
 
