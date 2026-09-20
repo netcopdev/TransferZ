@@ -64,7 +64,8 @@ class TransferZOperationPreview
         if (!container)
             return;
 
-        for (int cargoIndex = 0; ; cargoIndex++)
+        int cargoIndex = 0;
+        while (true)
         {
             CargoBase cargo = TransferZCargo.Get(container, cargoIndex);
             if (!cargo)
@@ -81,6 +82,8 @@ class TransferZOperationPreview
                 else
                     leaves.Insert(item);
             }
+
+            cargoIndex++;
         }
     }
 

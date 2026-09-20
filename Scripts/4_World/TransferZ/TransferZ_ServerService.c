@@ -302,7 +302,8 @@ class TransferZServerService
             return false;
         }
 
-        for (int cargoIndex = 0; ; cargoIndex++)
+        int cargoIndex = 0;
+        while (true)
         {
             CargoBase cargo = TransferZCargo.Get(container, cargoIndex);
             if (!cargo)
@@ -327,6 +328,8 @@ class TransferZServerService
                     return false;
                 }
             }
+
+            cargoIndex++;
         }
 
         return true;

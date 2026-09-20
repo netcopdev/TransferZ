@@ -33,6 +33,26 @@ def function_body(source: str, signature_fragment: str) -> str:
 
 
 class RepositoryContracts(unittest.TestCase):
+    def test_enforce_for_loops_do_not_use_empty_conditions(self) -> None:
+        pattern = re.compile(r"for\\s*\\([^;\\n]*;\\s*;")
+        offenders: list[str] = []
+
+        for root_name in ("Scripts", "test"):
+            root = ROOT / root_name
+            if not root.exists():
+                continue
+            for path in sorted(root.rglob("*.c")):
+                relative = path.relative_to(ROOT)
+                for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                    if pattern.search(line):
+                        offenders.append(f"{relative}:{line_number}: {line.strip()}")
+
+        self.assertEqual(
+            [],
+            offenders,
+            "Enforce Script rejects C/C++-style for loops with an empty condition:\n" + "\n".join(offenders),
+        )
+
     def test_version_is_synchronized(self) -> None:
         version = read("VERSION").strip()
         config = read("config.cpp")
