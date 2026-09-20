@@ -651,24 +651,49 @@ class TransferZMaintenanceService
         for (int targetIndex = 0; targetIndex < items.Count(); targetIndex++)
         {
             ItemBase target = ItemBase.Cast(items.Get(targetIndex));
-            if (!IsLiveStackItem(target) || !IsDirectCargoItem(source, target))
+            if (!IsLiveStackItem(target))
                 continue;
 
-            InventoryLocation targetLocation = new InventoryLocation();
-            if (!target.GetInventory().GetCurrentInventoryLocation(targetLocation) || !GameInventory.CheckRequestSrc(player, targetLocation, GameInventory.c_MaxItemDistanceRadius))
-                continue;
+            // Most pairs in a mixed inventory cannot combine. Defer the target's
+            // current-location/native-source validation until the first donor
+            // that DayZ itself reports as combinable, then reuse that validation
+            // for the rest of this target just as the previous implementation did.
+            bool targetValidated = false;
 
             for (int sourceIndex = targetIndex + 1; sourceIndex < items.Count(); sourceIndex++)
             {
                 ItemBase donor = ItemBase.Cast(items.Get(sourceIndex));
-                if (!IsLiveStackItem(donor) || !IsDirectCargoItem(source, donor))
+                if (!IsLiveStackItem(donor))
+                    continue;
+
+                // CanBeCombined is the authoritative cheap compatibility gate.
+                // Do not infer compatibility from class names: modded items may
+                // legitimately combine across different concrete types.
+                if (!target.CanBeCombined(donor, false, false))
+                    continue;
+
+                if (!targetValidated)
+                {
+                    if (!IsDirectCargoItem(source, target))
+                        break;
+
+                    InventoryLocation targetLocation = new InventoryLocation();
+                    if (!target.GetInventory().GetCurrentInventoryLocation(targetLocation) || !GameInventory.CheckRequestSrc(player, targetLocation, GameInventory.c_MaxItemDistanceRadius))
+                        break;
+
+                    targetValidated = true;
+                }
+
+                // Only compatible pairs pay the current-location and native
+                // request-validation cost. These checks remain immediately ahead
+                // of mutation so stale/deleted/moved donors still fail closed.
+                if (!IsDirectCargoItem(source, donor))
                     continue;
 
                 InventoryLocation donorLocation = new InventoryLocation();
                 if (!donor.GetInventory().GetCurrentInventoryLocation(donorLocation) || !GameInventory.CheckRequestSrc(player, donorLocation, GameInventory.c_MaxItemDistanceRadius))
                     continue;
-                if (!target.CanBeCombined(donor, false, false))
-                    continue;
+
                 if (TransferZServerService.HasNativeInventoryJuncture(target) || TransferZServerService.HasNativeInventoryJuncture(donor))
                     continue;
 
