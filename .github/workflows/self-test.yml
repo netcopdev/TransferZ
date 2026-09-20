@@ -23,6 +23,9 @@ jobs:
       - name: Compile test tooling
         run: python -m compileall -q tools tests
 
+      - name: Check version metadata
+        run: python tools/version_metadata.py --check
+
       - name: Run TransferZ self-tests
         run: python tools/self_test.py
 

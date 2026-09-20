@@ -1,29 +1,59 @@
-class TransferZSplitPreferences
-{
-    string preferred_slot = "";
-    ref array<string> preferred_path;
-    int preferred_cargo_index = 0;
-
-    void TransferZSplitPreferences()
-    {
-        preferred_path = new array<string>();
-    }
-}
-
 class TransferZSplitPreferenceResolver
 {
     static const string PREFERENCES_PATH = "$profile:TransferZ/preferences.json";
+
+    protected static ref TransferZPreferences s_Preferences;
+    protected static bool s_LoadAttempted;
+
+    static void Update(string preferredSlot, array<string> preferredPath, int preferredCargoIndex)
+    {
+        ref TransferZPreferences preferences = new TransferZPreferences();
+        preferences.preferred_slot = preferredSlot;
+        preferences.preferred_cargo_index = preferredCargoIndex;
+
+        if (preferredPath)
+        {
+            foreach (string slotName : preferredPath)
+                preferences.preferred_path.Insert(slotName);
+        }
+
+        s_Preferences = preferences;
+        s_LoadAttempted = true;
+    }
+
+    protected static void EnsureLoaded()
+    {
+        if (s_LoadAttempted)
+            return;
+
+        s_LoadAttempted = true;
+        s_Preferences = new TransferZPreferences();
+        if (!FileExist(PREFERENCES_PATH))
+            return;
+
+        string errorMessage;
+        ref TransferZPreferences loaded = new TransferZPreferences();
+        if (!JsonFileLoader<TransferZPreferences>.LoadFile(PREFERENCES_PATH, loaded, errorMessage) || !loaded)
+        {
+            Print("[TransferZ] Failed to load split preferences: " + errorMessage);
+            return;
+        }
+
+        if (!loaded.preferred_path)
+            loaded.preferred_path = new array<string>();
+        s_Preferences = loaded;
+    }
 
     static EntityAI Resolve(PlayerBase player, out bool configured, out int cargoIndex)
     {
         configured = false;
         cargoIndex = 0;
-        if (!player || !FileExist(PREFERENCES_PATH))
+        if (!player)
             return null;
 
-        string errorMessage;
-        ref TransferZSplitPreferences preferences = new TransferZSplitPreferences();
-        if (!JsonFileLoader<TransferZSplitPreferences>.LoadFile(PREFERENCES_PATH, preferences, errorMessage) || !preferences)
+        EnsureLoaded();
+        TransferZPreferences preferences = s_Preferences;
+        if (!preferences)
             return null;
 
         cargoIndex = preferences.preferred_cargo_index;

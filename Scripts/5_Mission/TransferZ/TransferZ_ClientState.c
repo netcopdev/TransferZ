@@ -1,15 +1,3 @@
-class TransferZPreferences
-{
-    string preferred_slot = "";
-    ref array<string> preferred_path;
-    int preferred_cargo_index = 0;
-
-    void TransferZPreferences()
-    {
-        preferred_path = new array<string>();
-    }
-}
-
 class TransferZClientState
 {
     static const string PROFILE_DIR = "$profile:TransferZ";
@@ -50,27 +38,49 @@ class TransferZClientState
         LoadPreferences();
     }
 
+    protected void SyncSplitPreferences()
+    {
+        if (!m_Preferences)
+            m_Preferences = new TransferZPreferences();
+        if (!m_Preferences.preferred_path)
+            m_Preferences.preferred_path = new array<string>();
+
+        TransferZSplitPreferenceResolver.Update(m_Preferences.preferred_slot, m_Preferences.preferred_path, m_Preferences.preferred_cargo_index);
+    }
+
     protected void LoadPreferences()
     {
         MakeDirectory(PROFILE_DIR);
         if (!FileExist(PREFERENCES_PATH))
+        {
+            SyncSplitPreferences();
             return;
+        }
 
         string errorMessage;
         ref TransferZPreferences loaded = new TransferZPreferences();
-        if (JsonFileLoader<TransferZPreferences>.LoadFile(PREFERENCES_PATH, loaded, errorMessage) && loaded)
+        if (!JsonFileLoader<TransferZPreferences>.LoadFile(PREFERENCES_PATH, loaded, errorMessage) || !loaded)
         {
-            if (!loaded.preferred_path)
-                loaded.preferred_path = new array<string>();
-            m_Preferences = loaded;
+            Print("[TransferZ] Failed to load preferences: " + errorMessage);
+            SyncSplitPreferences();
+            return;
         }
+
+        if (!loaded.preferred_path)
+            loaded.preferred_path = new array<string>();
+        m_Preferences = loaded;
+        SyncSplitPreferences();
     }
 
     protected void SavePreferences()
     {
         MakeDirectory(PROFILE_DIR);
+        SyncSplitPreferences();
+
         string errorMessage;
         JsonFileLoader<TransferZPreferences>.SaveFile(PREFERENCES_PATH, m_Preferences, errorMessage);
+        if (errorMessage != "")
+            Print("[TransferZ] Failed to save preferences: " + errorMessage);
     }
 
     protected bool IsParticipantReachable(EntityAI entity, int cargoIndex = 0)

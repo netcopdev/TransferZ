@@ -37,13 +37,18 @@ class RepositoryContracts(unittest.TestCase):
         version = read("VERSION").strip()
         config = read("config.cpp")
         mod = read("mod.cpp")
+        readme = read("README.md")
 
         config_match = re.search(r'\bversion\s*=\s*"([^"]+)"', config)
         mod_match = re.search(r'\bversion\s*=\s*"([^"]+)"', mod)
+        readme_match = re.search(r"Current version:\s*\*\*([^*]+)\*\*\.", readme)
         self.assertIsNotNone(config_match)
         self.assertIsNotNone(mod_match)
+        self.assertIsNotNone(readme_match)
         self.assertEqual(version, config_match.group(1))
         self.assertEqual(version, mod_match.group(1))
+        self.assertEqual(version, readme_match.group(1))
+        self.assertTrue((ROOT / "tools/version_metadata.py").is_file())
 
     def test_runtime_script_roots_do_not_pack_test_fixture(self) -> None:
         config = read("config.cpp")
@@ -97,6 +102,29 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("BuildSortPlanFromTargetsV4", planner)
         self.assertIn("SortRecordsV4(originalRecords)", transactional)
         self.assertIn("BuildSortPlanFromTargetsV4", transactional)
+
+    def test_native_split_preferences_are_session_cached(self) -> None:
+        shared = read("Scripts/3_Game/TransferZ/TransferZ_Preferences.c")
+        client = read("Scripts/5_Mission/TransferZ/TransferZ_ClientState.c")
+        split = read("Scripts/4_World/TransferZ/TransferZ_InHandsSplitRouting.c")
+
+        self.assertIn("class TransferZPreferences", shared)
+        self.assertNotIn("class TransferZPreferences", client)
+        self.assertNotIn("class TransferZSplitPreferences", split)
+
+        load = function_body(client, "protected void LoadPreferences(")
+        save = function_body(client, "protected void SavePreferences(")
+        sync = function_body(client, "protected void SyncSplitPreferences(")
+        ensure = function_body(split, "protected static void EnsureLoaded(")
+        resolve = function_body(split, "static EntityAI Resolve(")
+
+        self.assertIn("Failed to load preferences", load)
+        self.assertIn("Failed to save preferences", save)
+        self.assertIn("TransferZSplitPreferenceResolver.Update", sync)
+        self.assertIn("s_LoadAttempted", ensure)
+        self.assertIn("JsonFileLoader<TransferZPreferences>.LoadFile", ensure)
+        self.assertNotIn("JsonFileLoader", resolve)
+        self.assertIn("EnsureLoaded()", resolve)
 
     def test_batch_preview_does_not_claim_joint_fit_from_area_alone(self) -> None:
         preview = read("Scripts/5_Mission/TransferZ/TransferZ_OperationPreview.c")
@@ -236,7 +264,7 @@ class RepositoryContracts(unittest.TestCase):
             handle.index("ResolveEntity(sourceLow, sourceHigh)"),
         )
 
-        nested = read("Scripts/4_World/TransferZ/TransferZ_ServerService_20_NestedUnpack.c")
+        nested = read("Scripts/4_World/TransferZ/TransferZ_NestedUnpackService.c")
         nested_handle = function_body(nested, "static void HandleRequest(")
         self.assertIn("TransferZRequestGuard.AcceptStandard(player)", nested_handle)
         self.assertLess(
@@ -270,7 +298,7 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("ConsumeUnpackScanNode", collect)
         self.assertIn("AppendUnpackLeaf", collect)
 
-        nested = read("Scripts/4_World/TransferZ/TransferZ_ServerService_20_NestedUnpack.c")
+        nested = read("Scripts/4_World/TransferZ/TransferZ_NestedUnpackService.c")
         nested_collect = function_body(nested, "static bool CollectNestedLeaves(")
         self.assertIn("ConsumeUnpackScanNode", nested_collect)
         self.assertIn("CollectUnpackLeaves", nested_collect)
@@ -340,6 +368,10 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("GetCargoIndex()", route)
         self.assertIn("sourceCargoIndex", route)
         self.assertIn("preferredCargoIndex", route)
+
+    def test_nested_unpack_uses_descriptive_source_filename(self) -> None:
+        self.assertTrue((ROOT / "Scripts/4_World/TransferZ/TransferZ_NestedUnpackService.c").is_file())
+        self.assertFalse((ROOT / "Scripts/4_World/TransferZ/TransferZ_ServerService_20_NestedUnpack.c").exists())
 
     def test_diag_fixture_has_machine_readable_suite_marker(self) -> None:
         fixture = read("test/TransferZTest.ChernarusPlus/init.c")
