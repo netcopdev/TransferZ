@@ -23,7 +23,7 @@ Active PR stack: **#41–#48, then #50–#52**. PR #49 was closed after review a
 
 ## Validation
 
-The active stack was rebuilt from the original known-good PR trees after review, overlaying only the accepted rollback policy and removing #49. Fresh CI is required on the rewritten heads before merge.
+The active stack was rebuilt from the original known-good PR trees after review, overlaying only the accepted rollback policy and removing #49. Fresh GitHub Self-test runs passed on every rewritten active head: #44 run 169, #45 run 184, #46 run 186, #47 run 188, #48 run 190, #50 run 192, #51 run 194, and #52 run 196.
 
 No real DayZ compile/runtime is claimed for this checkpoint from the connector environment. The repository contains `tools/run-transferz-self-test.ps1` and the DayZDiag fixture for an exact-build runtime gate on a Windows machine with DayZ/DayZDiag and CF installed.
 
@@ -36,4 +36,4 @@ No real DayZ compile/runtime is claimed for this checkpoint from the connector e
 
 ## Next concrete action
 
-Verify fresh CI for the rewritten active stack. If green, it is ready for explicit merge approval. Do not merge without that approval.
+The rewritten active stack is green and ready for explicit merge approval. Do not merge without that approval.
