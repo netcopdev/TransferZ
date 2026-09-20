@@ -25,34 +25,11 @@ class TransferZSortMove
 
 class TransferZMaintenanceService
 {
-    protected static const int SERVER_MAINTENANCE_THROTTLE_MS = 250;
-    protected static ref map<string, int> s_LastMaintenanceRequestTime = new map<string, int>();
-
     // This is server-load protection only. Inventory validity remains governed
     // by DayZ's native request/location checks and juncture state.
     protected static bool AcceptServerMaintenanceRequest(PlayerBase player)
     {
-        if (!GetGame().IsMultiplayer())
-            return true;
-        if (!player)
-            return false;
-
-        PlayerIdentity identity = player.GetIdentity();
-        if (!identity)
-            return false;
-
-        string playerId = identity.GetId();
-        int now = GetGame().GetTime();
-        if (s_LastMaintenanceRequestTime.Contains(playerId))
-        {
-            int last = s_LastMaintenanceRequestTime.Get(playerId);
-            int elapsed = now - last;
-            if (elapsed >= 0 && elapsed < SERVER_MAINTENANCE_THROTTLE_MS)
-                return false;
-        }
-
-        s_LastMaintenanceRequestTime.Set(playerId, now);
-        return true;
+        return TransferZRequestGuard.AcceptMaintenance(player);
     }
 
     protected static bool IsDirectCargoItem(EntityAI source, EntityAI item, int sourceCargoIndex)
