@@ -674,24 +674,27 @@ class TransferZMaintenanceService
 
                 if (!targetValidated)
                 {
-                    if (!IsDirectCargoItem(source, target))
-                        break;
-
                     InventoryLocation targetLocation = new InventoryLocation();
-                    if (!target.GetInventory().GetCurrentInventoryLocation(targetLocation) || !GameInventory.CheckRequestSrc(player, targetLocation, GameInventory.c_MaxItemDistanceRadius))
+                    if (!target.GetInventory().GetCurrentInventoryLocation(targetLocation))
+                        break;
+                    if (targetLocation.GetType() != InventoryLocationType.CARGO || targetLocation.GetParent() != source)
+                        break;
+                    if (!GameInventory.CheckRequestSrc(player, targetLocation, GameInventory.c_MaxItemDistanceRadius))
                         break;
 
                     targetValidated = true;
                 }
 
                 // Only compatible pairs pay the current-location and native
-                // request-validation cost. These checks remain immediately ahead
-                // of mutation so stale/deleted/moved donors still fail closed.
-                if (!IsDirectCargoItem(source, donor))
-                    continue;
-
+                // request-validation cost. Read the location once, then verify
+                // both direct-cargo ownership and DayZ's authoritative source
+                // request before mutation.
                 InventoryLocation donorLocation = new InventoryLocation();
-                if (!donor.GetInventory().GetCurrentInventoryLocation(donorLocation) || !GameInventory.CheckRequestSrc(player, donorLocation, GameInventory.c_MaxItemDistanceRadius))
+                if (!donor.GetInventory().GetCurrentInventoryLocation(donorLocation))
+                    continue;
+                if (donorLocation.GetType() != InventoryLocationType.CARGO || donorLocation.GetParent() != source)
+                    continue;
+                if (!GameInventory.CheckRequestSrc(player, donorLocation, GameInventory.c_MaxItemDistanceRadius))
                     continue;
 
                 if (TransferZServerService.HasNativeInventoryJuncture(target) || TransferZServerService.HasNativeInventoryJuncture(donor))
