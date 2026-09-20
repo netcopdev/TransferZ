@@ -298,6 +298,33 @@ void TZTest_RunSortSelfTest(PlayerBase player)
     TZTest_DeleteFixture(source);
 }
 
+void TZTest_RunRecoveryBufferSelfTest(PlayerBase player)
+{
+    vector basePos = player.GetPosition();
+    TransferZ_SortBuffer buffer = TransferZ_SortBuffer.Cast(GetGame().CreateObjectEx("TransferZ_SortBuffer", basePos + "2.2 0 -1.2", ECE_SETUP | ECE_KEEPHEIGHT | ECE_NOLIFETIME));
+    TZTest_Check(buffer != null, "recovery buffer fixture created");
+    if (!buffer)
+        return;
+
+    EntityAI stranded = TZTest_CreateItem(buffer, "Apple");
+    TZTest_Check(stranded != null, "recovery buffer accepts staging cargo before recovery");
+    TZTest_Check(!buffer.IsRecoveryMode(), "recovery buffer starts in staging mode");
+    TZTest_Check(!buffer.CanDisplayCargo(), "staging buffer cargo is hidden");
+    TZTest_Check(!buffer.IsInventoryVisible(), "staging buffer inventory is hidden");
+
+    buffer.EnableRecoveryMode();
+
+    TZTest_Check(buffer.IsRecoveryMode(), "recovery buffer switches to recovery mode");
+    TZTest_Check(buffer.CanDisplayCargo(), "recovery buffer cargo becomes visible");
+    TZTest_Check(buffer.IsInventoryVisible(), "recovery buffer inventory becomes visible");
+    TZTest_Check(!buffer.CanReceiveItemIntoCargo(stranded), "recovery buffer rejects new cargo");
+    TZTest_Check(!buffer.IsTakeable(), "recovery buffer remains non-takeable");
+    TZTest_Check(TZTest_IsDirectCargoChild(buffer, stranded), "recovery buffer preserves stranded item identity");
+
+    TZTest_DeleteFixture(buffer);
+}
+
+
 void TZTest_RunSelfTests(PlayerBase player)
 {
     g_TZTestFailures = 0;
@@ -308,6 +335,7 @@ void TZTest_RunSelfTests(PlayerBase player)
     TZTest_RunClassTransferSelfTest(player);
     TZTest_RunStackSelfTest(player);
     TZTest_RunSortSelfTest(player);
+    TZTest_RunRecoveryBufferSelfTest(player);
 
     if (g_TZTestFailures == 0)
         Print("[TransferZTest] SUITE PASS");
