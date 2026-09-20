@@ -1,5 +1,15 @@
+class TransferZUnpackScanBudget
+{
+    int scannedNodes;
+    bool exceeded;
+}
+
 class TransferZServerService
 {
+    static const int MAX_BATCH_ITEMS = 512;
+    static const int MAX_UNPACK_SCAN_NODES = 2048;
+    static const int MAX_UNPACK_DEPTH = 32;
+
     static EntityAI ResolveEntity(int low, int high)
     {
         Object obj = GetGame().GetObjectByNetworkId(low, high);
@@ -108,6 +118,51 @@ class TransferZServerService
         Print("[TransferZ] Move rejected: " + reason + " item=" + itemName + " destination=" + destinationName);
         return false;
     }
+
+    static bool DirectBatchWithinBudget(EntityAI source, int sourceCargoIndex, string operation)
+    {
+        CargoBase cargo = TransferZCargo.Get(source, sourceCargoIndex);
+        if (!cargo)
+            return false;
+
+        int itemCount = cargo.GetItemCount();
+        if (itemCount <= MAX_BATCH_ITEMS)
+            return true;
+
+        Print("[TransferZ] " + operation + " rejected: direct cargo item count " + itemCount.ToString() + " exceeds limit " + MAX_BATCH_ITEMS.ToString());
+        return false;
+    }
+
+    static bool ConsumeUnpackScanNode(TransferZUnpackScanBudget budget)
+    {
+        if (!budget || budget.exceeded)
+            return false;
+
+        if (budget.scannedNodes >= MAX_UNPACK_SCAN_NODES)
+        {
+            budget.exceeded = true;
+            return false;
+        }
+
+        budget.scannedNodes++;
+        return true;
+    }
+
+    static bool AppendUnpackLeaf(EntityAI item, notnull array<EntityAI> leaves, TransferZUnpackScanBudget budget)
+    {
+        if (!item || !budget || budget.exceeded)
+            return false;
+
+        if (leaves.Count() >= MAX_BATCH_ITEMS)
+        {
+            budget.exceeded = true;
+            return false;
+        }
+
+        leaves.Insert(item);
+        return true;
+    }
+
 
     static bool TryMoveToExactCargo(PlayerBase player, EntityAI item, EntityAI destination, int destinationCargoIndex = 0)
     {
@@ -236,10 +291,16 @@ class TransferZServerService
         }
     }
 
-    static void CollectUnpackLeaves(EntityAI container, EntityAI destination, notnull array<EntityAI> leaves)
+    static bool CollectUnpackLeaves(EntityAI container, EntityAI destination, notnull array<EntityAI> leaves, TransferZUnpackScanBudget budget, int depth)
     {
-        if (!container)
-            return;
+        if (!container || !budget || budget.exceeded)
+            return false;
+
+        if (depth > MAX_UNPACK_DEPTH)
+        {
+            budget.exceeded = true;
+            return false;
+        }
 
         for (int cargoIndex = 0; ; cargoIndex++)
         {
@@ -249,38 +310,58 @@ class TransferZServerService
 
             for (int i = 0; i < cargo.GetItemCount(); i++)
             {
+                if (!ConsumeUnpackScanNode(budget))
+                    return false;
+
                 EntityAI item = cargo.GetItem(i);
                 if (!item || item == destination)
                     continue;
 
                 if (TransferZCargo.Exists(item, 0))
-                    CollectUnpackLeaves(item, destination, leaves);
-                else
-                    leaves.Insert(item);
+                {
+                    if (!CollectUnpackLeaves(item, destination, leaves, budget, depth + 1))
+                        return false;
+                }
+                else if (!AppendUnpackLeaf(item, leaves, budget))
+                {
+                    return false;
+                }
             }
         }
+
+        return true;
     }
 
-    static void CollectUnpackLeavesForOperation(EntityAI source, int sourceCargoIndex, EntityAI destination, bool nestedOnly, notnull array<EntityAI> leaves)
+    static bool CollectUnpackLeavesForOperation(EntityAI source, int sourceCargoIndex, EntityAI destination, bool nestedOnly, notnull array<EntityAI> leaves, TransferZUnpackScanBudget budget)
     {
-        if (!source)
-            return;
+        if (!source || !budget || budget.exceeded)
+            return false;
 
         CargoBase sourceCargo = TransferZCargo.Get(source, sourceCargoIndex);
         if (!sourceCargo)
-            return;
+            return false;
 
         for (int i = 0; i < sourceCargo.GetItemCount(); i++)
         {
+            if (!ConsumeUnpackScanNode(budget))
+                return false;
+
             EntityAI child = sourceCargo.GetItem(i);
             if (!child || child == destination)
                 continue;
 
             if (TransferZCargo.Exists(child, 0))
-                CollectUnpackLeaves(child, destination, leaves);
-            else if (!nestedOnly)
-                leaves.Insert(child);
+            {
+                if (!CollectUnpackLeaves(child, destination, leaves, budget, 1))
+                    return false;
+            }
+            else if (!nestedOnly && !AppendUnpackLeaf(child, leaves, budget))
+            {
+                return false;
+            }
         }
+
+        return true;
     }
 
     static int Transfer(PlayerBase player, EntityAI source, EntityAI destination, int sourceCargoIndex = 0, int destinationCargoIndex = 0)
@@ -294,6 +375,9 @@ class TransferZServerService
             return 0;
 
         if (!TransferZCargo.Exists(source, sourceCargoIndex) || !TransferZCargo.Exists(destination, destinationCargoIndex))
+            return 0;
+
+        if (!DirectBatchWithinBudget(source, sourceCargoIndex, "Transfer"))
             return 0;
 
         if (destination != source && IsDescendantOf(destination, source))
@@ -314,6 +398,9 @@ class TransferZServerService
     static int TransferToVicinity(PlayerBase player, EntityAI source, int sourceCargoIndex = 0)
     {
         if (!player || !source || !IsReachable(player, source) || !TransferZCargo.Exists(source, sourceCargoIndex))
+            return 0;
+
+        if (!DirectBatchWithinBudget(source, sourceCargoIndex, "TransferToVicinity"))
             return 0;
 
         ref array<EntityAI> items = new array<EntityAI>();
@@ -339,6 +426,9 @@ class TransferZServerService
             return 0;
 
         if (!TransferZCargo.Exists(source, sourceCargoIndex) || !TransferZCargo.Exists(destination, destinationCargoIndex))
+            return 0;
+
+        if (!DirectBatchWithinBudget(source, sourceCargoIndex, "TransferClass"))
             return 0;
 
         if (destination != source && IsDescendantOf(destination, source))
@@ -378,6 +468,9 @@ class TransferZServerService
             return 0;
 
         if (!IsReachable(player, source) || !IsReachable(player, representative) || !TransferZCargo.Exists(source, sourceCargoIndex))
+            return 0;
+
+        if (!DirectBatchWithinBudget(source, sourceCargoIndex, "TransferClassToVicinity"))
             return 0;
 
         InventoryLocation representativeLocation = new InventoryLocation();
@@ -423,7 +516,12 @@ class TransferZServerService
             return 0;
 
         ref array<EntityAI> leaves = new array<EntityAI>();
-        CollectUnpackLeavesForOperation(source, sourceCargoIndex, destination, source == destination && sourceCargoIndex == destinationCargoIndex, leaves);
+        TransferZUnpackScanBudget budget = new TransferZUnpackScanBudget();
+        if (!CollectUnpackLeavesForOperation(source, sourceCargoIndex, destination, source == destination && sourceCargoIndex == destinationCargoIndex, leaves, budget))
+        {
+            Print("[TransferZ] Unpack rejected: traversal budget exceeded scanned=" + budget.scannedNodes.ToString() + " leaves=" + leaves.Count().ToString());
+            return 0;
+        }
 
         int moved = 0;
         foreach (EntityAI item : leaves)
@@ -440,7 +538,12 @@ class TransferZServerService
             return 0;
 
         ref array<EntityAI> leaves = new array<EntityAI>();
-        CollectUnpackLeavesForOperation(source, sourceCargoIndex, null, false, leaves);
+        TransferZUnpackScanBudget budget = new TransferZUnpackScanBudget();
+        if (!CollectUnpackLeavesForOperation(source, sourceCargoIndex, null, false, leaves, budget))
+        {
+            Print("[TransferZ] UnpackToVicinity rejected: traversal budget exceeded scanned=" + budget.scannedNodes.ToString() + " leaves=" + leaves.Count().ToString());
+            return 0;
+        }
 
         int moved = 0;
         foreach (EntityAI item : leaves)
@@ -536,6 +639,12 @@ class TransferZServerService
 
         if (!CanPlayerManipulate(player))
             return;
+
+        if (!TransferZRequestGuard.AcceptStandard(player))
+        {
+            Print("[TransferZ] RPC throttled");
+            return;
+        }
 
         if (destinationIsVicinity)
         {
