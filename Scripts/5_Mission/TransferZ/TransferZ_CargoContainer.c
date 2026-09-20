@@ -243,6 +243,16 @@ class TransferZHeaderControls : Managed
 
     static void OnInventoryClosed()
     {
+        if (TransferZOperationDrag.IsActive())
+        {
+            Widget nativeDrag = GetDragWidget();
+            if (nativeDrag)
+                CancelWidgetDragging();
+
+            TransferZOperationDrag.CancelForUiTeardown();
+            SetOperationDropTargetsVisible(false);
+        }
+
         if (s_Instances)
         {
             for (int i = s_Instances.Count() - 1; i >= 0; i--)

@@ -279,6 +279,13 @@ class TransferZOperationDrag
         ForceClear();
     }
 
+    // UI teardown must not preserve a modifier drag merely because LMB is
+    // still physically held. The owning inventory widgets are disappearing.
+    static void CancelForUiTeardown()
+    {
+        ForceClear();
+    }
+
     protected static void ForceClear()
     {
         s_Operation = 0;
@@ -373,6 +380,27 @@ modded class WidgetEventHandler
             }
 
             TransferZHeaderControls.CompleteModifierDragAtMousePosition();
+            return true;
+        }
+
+        if (button == MouseState.LEFT && TransferZOperationDrag.IsActive())
+        {
+            // Header T/U drags use a native draggable button only as the mouse
+            // transport. Always terminate that native widget drag on release,
+            // then let TransferZ resolve the target from live screen geometry.
+            // Without this, an invalid drop can leave native mouse capture
+            // active and freeze all TransferZ hover/click feedback until the
+            // inventory UI is rebuilt.
+            Widget operationDrag = GetDragWidget();
+            if (operationDrag)
+                CancelWidgetDragging();
+
+            TransferZHeaderControls.CompleteModifierDragAtMousePosition();
+            if (TransferZOperationDrag.IsActive())
+            {
+                TransferZHeaderControls.CancelOperationDrag();
+                TransferZHeaderControls.RefreshAll();
+            }
             return true;
         }
 
