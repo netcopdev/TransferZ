@@ -202,6 +202,11 @@ if (Test-Path -LiteralPath $modCpp -PathType Leaf) {
     Copy-Item -LiteralPath $modCpp -Destination (Join-Path $releaseModRoot 'mod.cpp') -Force
 }
 
+$metaCpp = Join-Path $projectRootFull 'meta.cpp'
+if (Test-Path -LiteralPath $metaCpp -PathType Leaf) {
+    Copy-Item -LiteralPath $metaCpp -Destination (Join-Path $releaseModRoot 'meta.cpp') -Force
+}
+
 $releasePbo = Join-Path $releaseAddons "TransferZ.pbo"
 $releaseBisign = Join-Path $releaseAddons $signature.Name
 $releaseBikey = Join-Path $releaseKeys ([System.IO.Path]::GetFileName($publicKeyPath))
@@ -223,6 +228,9 @@ Write-Host "  addons\$($signature.Name)"
 Write-Host "  keys\$([System.IO.Path]::GetFileName($publicKeyPath))"
 if (Test-Path -LiteralPath (Join-Path $releaseModRoot 'mod.cpp') -PathType Leaf) {
     Write-Host "  mod.cpp"
+}
+if (Test-Path -LiteralPath (Join-Path $releaseModRoot 'meta.cpp') -PathType Leaf) {
+    Write-Host "  meta.cpp"
 }
 Write-Host ""
 Write-Host "Deploy @TransferZ to both server and client."
