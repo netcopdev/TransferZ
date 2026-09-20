@@ -136,9 +136,9 @@ class TransferZSortPlanner : TransferZMaintenanceService
         return -1;
     }
 
-    protected static int AnchorFitWasteV4(notnull array<int> targetGrid, int cargoWidth, int cargoHeight, int row, int col, int itemWidth, int itemHeight)
+    protected static void AnchorFreeRunsV4(notnull array<int> targetGrid, int cargoWidth, int cargoHeight, int row, int col, out int horizontalRun, out int verticalRun)
     {
-        int horizontalRun = 0;
+        horizontalRun = 0;
         for (int scanCol = col; scanCol < cargoWidth; scanCol++)
         {
             if (targetGrid.Get(row * cargoWidth + scanCol) != 0)
@@ -146,14 +146,17 @@ class TransferZSortPlanner : TransferZMaintenanceService
             horizontalRun++;
         }
 
-        int verticalRun = 0;
+        verticalRun = 0;
         for (int scanRow = row; scanRow < cargoHeight; scanRow++)
         {
             if (targetGrid.Get(scanRow * cargoWidth + col) != 0)
                 break;
             verticalRun++;
         }
+    }
 
+    protected static int AnchorFitWasteV4(int horizontalRun, int verticalRun, int cargoHeight, int itemWidth, int itemHeight)
+    {
         int horizontalWaste = horizontalRun - itemWidth;
         int verticalWaste = verticalRun - itemHeight;
         return horizontalWaste * (cargoHeight + 1) + verticalWaste;
@@ -212,6 +215,9 @@ class TransferZSortPlanner : TransferZMaintenanceService
 
             int anchorRow = anchor / cargoWidth;
             int anchorCol = anchor - anchorRow * cargoWidth;
+            int anchorHorizontalRun;
+            int anchorVerticalRun;
+            AnchorFreeRunsV4(targetGrid, cargoWidth, cargoHeight, anchorRow, anchorCol, anchorHorizontalRun, anchorVerticalRun);
             int bestIndex = -1;
             int bestWidth = 0;
             int bestHeight = 0;
@@ -243,7 +249,7 @@ class TransferZSortPlanner : TransferZMaintenanceService
                     if (checkUserReservations && CollidesWithUserReservationV4(player, source, candidate, anchorRow, anchorCol, candidateFlip))
                         continue;
 
-                    int candidateWaste = AnchorFitWasteV4(targetGrid, cargoWidth, cargoHeight, anchorRow, anchorCol, candidateWidth, candidateHeight);
+                    int candidateWaste = AnchorFitWasteV4(anchorHorizontalRun, anchorVerticalRun, cargoHeight, candidateWidth, candidateHeight);
                     if (!BetterAnchorCandidateV4(candidate, candidateWidth, candidateHeight, orientationIndex, candidateWaste, bestRecord, bestWidth, bestHeight, bestOrientation, bestWaste))
                         continue;
 
