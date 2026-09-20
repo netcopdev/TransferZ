@@ -32,7 +32,15 @@ class TransferZMaintenanceResultState
         int sourceHigh;
         int sourceCargoIndex;
         bool success;
-        if (!ctx.Read(operation) || !ctx.Read(sourceLow) || !ctx.Read(sourceHigh) || !ctx.Read(sourceCargoIndex) || !ctx.Read(success))
+        if (!ctx.Read(operation))
+            return;
+        if (!ctx.Read(sourceLow))
+            return;
+        if (!ctx.Read(sourceHigh))
+            return;
+        if (!ctx.Read(sourceCargoIndex))
+            return;
+        if (!ctx.Read(success))
             return;
         if (sourceCargoIndex < 0)
             return;
