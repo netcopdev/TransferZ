@@ -98,6 +98,27 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("SortRecordsV4(originalRecords)", transactional)
         self.assertIn("BuildSortPlanFromTargetsV4", transactional)
 
+    def test_ui_suppression_is_scoped_to_exact_drag_subject(self) -> None:
+        drag = read("Scripts/5_Mission/TransferZ/TransferZ_OperationDrag.c")
+        arm = function_body(drag, "static void ArmNativeDropSuppression(")
+        consume = function_body(drag, "static bool ConsumeNativeDropSuppression(")
+        drop = function_body(drag, "override bool OnDropReceived(")
+
+        self.assertIn("s_TransferZSuppressedNativeDropWidget = draggedWidget", arm)
+        self.assertIn("draggedWidget != s_TransferZSuppressedNativeDropWidget", consume)
+        self.assertIn("s_TransferZSuppressedNativeDropWidget = null", consume)
+        self.assertIn("ConsumeNativeDropSuppression(w)", drop)
+        self.assertNotIn("ShouldSuppressNativeDrop()", drag)
+
+        vicinity = read("Scripts/5_Mission/TransferZ/TransferZ_VicinitySlotsContainer.c")
+        suppress = function_body(vicinity, "static bool TransferZSuppressModifierClick(")
+        click = function_body(vicinity, "override void MouseClick(")
+
+        self.assertIn("clickedItem != s_TransferZModifierClickSuppressItem", suppress)
+        self.assertIn("s_TransferZModifierClickSuppressItem = null", suppress)
+        self.assertIn("TransferZSuppressModifierClick(clickedItem)", click)
+        self.assertNotIn("TransferZSuppressModifierClick()", vicinity)
+
     def test_sort_reuses_one_target_layout_and_bounds_parking_search(self) -> None:
         planner = read("Scripts/4_World/TransferZ/TransferZ_SortPlanner.c")
         transactional = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")

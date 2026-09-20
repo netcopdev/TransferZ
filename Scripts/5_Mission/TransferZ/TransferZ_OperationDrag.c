@@ -10,6 +10,7 @@ class TransferZOperationDrag
     protected static bool s_ModifierReleaseWatchQueued = false;
     protected static bool s_ModifierReleaseCancelQueued = false;
     protected static int s_TransferZSuppressNativeDropUntil;
+    protected static Widget s_TransferZSuppressedNativeDropWidget;
     protected static ref array<EntityAI> s_VicinityItems;
 
     protected static bool LeftMousePressed()
@@ -17,17 +18,36 @@ class TransferZOperationDrag
         return (GetMouseState(MouseState.LEFT) & MB_PRESSED_MASK) != 0;
     }
 
-    static void ArmNativeDropSuppression()
+    static void ArmNativeDropSuppression(Widget draggedWidget)
     {
         // DayZ can queue the native dragged icon's drop just before/after the
-        // mouse-up callback. TransferZ owns modifier drags, so swallow only
-        // that short trailing event window after the authoritative release.
-        s_TransferZSuppressNativeDropUntil = GetGame().GetTime() + 250;
+        // mouse-up callback. Suppress only that exact dragged widget; a global
+        // time window could swallow an unrelated drop from another UI/mod.
+        s_TransferZSuppressedNativeDropWidget = draggedWidget;
+        if (draggedWidget)
+            s_TransferZSuppressNativeDropUntil = GetGame().GetTime() + 250;
+        else
+            s_TransferZSuppressNativeDropUntil = 0;
     }
 
-    static bool ShouldSuppressNativeDrop()
+    static bool ConsumeNativeDropSuppression(Widget draggedWidget)
     {
-        return s_TransferZSuppressNativeDropUntil > 0 && GetGame().GetTime() <= s_TransferZSuppressNativeDropUntil;
+        if (!s_TransferZSuppressedNativeDropWidget || !draggedWidget)
+            return false;
+
+        if (s_TransferZSuppressNativeDropUntil <= 0 || GetGame().GetTime() > s_TransferZSuppressNativeDropUntil)
+        {
+            s_TransferZSuppressNativeDropUntil = 0;
+            s_TransferZSuppressedNativeDropWidget = null;
+            return false;
+        }
+
+        if (draggedWidget != s_TransferZSuppressedNativeDropWidget)
+            return false;
+
+        s_TransferZSuppressNativeDropUntil = 0;
+        s_TransferZSuppressedNativeDropWidget = null;
+        return true;
     }
 
     protected static void StartModifierReleaseWatch()
@@ -336,7 +356,7 @@ modded class WidgetEventHandler
     override bool OnDropReceived(Widget w, int x, int y, Widget reciever)
     {
         bool activeModifierDrag = TransferZOperationDrag.IsModifierItemDrag();
-        bool trailingNativeDrop = TransferZOperationDrag.ShouldSuppressNativeDrop();
+        bool trailingNativeDrop = TransferZOperationDrag.ConsumeNativeDropSuppression(w);
         if (activeModifierDrag || trailingNativeDrop)
         {
 
@@ -355,9 +375,8 @@ modded class WidgetEventHandler
             // TransferZ owns modifier-item release. End the native widget drag
             // before moving the batch so DayZ cannot enqueue a stale
             // PredictiveTakeToDst for the representative item.
-            TransferZOperationDrag.ArmNativeDropSuppression();
-
             Widget nativeDrag = GetDragWidget();
+            TransferZOperationDrag.ArmNativeDropSuppression(nativeDrag);
             ItemManager itemManager = ItemManager.GetInstance();
             if (itemManager)
             {

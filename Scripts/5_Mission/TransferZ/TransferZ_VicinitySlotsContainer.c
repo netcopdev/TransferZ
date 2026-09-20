@@ -659,6 +659,7 @@ modded class SlotsIcon
 
     protected bool m_TransferZVicinityModifierDragStarted;
     protected static int s_TransferZModifierClickSuppressUntil;
+    protected static EntityAI s_TransferZModifierClickSuppressItem;
 
     protected VicinitySlotsContainer TransferZFindVicinitySource()
     {
@@ -787,6 +788,7 @@ modded class SlotsIcon
         TransferZOperationDrag.LatchModifierItemDrag();
         TransferZHeaderControls.SetOperationDropTargetsVisible(true);
         m_TransferZVicinityModifierDragStarted = true;
+        s_TransferZModifierClickSuppressItem = m_Obj;
         s_TransferZModifierClickSuppressUntil = GetGame().GetTime() + 300;
     }
 
@@ -799,9 +801,24 @@ modded class SlotsIcon
         m_TransferZVicinityModifierDragStarted = false;
     }
 
-    static bool TransferZSuppressModifierClick()
+    static bool TransferZSuppressModifierClick(EntityAI clickedItem)
     {
-        return GetGame().GetTime() < s_TransferZModifierClickSuppressUntil;
+        if (!s_TransferZModifierClickSuppressItem || !clickedItem)
+            return false;
+
+        if (GetGame().GetTime() >= s_TransferZModifierClickSuppressUntil)
+        {
+            s_TransferZModifierClickSuppressItem = null;
+            s_TransferZModifierClickSuppressUntil = 0;
+            return false;
+        }
+
+        if (clickedItem != s_TransferZModifierClickSuppressItem)
+            return false;
+
+        s_TransferZModifierClickSuppressItem = null;
+        s_TransferZModifierClickSuppressUntil = 0;
+        return true;
     }
 }
 
@@ -872,19 +889,22 @@ modded class VicinitySlotsContainer
         int clickMode = m_TransferZModifierClickMode;
         m_TransferZModifierClickMode = TRANSFERZ_CLICK_NONE;
 
-        if (button == MouseState.LEFT && SlotsIcon.TransferZSuppressModifierClick())
+        EntityAI clickedItem = null;
+        if (button == MouseState.LEFT)
+            clickedItem = TransferZResolveVicinityItem(w);
+
+        if (button == MouseState.LEFT && SlotsIcon.TransferZSuppressModifierClick(clickedItem))
             return;
 
         if (button == MouseState.LEFT && clickMode != TRANSFERZ_CLICK_NONE)
         {
-            EntityAI item = TransferZResolveVicinityItem(w);
-            ItemBase itemBase = ItemBase.Cast(item);
-            if (itemBase && itemBase.IsTakeable() && item.GetInventory().CanRemoveEntity())
+            ItemBase itemBase = ItemBase.Cast(clickedItem);
+            if (itemBase && itemBase.IsTakeable() && clickedItem.GetInventory().CanRemoveEntity())
             {
                 if (clickMode == TRANSFERZ_CLICK_DESTINATION)
-                    TransferZClientState.Get().RequestItemToDestination(item);
+                    TransferZClientState.Get().RequestItemToDestination(clickedItem);
                 else if (clickMode == TRANSFERZ_CLICK_PREFERRED)
-                    TransferZClientState.Get().RequestItemToPreferred(item);
+                    TransferZClientState.Get().RequestItemToPreferred(clickedItem);
             }
             return;
         }
