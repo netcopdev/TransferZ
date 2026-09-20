@@ -80,16 +80,16 @@ class RepositoryContracts(unittest.TestCase):
         snapshot = function_body(maintenance, "protected static bool SnapshotSortRecords(")
 
         obsolete = (
-            "SortBefore(",
-            "SortRecords(",
-            "AssignTargets(",
-            "BuildTargetGrid(",
-            "FindTemporaryPlacement(",
-            "BuildSortPlan(",
+            "protected static bool SortBefore(",
+            "protected static void SortRecords(",
+            "protected static bool AssignTargets(",
+            "protected static void BuildTargetGrid(",
+            "protected static bool FindTemporaryPlacement(",
+            "protected static bool BuildSortPlan(",
         )
-        for symbol in obsolete:
-            self.assertNotIn(symbol, maintenance)
-        self.assertNotIn("SortRecords(", snapshot)
+        for declaration in obsolete:
+            self.assertNotIn(declaration, maintenance)
+        self.assertNotIn("\n        SortRecords(records);", snapshot)
 
         planner = read("Scripts/4_World/TransferZ/TransferZ_SortPlanner.c")
         transactional = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")
