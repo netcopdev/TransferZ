@@ -10,6 +10,7 @@ class CfgPatches
             "DZ_Data",
             "DZ_Scripts",
             "DZ_Gear_Containers",
+            "DZ_Gear_Camping",
             "JM_CF_Scripts"
         };
     };
@@ -73,9 +74,9 @@ class CfgVehicles
     class TransferZ_SortBuffer : Container_Base
     {
         scope = 1;
-        displayName = "TransferZ Sort Buffer";
-        descriptionShort = "";
-        model = "";
+        displayName = "TransferZ Recovery Crate";
+        descriptionShort = "Emergency recovery container created only when a TransferZ Sort rollback cannot return every item to its original cargo layout.";
+        model = "\\dz\\gear\\camping\\wooden_case.p3d";
         weight = 0;
         itemSize[] = {1,1};
         itemsCargoSize[] = {20,500};
