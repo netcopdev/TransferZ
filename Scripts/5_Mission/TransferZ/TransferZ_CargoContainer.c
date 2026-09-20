@@ -35,6 +35,8 @@ class TransferZHeaderControls : Managed
     protected Widget m_HoveredOperation;
     protected Widget m_HoveredTooltipButton;
     protected int m_IgnoreOperationClickUntil;
+    protected int m_LastFullRefreshTime;
+    protected static const int INTERVAL_REFRESH_MS = 250;
 
     protected ImageWidget m_BlockBackground;
     protected ImageWidget m_ManageBlockBackground;
@@ -1224,8 +1226,22 @@ class TransferZHeaderControls : Managed
             UpdateDropTargetPosition();
     }
 
+    // Vanilla interval paths can run every frame while the inventory is open.
+    // Event-driven callers still use UpdateControls() directly and remain
+    // immediate; interval callers are throttled separately.
+    void UpdateControlsFromInterval()
+    {
+        int now = GetGame().GetTime();
+        if (m_LastFullRefreshTime > 0 && now >= m_LastFullRefreshTime && now - m_LastFullRefreshTime < INTERVAL_REFRESH_MS)
+            return;
+
+        UpdateControls();
+    }
+
     void UpdateControls()
     {
+        m_LastFullRefreshTime = GetGame().GetTime();
+
         if (!m_Root || !m_ManageRoot || !m_Entity || !m_Entity.GetInventory().GetCargo())
             return;
 
@@ -1426,8 +1442,13 @@ modded class HandsHeader
                 TransferZHeaderControls.RefreshAll();
         }
 
+        bool handsChanged = currentHands != m_TransferZLastHandsEntity;
         m_TransferZLastHandsEntity = currentHands;
-        m_TransferZHeaderControls.SetEntity(currentHands);
+
+        if (handsChanged)
+            m_TransferZHeaderControls.SetEntity(currentHands);
+        else if (currentHands && currentHands.GetInventory().GetCargo())
+            m_TransferZHeaderControls.UpdateControlsFromInterval();
     }
 }
 
@@ -1456,6 +1477,6 @@ modded class CargoContainer
     {
         super.UpdateInterval();
         if (m_TransferZAttachmentHeaderControls)
-            m_TransferZAttachmentHeaderControls.UpdateControls();
+            m_TransferZAttachmentHeaderControls.UpdateControlsFromInterval();
     }
 }
