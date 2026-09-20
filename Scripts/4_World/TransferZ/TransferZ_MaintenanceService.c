@@ -25,6 +25,36 @@ class TransferZSortMove
 
 class TransferZMaintenanceService
 {
+    protected static const int SERVER_MAINTENANCE_THROTTLE_MS = 250;
+    protected static ref map<string, int> s_LastMaintenanceRequestTime = new map<string, int>();
+
+    // This is server-load protection only. Inventory validity remains governed
+    // by DayZ's native request/location checks and juncture state.
+    protected static bool AcceptServerMaintenanceRequest(PlayerBase player)
+    {
+        if (!GetGame().IsMultiplayer())
+            return true;
+        if (!player)
+            return false;
+
+        PlayerIdentity identity = player.GetIdentity();
+        if (!identity)
+            return false;
+
+        string playerId = identity.GetId();
+        int now = GetGame().GetTime();
+        if (s_LastMaintenanceRequestTime.Contains(playerId))
+        {
+            int last = s_LastMaintenanceRequestTime.Get(playerId);
+            int elapsed = now - last;
+            if (elapsed >= 0 && elapsed < SERVER_MAINTENANCE_THROTTLE_MS)
+                return false;
+        }
+
+        s_LastMaintenanceRequestTime.Set(playerId, now);
+        return true;
+    }
+
     protected static bool IsDirectCargoItem(EntityAI source, EntityAI item)
     {
         if (!source || !item)
@@ -580,6 +610,12 @@ class TransferZMaintenanceService
             return false;
         }
 
+        if (TransferZServerService.HasNativeInventoryJuncture(item))
+        {
+            Print("[TransferZ] Sort move rejected: native inventory juncture active item=" + item.GetType());
+            return false;
+        }
+
         InventoryMode moveMode = InventoryMode.SERVER;
         if (!GetGame().IsMultiplayer())
             moveMode = InventoryMode.LOCAL;
@@ -680,6 +716,8 @@ class TransferZMaintenanceService
                     continue;
                 if (!target.CanBeCombined(donor, false, false))
                     continue;
+                if (TransferZServerService.HasNativeInventoryJuncture(target) || TransferZServerService.HasNativeInventoryJuncture(donor))
+                    continue;
 
                 target.CombineItems(donor, true);
                 combined++;
@@ -725,6 +763,9 @@ class TransferZMaintenanceService
             if (humanInventory.FindCollidingUserReservedLocationIndex(item2, dst2) >= 0)
                 return false;
         }
+
+        if (TransferZServerService.HasNativeInventoryJuncture(item1) || TransferZServerService.HasNativeInventoryJuncture(item2))
+            return false;
 
         if (GetGame().IsMultiplayer())
         {
@@ -775,6 +816,15 @@ class TransferZMaintenanceService
         int sourceHigh;
         if (!ctx.Read(operation) || !ctx.Read(sourceLow) || !ctx.Read(sourceHigh))
             return;
+
+        if (operation != TransferZMaintenanceOperation.SORT && operation != TransferZMaintenanceOperation.STACK)
+            return;
+
+        if (!AcceptServerMaintenanceRequest(player))
+        {
+            Print("[TransferZ] Maintenance RPC throttled for player=" + player.GetIdentity().GetId());
+            return;
+        }
 
         EntityAI source = TransferZServerService.ResolveEntity(sourceLow, sourceHigh);
         if (!source)
