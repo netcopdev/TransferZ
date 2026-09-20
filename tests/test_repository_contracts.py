@@ -102,6 +102,62 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("sender.GetId()", service_body)
         self.assertIn("playerIdentity.GetId()", service_body)
 
+    def test_cargo_identity_uses_owner_and_grid_index(self) -> None:
+        cargo = read("Scripts/3_Game/TransferZ/TransferZ_Cargo.c")
+        self.assertIn("GetCargoFromIndex(cargoIndex)", cargo)
+        self.assertIn("location.GetIdx() == cargoIndex", cargo)
+        self.assertIn("candidate.SetCargo(owner, item, cargoIndex", cargo)
+
+    def test_header_preserves_vanilla_cargo_index(self) -> None:
+        source = read("Scripts/5_Mission/TransferZ/TransferZ_CargoContainer.c")
+        body = function_body(source, "override void SetEntity(EntityAI item, int cargo_index")
+        self.assertIn("SetEntity(item, cargo_index)", body)
+
+    def test_transfer_rpc_carries_both_cargo_indices(self) -> None:
+        client = read("Scripts/5_Mission/TransferZ/TransferZ_ClientState.c")
+        send = function_body(client, "protected void SendRequest(")
+        self.assertIn("rpc.Write(sourceCargoIndex)", send)
+        self.assertIn("rpc.Write(destinationCargoIndex)", send)
+
+        server = read("Scripts/4_World/TransferZ/TransferZ_ServerService.c")
+        handle = function_body(server, "static void HandleRequest(")
+        self.assertIn("ctx.Read(sourceCargoIndex)", handle)
+        self.assertIn("ctx.Read(destinationCargoIndex)", handle)
+
+    def test_sort_and_stack_are_scoped_to_requested_grid(self) -> None:
+        maintenance = read("Scripts/4_World/TransferZ/TransferZ_MaintenanceService.c")
+        snapshot = function_body(maintenance, "protected static bool SnapshotSortRecords(")
+        stack = function_body(maintenance, "static int Stack(")
+        self.assertIn("TransferZCargo.Get(source, sourceCargoIndex)", snapshot)
+        self.assertIn("TransferZCargo.LocationMatches", snapshot)
+        self.assertIn("TransferZCargo.Get(source, sourceCargoIndex)", stack)
+
+        planner = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")
+        sort = function_body(planner, "static int Sort(")
+        self.assertIn("SnapshotSortRecords(source, sourceCargoIndex", sort)
+
+    def test_maintenance_result_feedback_is_grid_specific(self) -> None:
+        service = read("Scripts/4_World/TransferZ/TransferZ_MaintenanceService.c")
+        send = function_body(service, "protected static void SendResult(")
+        self.assertIn("rpc.Write(sourceCargoIndex)", send)
+
+        state = read("Scripts/4_World/TransferZ/TransferZ_MaintenanceResultState.c")
+        handle = function_body(state, "static void HandleRPC(")
+        self.assertIn("ctx.Read(sourceCargoIndex)", handle)
+        self.assertIn("sourceCargoIndex == s_SourceCargoIndex", state)
+
+        feedback = read("Scripts/5_Mission/TransferZ/TransferZ_SortFeedback.c")
+        self.assertIn("MatchesSource(m_Entity, m_CargoIndex)", feedback)
+        self.assertIn("RequestSort(m_Entity, m_CargoIndex)", feedback)
+        self.assertIn("override void SetEntity(EntityAI entity, int cargoIndex = 0)", feedback)
+
+    def test_native_split_routing_carries_cargo_index(self) -> None:
+        source = read("Scripts/4_World/TransferZ/TransferZ_InHandsSplitRouting.c")
+        route = function_body(source, "protected bool TransferZRouteNativeSplit(")
+        self.assertIn("GetCargoIndex()", route)
+        self.assertIn("sourceCargoIndex", route)
+        self.assertIn("preferredCargoIndex", route)
+
     def test_diag_fixture_has_machine_readable_suite_marker(self) -> None:
         fixture = read("test/TransferZTest.ChernarusPlus/init.c")
         self.assertIn("[TransferZTest] SUITE PASS", fixture)
