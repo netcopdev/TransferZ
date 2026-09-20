@@ -38,15 +38,6 @@ class TransferZHeaderControls : Managed
     protected int m_LastFullRefreshTime;
     protected static const int INTERVAL_REFRESH_MS = 250;
 
-    protected ImageWidget m_BlockBackground;
-    protected ImageWidget m_ManageBlockBackground;
-    protected ImageWidget m_DestinationHover;
-    protected ImageWidget m_TransferHover;
-    protected ImageWidget m_UnpackHover;
-    protected ImageWidget m_LinkHover;
-    protected ImageWidget m_PreferredHover;
-    protected ImageWidget m_SortHover;
-    protected ImageWidget m_StackHover;
     protected ImageWidget m_DestinationState;
     protected ImageWidget m_LinkState;
     protected ImageWidget m_PreferredState;
@@ -118,34 +109,15 @@ class TransferZHeaderControls : Managed
 
         m_TransferStatus = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_TransferStatus"));
         m_UnpackStatus = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_UnpackStatus"));
-        m_BlockBackground = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_BlockBackground"));
-        m_ManageBlockBackground = ImageWidget.Cast(m_ManageRoot.FindAnyWidget("TransferZ_ManageBlockBackground"));
-        m_DestinationHover = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_DestinationHover"));
-        m_TransferHover = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_TransferHover"));
-        m_UnpackHover = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_UnpackHover"));
-        m_LinkHover = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_LinkHover"));
-        m_PreferredHover = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_PreferredHover"));
-        m_SortHover = ImageWidget.Cast(m_ManageRoot.FindAnyWidget("TransferZ_SortHover"));
-        m_StackHover = ImageWidget.Cast(m_ManageRoot.FindAnyWidget("TransferZ_StackHover"));
         m_DestinationState = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_DestinationState"));
         m_LinkState = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_LinkState"));
         m_PreferredState = ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_PreferredState"));
 
-        PrepareSolidImage(m_BlockBackground, ARGB(105, 0, 0, 0), true);
-        PrepareSolidImage(m_ManageBlockBackground, ARGB(105, 0, 0, 0), true);
-        PrepareSolidImage(m_DestinationHover, ARGB(55, 255, 255, 255), false);
-        PrepareSolidImage(m_TransferHover, ARGB(45, 255, 255, 255), false);
-        PrepareSolidImage(m_UnpackHover, ARGB(45, 255, 255, 255), false);
-        PrepareSolidImage(m_LinkHover, ARGB(55, 255, 255, 255), false);
-        PrepareSolidImage(m_PreferredHover, ARGB(55, 255, 255, 255), false);
-        PrepareSolidImage(m_SortHover, ARGB(55, 255, 255, 255), false);
-        PrepareSolidImage(m_StackHover, ARGB(55, 255, 255, 255), false);
         PrepareSolidImage(m_DestinationState, ARGB(115, 48, 122, 62), false);
         PrepareSolidImage(m_LinkState, ARGB(115, 48, 122, 62), false);
         PrepareSolidImage(m_PreferredState, ARGB(115, 48, 122, 62), false);
         PrepareStatusImage(m_TransferStatus);
         PrepareStatusImage(m_UnpackStatus);
-        PrepareIcons();
 
         RegisterButton(m_DestinationButton, "OnDestination");
         RegisterOperationButton(m_TransferButton, "OnTransfer");
@@ -206,33 +178,6 @@ class TransferZHeaderControls : Managed
         image.Show(show);
     }
 
-    protected void PrepareIcon(ImageWidget image, string imagePath)
-    {
-        if (!image)
-            return;
-
-        image.LoadImageFile(0, imagePath);
-        image.SetImage(0);
-        image.SetColor(ARGB(235, 235, 235, 235));
-        image.Show(true);
-    }
-
-    protected void PrepareIcons()
-    {
-        PrepareSolidImage(ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_DestinationIconOuter")), ARGB(235, 235, 235, 235), true);
-        PrepareSolidImage(ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_DestinationIconInner")), ARGB(255, 25, 25, 25), true);
-        PrepareSolidImage(ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_DestinationIconCenter")), ARGB(235, 235, 235, 235), true);
-        PrepareIcon(ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_TransferIcon")), "set:dayz_gui image:arrow_int");
-        PrepareIcon(ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_UnpackIcon")), "set:dayz_gui image:icon_open");
-        PrepareSolidImage(ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_LinkIconA")), ARGB(225, 235, 235, 235), true);
-        PrepareSolidImage(ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_LinkIconB")), ARGB(225, 235, 235, 235), true);
-        PrepareIcon(ImageWidget.Cast(m_Root.FindAnyWidget("TransferZ_PreferredIcon")), "set:dayz_gui image:icon_pin");
-        PrepareIcon(ImageWidget.Cast(m_ManageRoot.FindAnyWidget("TransferZ_SortIcon")), "set:dayz_gui image:icon_refresh");
-        PrepareSolidImage(ImageWidget.Cast(m_ManageRoot.FindAnyWidget("TransferZ_StackIconTop")), ARGB(235, 235, 235, 235), true);
-        PrepareSolidImage(ImageWidget.Cast(m_ManageRoot.FindAnyWidget("TransferZ_StackIconMiddle")), ARGB(235, 235, 235, 235), true);
-        PrepareSolidImage(ImageWidget.Cast(m_ManageRoot.FindAnyWidget("TransferZ_StackIconBottom")), ARGB(235, 235, 235, 235), true);
-    }
-
     protected void PrepareStatusImage(ImageWidget image)
     {
         if (!image)
@@ -263,20 +208,6 @@ class TransferZHeaderControls : Managed
 
                 controls.HideTooltip();
                 controls.HideOperationStatus();
-                if (controls.m_DestinationHover)
-                    controls.m_DestinationHover.Show(false);
-                if (controls.m_TransferHover)
-                    controls.m_TransferHover.Show(false);
-                if (controls.m_UnpackHover)
-                    controls.m_UnpackHover.Show(false);
-                if (controls.m_LinkHover)
-                    controls.m_LinkHover.Show(false);
-                if (controls.m_PreferredHover)
-                    controls.m_PreferredHover.Show(false);
-                if (controls.m_SortHover)
-                    controls.m_SortHover.Show(false);
-                if (controls.m_StackHover)
-                    controls.m_StackHover.Show(false);
                 if (controls.m_DropTarget)
                     controls.m_DropTarget.Show(false);
             }
@@ -532,44 +463,6 @@ class TransferZHeaderControls : Managed
         return vicinityHandled;
     }
 
-
-    static bool CompleteRightDragAtWidget(Widget widget)
-    {
-        if (!widget || !TransferZOperationDrag.IsActive())
-            return false;
-
-        if (TransferZOperationDrag.IsModifierItemDrag())
-        {
-            return CompleteModifierDragAtMousePosition();
-        }
-
-        if (s_Instances)
-        {
-            for (int i = s_Instances.Count() - 1; i >= 0; i--)
-            {
-                TransferZHeaderControls controls = s_Instances.Get(i);
-                if (!controls || !controls.m_DropTarget || !controls.m_DropTarget.IsVisibleHierarchy())
-                    continue;
-
-                if (WidgetIsWithin(widget, controls.m_DropTarget))
-                {
-                    bool handled = TransferZOperationDrag.Complete(controls.m_Entity);
-                    SetOperationDropTargetsVisible(false);
-                    RefreshAll();
-                    return handled;
-                }
-            }
-        }
-
-        if (TransferZVicinityHeaderControls.CompleteRightDragAtWidget(widget))
-        {
-            SetOperationDropTargetsVisible(false);
-            RefreshAll();
-            return true;
-        }
-
-        return false;
-    }
 
     protected void RegisterButton(ButtonWidget button, string clickFunction)
     {
@@ -896,25 +789,6 @@ class TransferZHeaderControls : Managed
         ShowOperationStatus(hovered);
     }
 
-    protected ImageWidget HoverImageFor(Widget w)
-    {
-        if (w == m_DestinationButton)
-            return m_DestinationHover;
-        if (w == m_TransferButton)
-            return m_TransferHover;
-        if (w == m_UnpackButton)
-            return m_UnpackHover;
-        if (w == m_LinkButton)
-            return m_LinkHover;
-        if (w == m_PreferredButton)
-            return m_PreferredHover;
-        if (w == m_SortButton)
-            return m_SortHover;
-        if (w == m_StackButton)
-            return m_StackHover;
-        return null;
-    }
-
     protected float WidgetRight(Widget widget)
     {
         if (!widget)
@@ -1013,8 +887,6 @@ class TransferZHeaderControls : Managed
         float blockY = labelY + (labelH - 29.0) * 0.5;
         m_Root.SetScreenPos(leftX, blockY, false);
         m_Root.SetScreenSize(leftWidth, 29.0, false);
-        if (m_BlockBackground)
-            m_BlockBackground.SetSize(leftWidth, 27.0, false);
 
         float nativeRightLeft = NativeRightReservedLeft(hostX + hostW);
         float rightX = nativeRightLeft - 48.0;
@@ -1154,9 +1026,6 @@ class TransferZHeaderControls : Managed
     bool OnButtonMouseEnter(Widget w, int x, int y)
     {
         ShowTooltip(w);
-        ImageWidget hover = HoverImageFor(w);
-        if (hover)
-            hover.Show(true);
         if (w == m_TransferButton || w == m_UnpackButton)
             ShowOperationStatus(w);
         return true;
@@ -1165,9 +1034,6 @@ class TransferZHeaderControls : Managed
     bool OnButtonMouseLeave(Widget w, Widget enter_w, int x, int y)
     {
         HideTooltip();
-        ImageWidget hover = HoverImageFor(w);
-        if (hover)
-            hover.Show(false);
         if (w == m_TransferButton || w == m_UnpackButton)
             HideOperationStatus();
         return true;
@@ -1276,8 +1142,6 @@ class TransferZHeaderControls : Managed
             m_PreferredButton.Show(canPrefer);
         if (m_PreferredState)
             m_PreferredState.Show(preferred);
-        if (m_PreferredHover && !canPrefer)
-            m_PreferredHover.Show(false);
 
         PlaceControls();
         RefreshOperationStatus();
