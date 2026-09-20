@@ -13,11 +13,11 @@ The split destination is resolved in this order:
 3. **Preferred destination (`P*`)** — use the configured preferred cargo only when there is no usable immediate source cargo, including when the original stack is not in cargo or its source cargo has no room.
 4. **Vanilla DayZ fallback** — use DayZ's normal behavior in every remaining case.
 
-An explicitly selected `D*` is not silently replaced by another TransferZ route. If active `D*` cannot accept the split, TransferZ falls back to vanilla rather than trying the source or `P*`. If routing reaches `P*` and it cannot currently resolve or accept the split, TransferZ likewise falls back to vanilla.
+`D*`, source cargo, and `P*` are ordered preferences rather than hard stops. If `D*` cannot accept the split, routing continues to the immediate source cargo; if that cannot take it, routing continues to `P*`; if `P*` cannot resolve or accept it, TransferZ falls back to vanilla.
 
 ## Source-local splitting
 
-When no `D*` is selected and the stack is already in cargo, TransferZ asks the immediate cargo owner for a free location for the new split entity before considering `P*`. If a valid location exists, the new stack remains beside the original stack in that same container.
+When `D*` is absent or cannot accept the split and the stack is already in cargo, TransferZ asks the immediate cargo owner for a free location for the new split entity before considering `P*`. If a valid location exists, the new stack remains beside the original stack in that same container.
 
 This applies to normal cargo containers generally; it is not limited to containers currently held in hands. A stack itself in hands, an attachment, or an item on the ground has no immediate cargo source for this rule, so routing may continue to `P*` before vanilla fallback.
 
