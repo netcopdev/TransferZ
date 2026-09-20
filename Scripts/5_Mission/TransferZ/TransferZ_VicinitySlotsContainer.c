@@ -1,4 +1,6 @@
-class TransferZVicinityHeaderControls
+// Managed for the same reason as TransferZHeaderControls: registered as a
+// WidgetEventHandler handler and owned by a UI object that can be destroyed.
+class TransferZVicinityHeaderControls : Managed
 {
     protected static TransferZVicinityHeaderControls s_Instance;
 
