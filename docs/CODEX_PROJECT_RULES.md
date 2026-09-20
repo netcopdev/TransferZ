@@ -108,8 +108,8 @@ In particular, normal right-click stack splitting must remain available without 
 TransferZ may influence only the destination chosen for the native split, in this order (see `docs/SPLIT_ROUTING.md`), while DayZ still owns the split quantity/state and item-manipulation protocol:
 
 - If an active destination (`D*`) is selected, place the new split entity in its exact cargo, or through DayZ ground placement around the player for `VICINITY`. If `D*` cannot accept it, leave normal DayZ fallback in control.
-- Otherwise, if a preferred destination (`P*`) is configured, place it in `P*`'s exact cargo. If `P*` cannot currently resolve or accept it, leave normal DayZ fallback in control; do not fall back to the source container.
 - Otherwise, if the stack is in cargo, keep the result in the exact immediate source cargo when space is available.
+- Otherwise, if a preferred destination (`P*`) is configured, place it in `P*`'s exact cargo. If `P*` cannot currently resolve or accept it, leave normal DayZ fallback in control.
 - Otherwise leave normal DayZ fallback behavior in control.
 
 This destination selection is not a new RMB gesture and must not change whether or how DayZ decides that an item can be split.
