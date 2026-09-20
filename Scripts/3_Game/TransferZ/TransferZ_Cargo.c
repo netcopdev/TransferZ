@@ -6,7 +6,7 @@ class TransferZCargo
             return null;
 
         CargoBase cargo = owner.GetInventory().GetCargoFromIndex(cargoIndex);
-        if (!cargo || cargo.GetOwnerCargoIndex() != cargoIndex)
+        if (!cargo || cargo.GetCargoOwner() != owner || cargo.GetOwnerCargoIndex() != cargoIndex)
             return null;
         return cargo;
     }

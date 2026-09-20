@@ -336,6 +336,7 @@ class RepositoryContracts(unittest.TestCase):
     def test_cargo_identity_uses_owner_and_grid_index(self) -> None:
         cargo = read("Scripts/3_Game/TransferZ/TransferZ_Cargo.c")
         self.assertIn("GetCargoFromIndex(cargoIndex)", cargo)
+        self.assertIn("cargo.GetCargoOwner() != owner", cargo)
         self.assertIn("cargo.GetOwnerCargoIndex() != cargoIndex", cargo)
         self.assertIn("location.GetIdx() == cargoIndex", cargo)
         self.assertIn("candidate.SetCargo(owner, item, cargoIndex", cargo)
