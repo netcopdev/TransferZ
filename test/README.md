@@ -2,6 +2,30 @@
 
 TransferZ uses two complementary test layers.
 
+## One-command local validation
+
+The preferred local command builds and tests an isolated candidate directly from the checkout:
+
+```powershell
+.\tools\run-transferz-self-test.ps1 `
+    -DayZDiagPath 'E:\SteamLibrary\steamapps\common\DayZ\DayZDiag_x64.exe' `
+    -DependencyMods 'E:\SteamLibrary\steamapps\common\DayZ\!Workshop\@CF' `
+    -KnowledgePackPath 'C:\src\DayZ-Modding-Knowledge-Pack'
+```
+
+This performs, in order:
+
+1. fast TransferZ repository contracts;
+2. the DayZ Modding Knowledge Pack script validator and UI reconciler when `-KnowledgePackPath` is supplied;
+3. a fresh unsigned local `TransferZ.pbo` build into `dist\self-test\@TransferZ\addons`;
+4. the automated DayZDiag smoke mission against CF plus that freshly built candidate.
+
+`-AddonBuilderPath` can be supplied when DayZ Tools is not in one of the standard paths already handled by `build-pbo.ps1`. The candidate is local-only and is not copied into a production server or client mod directory.
+
+The low-level DayZDiag launcher uses a temporary `.bat` plus `cmd.exe` rather than passing DayZ arguments through Windows PowerShell 5.1 `Start-Process -ArgumentList`; this avoids argument-quoting failures on paths containing spaces. It also fails early when the Steam client session is not active.
+
+GitHub Actions runs the fast contracts plus the Knowledge Pack validator/reconciler on every push and pull request. The external validator is pinned to commit `9727ae83e65ac26a1cd386c64821b00159f8f933` so CI does not silently change when that repository changes.
+
 ## 1. Fast repository contracts
 
 Run this after every code change:
@@ -42,6 +66,8 @@ On a Windows machine with DayZ Tools/DayZDiag installed:
     -DayZDiagPath 'E:\SteamLibrary\steamapps\common\DayZ\DayZDiag_x64.exe' `
     -ModList 'E:\DayZDev\@CF;E:\DayZDev\@TransferZ'
 ```
+
+Use this lower-level launcher only when the PBO/mod folders are already prepared. For normal development, `run-transferz-self-test.ps1` above is the intended entry point.
 
 The launcher starts the tracked mission, watches the profile logs for the suite marker, terminates DayZDiag after the marker appears, and returns:
 
