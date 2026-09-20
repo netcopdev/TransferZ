@@ -637,6 +637,14 @@ class TransferZSortPlanner : TransferZMaintenanceService
         moves.Insert(move);
     }
 
+    protected static void AddPlannedSwapV4(notnull array<ref TransferZSortMove> moves, TransferZSortRecord record, TransferZSortRecord blocker)
+    {
+        ref TransferZSortMove move = new TransferZSortMove();
+        move.item = record.item;
+        move.swapItem = blocker.item;
+        moves.Insert(move);
+    }
+
     protected static void MoveRecordInGridV4(notnull array<int> currentGrid, int cargoWidth, TransferZSortRecord record, int recordValue, int row, int col, int newWidth, int newHeight, bool newFlip)
     {
         MarkRect(currentGrid, cargoWidth, record.row, record.col, record.width, record.height, 0);
@@ -710,6 +718,87 @@ class TransferZSortPlanner : TransferZMaintenanceService
         return blockers.Count() > 0;
     }
 
+    protected static void SwapRecordsInGridV4(notnull TransferZSortPlannerState state, int firstIndex, int secondIndex)
+    {
+        TransferZSortRecord first = state.records.Get(firstIndex);
+        TransferZSortRecord second = state.records.Get(secondIndex);
+
+        int firstRow = first.row;
+        int firstCol = first.col;
+        int firstWidth = first.width;
+        int firstHeight = first.height;
+        bool firstFlip = first.flip;
+
+        int secondRow = second.row;
+        int secondCol = second.col;
+        int secondWidth = second.width;
+        int secondHeight = second.height;
+        bool secondFlip = second.flip;
+
+        MarkRect(state.currentGrid, state.cargoWidth, firstRow, firstCol, firstWidth, firstHeight, 0);
+        MarkRect(state.currentGrid, state.cargoWidth, secondRow, secondCol, secondWidth, secondHeight, 0);
+
+        first.row = secondRow;
+        first.col = secondCol;
+        first.width = firstWidth;
+        first.height = firstHeight;
+        first.flip = firstFlip;
+
+        second.row = firstRow;
+        second.col = firstCol;
+        second.width = secondWidth;
+        second.height = secondHeight;
+        second.flip = secondFlip;
+
+        MarkRect(state.currentGrid, state.cargoWidth, first.row, first.col, first.width, first.height, firstIndex + 1);
+        MarkRect(state.currentGrid, state.cargoWidth, second.row, second.col, second.width, second.height, secondIndex + 1);
+    }
+
+    protected static bool TryPlanDirectSwapToTargetV4(notnull TransferZSortPlannerState state, int recordIndex)
+    {
+        if (recordIndex < 0 || recordIndex >= state.records.Count())
+            return false;
+
+        TransferZSortRecord record = state.records.Get(recordIndex);
+        int targetWidth = state.targetWidths.Get(recordIndex);
+        int targetHeight = state.targetHeights.Get(recordIndex);
+        bool targetFlip = state.targetFlips.Get(recordIndex) != 0;
+
+        // DayZ ordinary swaps preserve each item's current orientation and need
+        // compatible equal-size cargo objects. They are valuable here because
+        // they require no empty intermediary cell.
+        if (record.flip != targetFlip || record.width != targetWidth || record.height != targetHeight)
+            return false;
+
+        ref array<int> blockers = new array<int>();
+        if (!CollectBlockersV4(state.currentGrid, state.cargoWidth, record.targetRow, record.targetCol, targetWidth, targetHeight, recordIndex + 1, blockers))
+            return false;
+        if (blockers.Count() != 1)
+            return false;
+
+        int blockerIndex = blockers.Get(0);
+        if (blockerIndex < 0 || blockerIndex >= state.records.Count())
+            return false;
+        if (state.lockedRecords.Get(blockerIndex) != 0 || state.activeParking.Get(blockerIndex) != 0)
+            return false;
+
+        TransferZSortRecord blocker = state.records.Get(blockerIndex);
+        if (blocker.row != record.targetRow || blocker.col != record.targetCol)
+            return false;
+        if (blocker.width != targetWidth || blocker.height != targetHeight)
+            return false;
+        if (record.width != blocker.width || record.height != blocker.height)
+            return false;
+        if (!GameInventory.CanSwapEntitiesEx(record.item, blocker.item))
+            return false;
+
+        AddPlannedSwapV4(state.moves, record, blocker);
+        SwapRecordsInGridV4(state, recordIndex, blockerIndex);
+        state.stepCount++;
+        state.lockedRecords.Set(recordIndex, 1);
+        return true;
+    }
+
     protected static bool ParkRecordRecursiveV4(notnull TransferZSortPlannerState state, int recordIndex, int protectedTargetIndex, int depth)
     {
         if (recordIndex < 0 || recordIndex >= state.records.Count())
@@ -748,6 +837,17 @@ class TransferZSortPlanner : TransferZMaintenanceService
             protectedHeight = state.targetHeights.Get(protectedTargetIndex);
         }
 
+        // Scratch storage belongs to this recursion frame, not to each
+        // candidate cell. CapturePlannerStateV4 and CollectBlockersV4 overwrite
+        // these arrays, so reusing them avoids thousands of short-lived arrays
+        // in failed searches on large/nearly-full cargo grids.
+        ref array<int> blockers = new array<int>();
+        ref array<int> savedRows = new array<int>();
+        ref array<int> savedCols = new array<int>();
+        ref array<int> savedWidths = new array<int>();
+        ref array<int> savedHeights = new array<int>();
+        ref array<int> savedFlips = new array<int>();
+
         int orientationCount = OrientationCountV4(record);
         for (int orientationIndex = 0; orientationIndex < orientationCount; orientationIndex++)
         {
@@ -771,7 +871,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
                     if (CollidesWithUserReservationV4(state.player, state.source, record, candidateRow, candidateCol, candidateFlip))
                         continue;
 
-                    ref array<int> blockers = new array<int>();
                     CollectBlockersV4(state.currentGrid, state.cargoWidth, candidateRow, candidateCol, candidateWidth, candidateHeight, recordIndex + 1, blockers);
                     bool candidateBlockedByLocked = false;
                     bool candidateBlockedByActive = false;
@@ -787,11 +886,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
 
                     int savedMoveCount = state.moves.Count();
                     int savedStepCount = state.stepCount;
-                    ref array<int> savedRows = new array<int>();
-                    ref array<int> savedCols = new array<int>();
-                    ref array<int> savedWidths = new array<int>();
-                    ref array<int> savedHeights = new array<int>();
-                    ref array<int> savedFlips = new array<int>();
                     CapturePlannerStateV4(state.records, savedRows, savedCols, savedWidths, savedHeights, savedFlips);
 
                     bool cleared = true;
@@ -836,6 +930,9 @@ class TransferZSortPlanner : TransferZMaintenanceService
         int targetHeight = state.targetHeights.Get(recordIndex);
         bool targetFlip = state.targetFlips.Get(recordIndex) != 0;
 
+        if (TryPlanDirectSwapToTargetV4(state, recordIndex))
+            return true;
+
         int clearGuard = 0;
         int clearGuardLimit = state.records.Count() * 8 + 16;
         while (!RectFree(state.currentGrid, state.cargoWidth, state.cargoHeight, record.targetRow, record.targetCol, targetWidth, targetHeight, recordIndex + 1))
@@ -865,13 +962,11 @@ class TransferZSortPlanner : TransferZMaintenanceService
         return true;
     }
 
-    protected static bool BuildSortPlanV4(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<ref TransferZSortMove> moves)
+    protected static bool BuildTargetLayoutV4(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips)
     {
-        moves.Clear();
-
-        ref array<int> targetWidths = new array<int>();
-        ref array<int> targetHeights = new array<int>();
-        ref array<int> targetFlips = new array<int>();
+        targetWidths.Clear();
+        targetHeights.Clear();
+        targetFlips.Clear();
 
         // First try to repack without rotating anything at all. The player's
         // existing orientation is the primary layout preference.
@@ -900,8 +995,29 @@ class TransferZSortPlanner : TransferZMaintenanceService
             return false;
         }
 
+        // Common repeat-sort case: deterministic assignment already describes
+        // the current layout. Equivalent-slot optimization cannot improve a
+        // zero-move plan.
+        if (AllRecordsAtTargetV4(records, targetFlips))
+            return true;
+
         OptimizeEquivalentTargetAssignmentsV4(records, targetWidths, targetHeights, targetFlips);
         SortRecordsByTargetV4(records, targetWidths, targetHeights, targetFlips);
+        return true;
+    }
+
+    protected static bool BuildSortPlanV4(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<ref TransferZSortMove> moves)
+    {
+        moves.Clear();
+
+        ref array<int> targetWidths = new array<int>();
+        ref array<int> targetHeights = new array<int>();
+        ref array<int> targetFlips = new array<int>();
+        if (!BuildTargetLayoutV4(player, source, records, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
+            return false;
+
+        if (AllRecordsAtTargetV4(records, targetFlips))
+            return true;
 
         ref TransferZSortPlannerState state = new TransferZSortPlannerState();
         state.player = player;

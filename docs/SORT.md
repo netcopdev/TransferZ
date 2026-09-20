@@ -1,6 +1,6 @@
 # Sort behavior
 
-TransferZ Sort is a server-authoritative rearrangement of a container's direct cargo children. It never deletes or recreates sorted items: the same `EntityAI` objects are moved through DayZ's native inventory system from their current location to temporary staging and then back into the source cargo.
+TransferZ Sort is a server-authoritative rearrangement of a container's direct cargo children. It never deletes or recreates sorted items: the same `EntityAI` objects are moved through DayZ's native inventory system between exact cells of the source cargo until the planned layout is reached.
 
 ## Layout policy
 
@@ -18,23 +18,17 @@ The target layout is deterministic and rotation-aware.
 
 ## Transactional execution
 
-Sort snapshots the exact original row, column and orientation of every direct cargo child before any move. It computes the complete target layout before execution and is a no-op when that layout already matches the snapshot.
+Sort snapshots the exact original row, column and orientation of every direct cargo child before any move. It computes the complete target layout and a bounded rearrangement plan before execution. If the target layout already matches the snapshot, Sort is a successful no-op.
 
-When movement is required, Sort temporarily stages every tracked direct cargo item through DayZ's normal vicinity/ground drop path. Each staging move is immediately verified as a reachable ground location. Staging the complete set deliberately empties the source cargo, which removes in-cargo move cycles and makes both final placement and rollback deterministic. Player inventory is not used as an implicit staging area.
+Planning is entirely virtual. A cloned record set is used while the planner resolves blockers and cycles, so the authoritative original snapshot remains unchanged for rollback verification. The planner uses genuinely free cells inside the **same cargo grid** as temporary parking when a direct target move is blocked. When a target is occupied by one compatible equal-size item, TransferZ can instead plan DayZ's native atomic inventory swap; this exchanges the two cargo locations without requiring any empty intermediary cell.
 
-With the source empty, Sort first preflights every exact **original** move from the current staged state. This proves the normal rollback path before any target placement is allowed to begin. It then preflights every exact target move. Only when both complete layouts pass native DayZ validation does Sort start committing target placements. The same original item entities are then moved back into the source at their exact target rows, columns and orientations. No weapon, magazine, container or other item is copied or reconstructed.
+TransferZ first tries that bounded in-cargo plan. If the final layout is valid but the source grid cannot provide enough intermediary workspace, Sort falls back to a dedicated `TransferZ_SortBuffer`. The buffer is a hidden, non-interactive, non-physical native cargo entity created server-authoritatively beside the player for only that transaction. Non-stationary items are moved into its cargo, then moved directly into their exact final source-cargo cells. Ground/vicinity and arbitrary player/world containers are never used as Sort workspace.
 
-Success is reported only after every tracked item is verified at its target location. If staging, rollback preflight, target preflight, target placement, or final verification fails, Sort enters synchronous rollback:
+Both paths move the same original entity objects through DayZ's native inventory system. The buffer path therefore preserves chambers, attachments, nested cargo, quantities and mod-defined entity state by object identity rather than serialization/reconstruction. The buffer is networked so clients observe a valid native inventory parent while an item is staged; it is not a local-only phantom parent.
 
-- any tracked item currently in the source at a non-original location is evacuated again;
-- every tracked item is restored to its exact original row, column and orientation from the snapshot;
-- rollback is verified before the failed operation returns;
-- no tracked item is intentionally left in vicinity;
-- if DayZ unexpectedly refuses an exact rollback move after repeated recovery passes, TransferZ performs a final containment attempt back into the source and emits a `CRITICAL rollback incomplete` diagnostic. This is treated as a hard invariant violation, not a successful or acceptable partial sort.
+If buffered staging or placement fails, TransferZ uses the immutable original snapshot to evacuate displaced tracked items back into the buffer as necessary and restore exact original row/column/orientation. The buffer is deleted only after the original or final layout has been verified and its cargo is empty. A non-empty buffer is never deleted; failure to restore the exact snapshot is logged as `CRITICAL rollback incomplete`.
 
-The rollback design means a normal failed Sort should leave the source exactly as it was before the button was pressed. Absolute recovery still depends on DayZ's native inventory API continuing to accept valid reverse moves and cannot survive process/server termination mid-operation; TransferZ does not bypass or corrupt native inventory state to force a move.
-
-Temporary staging can trigger normal DayZ inventory/drop callbacks because the same entities genuinely move through vicinity. Chamber contents, attachments and mod-defined entity state are preserved by object identity rather than manually serialized and recreated.
+Normal world-drop physics and vicinity/drop callbacks are therefore not part of sorting. A hard server-process termination during the short buffered transaction cannot be made fully atomic in script, but normal execution never deletes/recreates the player's items.
 
 ## UI feedback
 

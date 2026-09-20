@@ -102,25 +102,25 @@ Attachments are not traversed by Unpack in 0.1.0.
 
 Sort reorganizes the selected container's **direct cargo only** while preserving the original item entities.
 
-TransferZ first snapshots each direct item's exact row, column and orientation and computes a complete deterministic rotation-aware target layout. If movement is required, it temporarily stages the tracked items through DayZ's normal vicinity/ground path so the source cargo becomes empty, preflights every exact final destination, and then moves those same `EntityAI` objects back into the source at their target positions.
+TransferZ snapshots each direct item's exact row, column and orientation and computes a deterministic rotation-aware target layout. It first tries a bounded move sequence entirely inside the source cargo, using free cells and native atomic swaps where useful. If the final layout fits but no in-cargo path exists, TransferZ stages the same item entities through its own hidden, non-physical native cargo buffer and places them directly into their final cells. Sort never uses ground/vicinity or arbitrary player inventory as staging, and it never deletes/recreates items.
 
 Current Sort behavior:
 
-- larger direct items are packed first, while smaller items fill usable gaps;
-- non-square items may be rotated when the alternate orientation improves packing; equivalent choices prefer the current orientation;
-- nested containers are treated as ordinary direct cargo items and move intact;
-- DayZ user-reserved cells are treated as unavailable;
-- player inventory is not used as an implicit temporary staging area;
-- no weapon, magazine, container or other item is deleted and recreated, so preservation depends on the same entity object surviving the native moves;
-- success is reported only after every tracked item is verified at its exact target row, column and orientation.
+- current item orientation is preserved whenever a complete layout permits it;
+- rotation is a fallback for tighter layouts rather than the default;
+- detachable magazines prefer vertical orientation only after an all-current-orientation layout has failed;
+- equivalent items already in valid final slots are kept stationary when possible;
+- native DayZ move validation remains authoritative for every step;
+- if no bounded in-cargo rearrangement exists, Sort uses the dedicated hidden native cargo buffer; a normal failure restores the exact original layout and never falls back to ground staging.
 
-Sort is transactional at the TransferZ level. If staging, preflight, final placement, or verification fails, TransferZ clears any partial target placements and restores every tracked item to the exact original row, column and orientation from the snapshot before reporting failure. A normal failed Sort must not intentionally leave items in vicinity or leave the source partially sorted. If DayZ itself refuses the reverse native moves, TransferZ logs a critical rollback invariant violation and attempts final containment back into the source rather than treating the partial state as acceptable.
+Sort is transactional at the TransferZ level. The in-cargo path journals inverse moves/swaps and reverses them in strict reverse order on failure. The buffer path uses the immutable original snapshot to evacuate displaced items back through the buffer and restore exact original cells. The buffer is deleted only when verified empty. A rollback invariant violation is logged as critical rather than accepted as a partial sort.
 
 ## Stack
 
 Stack scans the selected container's direct cargo and asks DayZ whether pairs can be combined. Only pairs accepted by DayZ's own `CanBeCombined` logic are merged with the native `CombineItems` behavior.
 
 TransferZ does not define its own ammo-family/category matching, does not merge through nested containers, and does not split stacks to manufacture a merge.
+
 
 ## Vicinity
 
@@ -181,7 +181,7 @@ TransferZ never deletes and recreates items to simulate movement, sorting, or st
 
 The client requests operations; the server re-resolves entities and validates sender ownership, reachability, source removal, destination acceptance, exact cargo space, and DayZ inventory locations before moving anything.
 
-Sort has an additional rollback contract: original cargo coordinates and orientation are captured before staging, and any failed transaction must restore and verify that snapshot before returning a normal failure. Absolute recovery still depends on the DayZ native inventory API continuing to accept valid reverse moves; engine-level refusal or process termination cannot be made atomic purely in script.
+Sort has an additional rollback contract: original cargo coordinates and orientation are captured before execution, and any failed transaction must restore and verify that snapshot before returning a normal failure. In-cargo execution reverses its move journal; buffered execution restores through the hidden native cargo buffer. Absolute recovery still depends on the DayZ native inventory API continuing to accept valid recovery moves; engine-level refusal or process termination cannot be made atomic purely in script.
 
 ## Install
 

@@ -42,6 +42,6 @@ class TransferZCFModule : CF_ModuleWorld
         else if (rpc.ID == TransferZNestedUnpackRPC.REQUEST)
             TransferZNestedUnpackService.HandleRequest(player, rpc.Sender, rpc.Context);
         else if (rpc.ID == TransferZMaintenanceRPC.REQUEST)
-            TransferZExternalStagingSortPlanner.HandleRequest(player, rpc.Sender, rpc.Context);
+            TransferZTransactionalSortPlanner.HandleRequest(player, rpc.Sender, rpc.Context);
     }
 }
