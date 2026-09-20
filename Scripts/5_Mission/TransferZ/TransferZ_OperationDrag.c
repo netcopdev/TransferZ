@@ -395,7 +395,7 @@ modded class WidgetEventHandler
             if (operationDrag)
                 CancelWidgetDragging();
 
-            bool handled = TransferZHeaderControls.CompleteModifierDragAtMousePosition();
+            TransferZHeaderControls.CompleteModifierDragAtMousePosition();
             if (TransferZOperationDrag.IsActive())
             {
                 TransferZHeaderControls.CancelOperationDrag();
