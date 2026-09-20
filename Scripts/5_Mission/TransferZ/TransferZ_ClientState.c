@@ -837,7 +837,7 @@ class TransferZClientState
             {
                 if (!offlineContainer || offlineContainer == destination || !TransferZCargo.Exists(offlineContainer, 0))
                     continue;
-                if (TransferZServerService.Unpack(player, offlineContainer, destination, 0, destinationCargoIndex) > 0)
+                if (TransferZNestedUnpackService.Unpack(player, offlineContainer, destination, 0, destinationCargoIndex) > 0)
                     requested = true;
             }
             if (requested)
@@ -849,7 +849,7 @@ class TransferZClientState
         {
             if (!container || container == destination || !TransferZCargo.Exists(container, 0))
                 continue;
-            if (RequestUnpackTo(container, destination, 0, destinationCargoIndex))
+            if (RequestNestedUnpackTo(container, destination, 0, destinationCargoIndex))
                 requested = true;
         }
         return requested;
@@ -868,7 +868,7 @@ class TransferZClientState
             {
                 if (!offlineContainer || !TransferZCargo.Exists(offlineContainer, 0))
                     continue;
-                if (TransferZServerService.UnpackToVicinity(player, offlineContainer) > 0)
+                if (TransferZNestedUnpackService.UnpackToVicinity(player, offlineContainer) > 0)
                     requested = true;
             }
             if (requested)
@@ -880,7 +880,7 @@ class TransferZClientState
         {
             if (!container || !TransferZCargo.Exists(container, 0))
                 continue;
-            if (RequestUnpackToVicinity(container))
+            if (RequestNestedUnpackToVicinity(container))
                 requested = true;
         }
         return requested;
