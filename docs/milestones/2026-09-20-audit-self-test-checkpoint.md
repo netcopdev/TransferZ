@@ -31,15 +31,17 @@ The next real DayZDiag run compiled successfully and started the suite. Transfer
 
 A subsequent DayZDiag run completed the entire suite rather than hanging. Transfer, exact-class transfer, Stack, Sort, and the emergency ground-drop primitive all passed. The three cargo-identity fixture checks also passed. The four remaining Unpack failures then exposed a test-rig mistake rather than the active UI path: the fixture was calling the obsolete duplicate `TransferZServerService.Unpack()`, whose semantics also incorrectly included direct loose cargo. Production header/drag Unpack already routes through `TransferZNestedUnpackService`. The duplicate generic server/client Unpack path has now been removed. A repository-contract failure then exposed two remaining vicinity-Unpack call sites still pointing at that obsolete API; those were switched to `TransferZNestedUnpackService` / `RequestNestedUnpack*` as well. Repository contracts now lock header, drag, and vicinity Unpack to the same production nested service, and the DayZDiag fixture exercises that production service directly with additional fixture-validity checks.
 
+The latest user-run DayZDiag pass reached the production nested-Unpack service, but the fixture itself failed to create the nested BandageDressing and Battery9V, so the remaining Unpack failures were not evidence against production Unpack behavior. The fixture now uses DayZ's direct `CreateEntityInCargo()` API for those nested cargo items instead of the broader `CreateInInventory()` search.
+
 The connector environment still cannot itself claim a complete DayZ runtime pass. The repository contains `tools/run-transferz-self-test.ps1` and the DayZDiag fixture for the exact-build runtime gate on a Windows machine with DayZ/DayZDiag and CF installed.
 
 ## Decisions retained
 
-- `main` is not to be updated without explicit merge approval.
+- `main` is not to be updated without explicit merge approval **after the user has completed in-game testing**. Automated repository tests and DayZDiag results are preflight evidence only and never authorize a merge.
 - One fixed Sort buffer is sufficient by design; failure to stage within it is a normal Sort failure.
 - Rollback invariant failure uses emergency ground drop, not a recovery container.
 - Vehicle cargo reach remains governed by DayZ native inventory authority; issue #30 records the no-extra-distance-formula decision.
 
 ## Next concrete action
 
-The rewritten active stack is green and ready for explicit merge approval. Do not merge without that approval.
+Continue DayZDiag/preflight fixes as needed, then wait for the user's in-game testing. Do not merge anything to `main` until the user explicitly approves the merge after that in-game test.

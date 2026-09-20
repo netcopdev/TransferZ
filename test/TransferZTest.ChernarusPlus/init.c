@@ -27,6 +27,14 @@ EntityAI TZTest_CreateItem(EntityAI owner, string typeName)
     return owner.GetInventory().CreateInInventory(typeName);
 }
 
+EntityAI TZTest_CreateCargoItem(EntityAI owner, string typeName)
+{
+    if (!owner)
+        return NULL;
+
+    return owner.GetInventory().CreateEntityInCargo(typeName);
+}
+
 EntityAI TZTest_CreateWorldItem(string typeName, vector position)
 {
     return EntityAI.Cast(GetGame().CreateObjectEx(typeName, position, ECE_PLACE_ON_SURFACE));
@@ -229,8 +237,8 @@ void TZTest_RunUnpackSelfTest(PlayerBase player)
     EntityAI destination = TZTest_CreateWorldItem("WoodenCrate", basePos + "-1.2 0 -0.8");
     EntityAI directApple = TZTest_CreateItem(source, "Apple");
     EntityAI nested = TZTest_CreateItem(source, "SmallProtectorCase");
-    EntityAI nestedBandage = TZTest_CreateItem(nested, "BandageDressing");
-    EntityAI nestedBattery = TZTest_CreateItem(nested, "Battery9V");
+    EntityAI nestedBandage = TZTest_CreateCargoItem(nested, "BandageDressing");
+    EntityAI nestedBattery = TZTest_CreateCargoItem(nested, "Battery9V");
 
     TZTest_Check(directApple != null, "unpack fixture direct loose item created");
     TZTest_Check(nestedBandage != null, "unpack fixture nested bandage created");

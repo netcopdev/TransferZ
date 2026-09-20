@@ -423,6 +423,9 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("[TransferZTest] SUITE PASS", fixture)
         self.assertIn("[TransferZTest] SUITE FAIL", fixture)
         self.assertIn("[TransferZTest] RUN unpack", fixture)
+        self.assertIn("CreateEntityInCargo(typeName)", fixture)
+        self.assertIn('TZTest_CreateCargoItem(nested, "BandageDressing")', fixture)
+        self.assertIn('TZTest_CreateCargoItem(nested, "Battery9V")', fixture)
         self.assertIn("TZTest_RunSelfTests", fixture)
 
 
