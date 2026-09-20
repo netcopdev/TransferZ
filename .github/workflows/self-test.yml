@@ -25,3 +25,50 @@ jobs:
 
       - name: Run TransferZ self-tests
         run: python tools/self_test.py
+
+      - name: Fetch pinned DayZ Knowledge Pack validator
+        shell: bash
+        run: |
+          set -euo pipefail
+          PACK="$RUNNER_TEMP/dayz-knowledge"
+          git clone --filter=blob:none --no-checkout https://github.com/willy92wins/DayZ-Modding-Knowledge-Pack.git "$PACK"
+          git -C "$PACK" checkout 9727ae83e65ac26a1cd386c64821b00159f8f933
+
+      - name: Run DayZ Enforce and UI lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          PACK="$RUNNER_TEMP/dayz-knowledge"
+
+          set +e
+          python "$PACK/tools/dayz-script-validator/scripts/script_validator.py" "$GITHUB_WORKSPACE" > "$RUNNER_TEMP/dayz-script-validator.json"
+          validator_code=$?
+          set -e
+          cat "$RUNNER_TEMP/dayz-script-validator.json"
+
+          if [ "$validator_code" -gt 2 ]; then
+            echo "DayZ script validator crashed with exit code $validator_code" >&2
+            exit "$validator_code"
+          fi
+
+          python - "$RUNNER_TEMP/dayz-script-validator.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+errors = report.get("errors", [])
+if errors:
+    raise SystemExit(f"DayZ script validator reported {len(errors)} error(s)")
+PY
+
+          set +e
+          python "$PACK/tools/dayz-script-validator/scripts/ui_reconcile.py" "$GITHUB_WORKSPACE" --json > "$RUNNER_TEMP/dayz-ui-reconcile.json"
+          ui_code=$?
+          set -e
+          cat "$RUNNER_TEMP/dayz-ui-reconcile.json"
+
+          if [ "$ui_code" -eq 1 ] || [ "$ui_code" -gt 2 ]; then
+            echo "DayZ UI reconciliation failed with exit code $ui_code" >&2
+            exit 1
+          fi
