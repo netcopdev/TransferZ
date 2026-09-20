@@ -562,17 +562,11 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         return exact && bufferEmpty;
     }
 
-    protected static int SortWithNativeBuffer(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> originalRecords, int cargoWidth, int cargoHeight)
+    protected static int SortWithNativeBuffer(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> originalRecords, notnull array<ref TransferZSortRecord> layoutRecords, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips)
     {
-        ref array<ref TransferZSortRecord> layoutRecords = new array<ref TransferZSortRecord>();
-        CloneSortRecords(originalRecords, layoutRecords);
         if (layoutRecords.Count() != originalRecords.Count())
             return -1;
-
-        ref array<int> targetWidths = new array<int>();
-        ref array<int> targetHeights = new array<int>();
-        ref array<int> targetFlips = new array<int>();
-        if (!BuildTargetLayoutV4(player, source, layoutRecords, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
+        if (targetWidths.Count() != layoutRecords.Count() || targetHeights.Count() != layoutRecords.Count() || targetFlips.Count() != layoutRecords.Count())
             return -1;
         if (AllRecordsAtTargetV4(layoutRecords, targetFlips))
             return 0;
@@ -686,20 +680,42 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
 
         SortRecordsV4(originalRecords);
 
+        // Compute the deterministic target layout exactly once. Both execution
+        // strategies use the same immutable layout, so falling back from the
+        // bounded in-cargo planner does not repeat the expensive packing passes.
+        ref array<ref TransferZSortRecord> layoutRecords = new array<ref TransferZSortRecord>();
+        CloneSortRecords(originalRecords, layoutRecords);
+        if (layoutRecords.Count() != originalRecords.Count())
+        {
+            Print("[TransferZ] Sort transactional rejected: layout snapshot clone failed");
+            return -1;
+        }
+
+        ref array<int> targetWidths = new array<int>();
+        ref array<int> targetHeights = new array<int>();
+        ref array<int> targetFlips = new array<int>();
+        if (!BuildTargetLayoutV4(player, source, layoutRecords, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips))
+        {
+            Print("[TransferZ] Sort transactional rejected: target layout failed for " + source.GetType());
+            return -1;
+        }
+        if (AllRecordsAtTargetV4(layoutRecords, targetFlips))
+            return 0;
+
         ref array<ref TransferZSortRecord> plannedRecords = new array<ref TransferZSortRecord>();
-        CloneSortRecords(originalRecords, plannedRecords);
-        if (plannedRecords.Count() != originalRecords.Count())
+        CloneSortRecords(layoutRecords, plannedRecords);
+        if (plannedRecords.Count() != layoutRecords.Count())
         {
             Print("[TransferZ] Sort transactional rejected: planning snapshot clone failed");
             return -1;
         }
 
         ref array<ref TransferZSortMove> moves = new array<ref TransferZSortMove>();
-        if (!BuildSortPlanV4(player, source, plannedRecords, cargoWidth, cargoHeight, moves))
+        if (!BuildSortPlanFromTargetsV4(player, source, plannedRecords, cargoWidth, cargoHeight, targetWidths, targetHeights, targetFlips, moves))
         {
-            int bufferedResult = SortWithNativeBuffer(player, source, originalRecords, cargoWidth, cargoHeight);
+            int bufferedResult = SortWithNativeBuffer(player, source, originalRecords, layoutRecords, targetWidths, targetHeights, targetFlips);
             if (bufferedResult < 0)
-                Print("[TransferZ] Sort transactional failed: in-cargo plan and native buffer fallback both failed for " + source.GetType());
+                Print("[TransferZ] Sort transactional failed: bounded in-cargo plan and native buffer fallback both failed for " + source.GetType());
             return bufferedResult;
         }
         if (moves.Count() == 0)
