@@ -162,6 +162,23 @@ class TransferZVicinityHeaderControls : Managed
         PrepareSolidImage(image, ARGB(0, 0, 0, 0), false);
     }
 
+    static void OnInventoryClosed()
+    {
+        if (!s_Instance)
+            return;
+
+        s_Instance.HideTooltip();
+        s_Instance.HideOperationStatus();
+        if (s_Instance.m_DestinationHover)
+            s_Instance.m_DestinationHover.Show(false);
+        if (s_Instance.m_TransferHover)
+            s_Instance.m_TransferHover.Show(false);
+        if (s_Instance.m_UnpackHover)
+            s_Instance.m_UnpackHover.Show(false);
+        if (s_Instance.m_DropTarget)
+            s_Instance.m_DropTarget.Show(false);
+    }
+
     static void Refresh()
     {
         if (s_Instance)
