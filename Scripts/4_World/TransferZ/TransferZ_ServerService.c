@@ -335,38 +335,6 @@ class TransferZServerService
         return true;
     }
 
-    static bool CollectUnpackLeavesForOperation(EntityAI source, int sourceCargoIndex, EntityAI destination, bool nestedOnly, notnull array<EntityAI> leaves, TransferZUnpackScanBudget budget)
-    {
-        if (!source || !budget || budget.exceeded)
-            return false;
-
-        CargoBase sourceCargo = TransferZCargo.Get(source, sourceCargoIndex);
-        if (!sourceCargo)
-            return false;
-
-        for (int i = 0; i < sourceCargo.GetItemCount(); i++)
-        {
-            if (!ConsumeUnpackScanNode(budget))
-                return false;
-
-            EntityAI child = sourceCargo.GetItem(i);
-            if (!child || child == destination)
-                continue;
-
-            if (TransferZCargo.Exists(child, 0))
-            {
-                if (!CollectUnpackLeaves(child, destination, leaves, budget, 1))
-                    return false;
-            }
-            else if (!nestedOnly && !AppendUnpackLeaf(child, leaves, budget))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     static int Transfer(PlayerBase player, EntityAI source, EntityAI destination, int sourceCargoIndex = 0, int destinationCargoIndex = 0)
     {
         if (!player || !source || !destination)
@@ -504,59 +472,6 @@ class TransferZServerService
         return moved;
     }
 
-    static int Unpack(PlayerBase player, EntityAI source, EntityAI destination, int sourceCargoIndex = 0, int destinationCargoIndex = 0)
-    {
-        if (!player || !source || !destination)
-            return 0;
-
-        if (!IsReachable(player, source) || !IsReachable(player, destination))
-            return 0;
-
-        if (!TransferZCargo.Exists(source, sourceCargoIndex) || !TransferZCargo.Exists(destination, destinationCargoIndex))
-            return 0;
-
-        if (destination != source && IsDescendantOf(destination, source))
-            return 0;
-
-        ref array<EntityAI> leaves = new array<EntityAI>();
-        TransferZUnpackScanBudget budget = new TransferZUnpackScanBudget();
-        if (!CollectUnpackLeavesForOperation(source, sourceCargoIndex, destination, source == destination && sourceCargoIndex == destinationCargoIndex, leaves, budget))
-        {
-            Print("[TransferZ] Unpack rejected: traversal budget exceeded scanned=" + budget.scannedNodes.ToString() + " leaves=" + leaves.Count().ToString());
-            return 0;
-        }
-
-        int moved = 0;
-        foreach (EntityAI item : leaves)
-        {
-            if (TryMoveToExactCargo(player, item, destination, destinationCargoIndex))
-                moved++;
-        }
-        return moved;
-    }
-
-    static int UnpackToVicinity(PlayerBase player, EntityAI source, int sourceCargoIndex = 0)
-    {
-        if (!player || !source || !IsReachable(player, source) || !TransferZCargo.Exists(source, sourceCargoIndex))
-            return 0;
-
-        ref array<EntityAI> leaves = new array<EntityAI>();
-        TransferZUnpackScanBudget budget = new TransferZUnpackScanBudget();
-        if (!CollectUnpackLeavesForOperation(source, sourceCargoIndex, null, false, leaves, budget))
-        {
-            Print("[TransferZ] UnpackToVicinity rejected: traversal budget exceeded scanned=" + budget.scannedNodes.ToString() + " leaves=" + leaves.Count().ToString());
-            return 0;
-        }
-
-        int moved = 0;
-        foreach (EntityAI item : leaves)
-        {
-            if (TryMoveToVicinity(player, item))
-                moved++;
-        }
-        return moved;
-    }
-
     static bool MoveItem(PlayerBase player, EntityAI item, EntityAI destination, int destinationCargoIndex = 0)
     {
         if (!player || !item || !destination)
@@ -653,8 +568,6 @@ class TransferZServerService
         {
             if (operation == TransferZOperation.TRANSFER)
                 TransferToVicinity(player, source, sourceCargoIndex);
-            else if (operation == TransferZOperation.UNPACK)
-                UnpackToVicinity(player, source, sourceCargoIndex);
             else if (operation == TransferZOperation.MOVE_ITEM)
                 MoveItemToVicinity(player, item);
             else if (operation == TransferZOperation.TRANSFER_CLASS)
@@ -664,8 +577,6 @@ class TransferZServerService
 
         if (operation == TransferZOperation.TRANSFER)
             Transfer(player, source, destination, sourceCargoIndex, destinationCargoIndex);
-        else if (operation == TransferZOperation.UNPACK)
-            Unpack(player, source, destination, sourceCargoIndex, destinationCargoIndex);
         else if (operation == TransferZOperation.MOVE_ITEM)
             MoveItem(player, item, destination, destinationCargoIndex);
         else if (operation == TransferZOperation.TRANSFER_CLASS)

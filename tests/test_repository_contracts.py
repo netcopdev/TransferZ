@@ -305,13 +305,8 @@ class RepositoryContracts(unittest.TestCase):
             transfer.index("SnapshotDirectCargo"),
         )
 
-        unpack = function_body(server, "static int Unpack(")
-        self.assertIn("TransferZUnpackScanBudget", unpack)
-        self.assertIn("CollectUnpackLeavesForOperation", unpack)
-        self.assertLess(
-            unpack.index("CollectUnpackLeavesForOperation"),
-            unpack.index("TryMoveToExactCargo"),
-        )
+        self.assertNotIn("static int Unpack(", server)
+        self.assertNotIn("CollectUnpackLeavesForOperation", server)
 
         collect = function_body(server, "static bool CollectUnpackLeaves(")
         self.assertIn("depth > MAX_UNPACK_DEPTH", collect)
@@ -320,8 +315,15 @@ class RepositoryContracts(unittest.TestCase):
 
         nested = read("Scripts/4_World/TransferZ/TransferZ_NestedUnpackService.c")
         nested_collect = function_body(nested, "static bool CollectNestedLeaves(")
+        nested_unpack = function_body(nested, "static int Unpack(")
         self.assertIn("ConsumeUnpackScanNode", nested_collect)
         self.assertIn("CollectUnpackLeaves", nested_collect)
+        self.assertIn("TransferZUnpackScanBudget", nested_unpack)
+        self.assertIn("CollectNestedLeaves", nested_unpack)
+        self.assertLess(
+            nested_unpack.index("CollectNestedLeaves"),
+            nested_unpack.index("TryMoveToExactCargo"),
+        )
 
     def test_rpc_entry_checks_player_state_and_service_rechecks_sender(self) -> None:
         dispatcher = read("Scripts/4_World/TransferZ/TransferZ_CFModule.c")
@@ -394,6 +396,23 @@ class RepositoryContracts(unittest.TestCase):
     def test_nested_unpack_uses_descriptive_source_filename(self) -> None:
         self.assertTrue((ROOT / "Scripts/4_World/TransferZ/TransferZ_NestedUnpackService.c").is_file())
         self.assertFalse((ROOT / "Scripts/4_World/TransferZ/TransferZ_ServerService_20_NestedUnpack.c").exists())
+
+    def test_ui_unpack_uses_only_nested_unpack_service(self) -> None:
+        client = read("Scripts/5_Mission/TransferZ/TransferZ_ClientState.c")
+        server = read("Scripts/4_World/TransferZ/TransferZ_ServerService.c")
+        cargo_ui = read("Scripts/5_Mission/TransferZ/TransferZ_CargoContainer.c")
+        drag = read("Scripts/5_Mission/TransferZ/TransferZ_OperationDrag.c")
+        fixture = read("test/TransferZTest.ChernarusPlus/init.c")
+
+        self.assertNotIn("bool RequestUnpackTo(", client)
+        self.assertNotIn("bool RequestUnpackToVicinity(", client)
+        self.assertNotIn("bool RequestUnpack(", client)
+        self.assertNotIn("TransferZServerService.Unpack", client)
+        self.assertNotIn("TransferZOperation.UNPACK", function_body(server, "static void HandleRequest("))
+        self.assertIn("RequestNestedUnpack(m_Entity, m_CargoIndex)", cargo_ui)
+        self.assertIn("RequestNestedUnpackTo(", drag)
+        self.assertIn("RequestNestedUnpackToVicinity(", drag)
+        self.assertIn("TransferZNestedUnpackService.Unpack(player, source, destination)", fixture)
 
     def test_diag_fixture_has_machine_readable_suite_marker(self) -> None:
         fixture = read("test/TransferZTest.ChernarusPlus/init.c")

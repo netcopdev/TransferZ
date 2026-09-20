@@ -523,8 +523,6 @@ class TransferZClientState
         {
             if (operation == TransferZOperation.TRANSFER)
                 TransferZServerService.TransferToVicinity(player, source, sourceCargoIndex);
-            else if (operation == TransferZOperation.UNPACK)
-                TransferZServerService.UnpackToVicinity(player, source, sourceCargoIndex);
             else if (operation == TransferZOperation.MOVE_ITEM)
                 TransferZServerService.MoveItemToVicinity(player, item);
             else if (operation == TransferZOperation.TRANSFER_CLASS)
@@ -534,8 +532,6 @@ class TransferZClientState
         {
             if (operation == TransferZOperation.TRANSFER)
                 TransferZServerService.Transfer(player, source, destination, sourceCargoIndex, destinationCargoIndex);
-            else if (operation == TransferZOperation.UNPACK)
-                TransferZServerService.Unpack(player, source, destination, sourceCargoIndex, destinationCargoIndex);
             else if (operation == TransferZOperation.MOVE_ITEM)
                 TransferZServerService.MoveItem(player, item, destination, destinationCargoIndex);
             else if (operation == TransferZOperation.TRANSFER_CLASS)
@@ -680,30 +676,6 @@ class TransferZClientState
 
         SendRequest(TransferZOperation.TRANSFER_CLASS, source, sourceCargoIndex, null, 0, representative, true);
         return true;
-    }
-
-    bool RequestUnpackTo(EntityAI source, EntityAI destination, int sourceCargoIndex = 0, int destinationCargoIndex = 0)
-    {
-        if (!source || !IsParticipantReachable(source, sourceCargoIndex) || !IsParticipantReachable(destination, destinationCargoIndex))
-            return false;
-        SendRequest(TransferZOperation.UNPACK, source, sourceCargoIndex, destination, destinationCargoIndex, null, false);
-        return true;
-    }
-
-    bool RequestUnpackToVicinity(EntityAI source, int sourceCargoIndex = 0)
-    {
-        if (!source || !TransferZCargo.Exists(source, sourceCargoIndex))
-            return false;
-        SendRequest(TransferZOperation.UNPACK, source, sourceCargoIndex, null, 0, null, true);
-        return true;
-    }
-
-    bool RequestUnpack(EntityAI source, int sourceCargoIndex = 0)
-    {
-        if (IsDestinationVicinity())
-            return RequestUnpackToVicinity(source, sourceCargoIndex);
-        EntityAI destination = GetDestination();
-        return RequestUnpackTo(source, destination, sourceCargoIndex, GetDestinationCargoIndex());
     }
 
     bool RequestNestedUnpackTo(EntityAI source, EntityAI destination, int sourceCargoIndex = 0, int destinationCargoIndex = 0)

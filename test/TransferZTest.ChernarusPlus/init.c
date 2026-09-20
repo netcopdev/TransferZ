@@ -232,11 +232,16 @@ void TZTest_RunUnpackSelfTest(PlayerBase player)
     EntityAI nestedBandage = TZTest_CreateItem(nested, "BandageDressing");
     EntityAI nestedBattery = TZTest_CreateItem(nested, "Battery9V");
 
+    TZTest_Check(directApple != null, "unpack fixture direct loose item created");
+    TZTest_Check(nestedBandage != null, "unpack fixture nested bandage created");
+    TZTest_Check(nestedBattery != null, "unpack fixture nested battery created");
     TZTest_Check(!TransferZCargo.Exists(directApple, 0), "unpack fixture loose item has no cargo grid");
     TZTest_Check(TransferZCargo.Exists(nested, 0), "unpack fixture nested container cargo resolves");
     TZTest_Check(!TransferZCargo.Exists(nested, 1), "unpack fixture invalid cargo grid is rejected");
+    TZTest_Check(!TransferZCargo.Exists(nestedBandage, 0), "unpack fixture nested bandage has no cargo grid");
+    TZTest_Check(!TransferZCargo.Exists(nestedBattery, 0), "unpack fixture nested battery has no cargo grid");
 
-    int moved = TransferZServerService.Unpack(player, source, destination);
+    int moved = TransferZNestedUnpackService.Unpack(player, source, destination);
     TZTest_Check(moved == 2, "unpack moved nested leaves only");
     TZTest_Check(TZTest_IsDirectCargoChild(source, directApple), "unpack kept direct loose cargo");
     TZTest_Check(TZTest_IsDirectCargoChild(source, nested), "unpack kept nested container");
