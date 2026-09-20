@@ -153,11 +153,18 @@ class TransferZServerService
             return MoveFailure("destination refuses cargo item", item, destination);
 
         InventoryLocation dst = new InventoryLocation();
+        // Running out of suitable cells is an expected batch-transfer outcome:
+        // move everything that fits, then stop accepting individual members.
+        // Do not flood the server log for normal capacity misses.
         if (!destination.GetInventory().FindFreeLocationFor(item, FindInventoryLocationType.CARGO, dst))
-            return MoveFailure("no free exact cargo location", item, destination);
+            return false;
 
+        // Modded cargo implementations can occasionally decline to resolve an
+        // exact cargo location even after reporting a candidate. Treat that the
+        // same as an ordinary no-fit result; native validation still guards every
+        // location that does reach the mutation path below.
         if (!dst.IsValid() || dst.GetType() != InventoryLocationType.CARGO || dst.GetParent() != destination)
-            return MoveFailure("resolved location is not destination cargo", item, destination);
+            return false;
 
         if (!GameInventory.CheckMoveToDstRequest(player, src, dst, GameInventory.c_MaxItemDistanceRadius))
             return MoveFailure("native move request validation failed", item, destination);
