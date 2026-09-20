@@ -64,7 +64,7 @@ TransferZ does not replace DayZ's stack-splitting rules. Right click still invok
 3. otherwise the preferred destination (`P*`), when one is configured;
 4. otherwise normal DayZ behavior.
 
-A selected `D*` that cannot accept the split falls back to normal DayZ behavior rather than trying the source or `P*`. If routing reaches `P*` and it cannot resolve or accept the split, normal DayZ behavior takes over. See [`docs/SPLIT_ROUTING.md`](docs/SPLIT_ROUTING.md).
+If `D*` cannot accept the split, routing continues to the original source cargo, then `P*`. If the source cannot take it, routing continues to `P*`; if `P*` also cannot accept it, normal DayZ behavior takes over. See [`docs/SPLIT_ROUTING.md`](docs/SPLIT_ROUTING.md).
 
 ## Destination behavior
 
