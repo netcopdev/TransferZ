@@ -69,6 +69,7 @@ Stack is a container-local merge operation.
 - Do not merge across different containers or through nested cargo.
 - Do not split stacks to make a merge possible.
 - Do not recreate items or manually copy quantity/state.
+- A donor emptied by DayZ may remain in cargo while already queued for deletion. Never reuse an item with `IsSetForDeletion()` as a Stack target or donor later in the same pass.
 - If DayZ reports two items as non-combinable, leave them alone.
 
 ### Modifier item drags
