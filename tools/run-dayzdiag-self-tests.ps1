@@ -27,9 +27,9 @@ New-Item -ItemType Directory -Force -Path $profilesFullPath | Out-Null
 $startedAt = Get-Date
 
 $arguments = @(
-    "-mod=$ModList",
-    "-mission=$missionPath",
-    "-profiles=$profilesFullPath",
+    "-mod=`"$ModList`"",
+    "-mission=`"$missionPath`"",
+    "-profiles=`"$profilesFullPath`"",
     "-window",
     "-nopause",
     "-filePatching"
