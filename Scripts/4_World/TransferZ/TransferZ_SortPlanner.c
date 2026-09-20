@@ -53,11 +53,15 @@ class TransferZSortPlanner : TransferZMaintenanceService
         if (leftShort != rightShort)
             return leftShort > rightShort;
 
+        // Once packing geometry is equivalent, keep identical classes together
+        // before considering their old positions. This makes deterministic
+        // first-fit fallbacks produce type-contiguous runs instead of preserving
+        // A/B/A/B interleaving solely because that was the source order.
+        if (left.typeHash != right.typeHash)
+            return left.typeHash < right.typeHash;
         if (left.row != right.row)
             return left.row < right.row;
-        if (left.col != right.col)
-            return left.col < right.col;
-        return left.typeHash < right.typeHash;
+        return left.col < right.col;
     }
 
     protected static void SortRecordsV4(notnull array<ref TransferZSortRecord> records)
@@ -183,11 +187,15 @@ class TransferZSortPlanner : TransferZMaintenanceService
             return candidateWidth > bestWidth;
         if (candidateHeight != bestHeight)
             return candidateHeight > bestHeight;
+
+        // Geometry and orientation remain authoritative. Only when two
+        // candidates are packing-equivalent do we choose class before old
+        // position, which naturally emits identical items as contiguous runs.
+        if (candidate.typeHash != best.typeHash)
+            return candidate.typeHash < best.typeHash;
         if (candidate.row != best.row)
             return candidate.row < best.row;
-        if (candidate.col != best.col)
-            return candidate.col < best.col;
-        return candidate.typeHash < best.typeHash;
+        return candidate.col < best.col;
     }
 
     protected static bool AssignCompactTargetsV4(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> records, int cargoWidth, int cargoHeight, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips, bool preferVerticalMagazines = false, bool preserveCurrentOrientation = false)
@@ -411,9 +419,11 @@ class TransferZSortPlanner : TransferZMaintenanceService
         ref array<int> slotUsed = new array<int>();
         ref array<int> assignedSlots = new array<int>();
 
-        // Snapshot the valid target rectangles produced by the packer. Equivalent
-        // records may exchange only coordinates; their chosen orientation remains
-        // record-owned, so target geometry and layout validity cannot change.
+        // Snapshot the valid target rectangles produced by the packer. Records
+        // may exchange coordinates only with the same item type and equivalent
+        // target geometry; chosen orientation remains record-owned. This keeps
+        // the packer's type-contiguous runs intact while still minimizing churn
+        // within each identical-item group.
         for (int slotIndex = 0; slotIndex < recordCount; slotIndex++)
         {
             TransferZSortRecord slotRecord = records.Get(slotIndex);
@@ -434,9 +444,10 @@ class TransferZSortPlanner : TransferZMaintenanceService
             slotOverlapCounts.Insert(overlapCount);
         }
 
-        // First lock every record already occupying one of its equivalent target
-        // slots in the required orientation. This is the common near-sorted case:
-        // moving one item out of place should not make 100+ correct items churn.
+        // First lock every record already occupying one of its same-type,
+        // equivalent target slots in the required orientation. This preserves the
+        // common near-sorted fast path without allowing a different class with the
+        // same footprint to break the grouped target layout.
         for (int recordIndex = 0; recordIndex < recordCount; recordIndex++)
         {
             TransferZSortRecord record = records.Get(recordIndex);
@@ -450,6 +461,8 @@ class TransferZSortPlanner : TransferZMaintenanceService
                     continue;
                 if (targetWidths.Get(recordIndex) != targetWidths.Get(stationarySlot) || targetHeights.Get(recordIndex) != targetHeights.Get(stationarySlot))
                     continue;
+                if (record.typeHash != records.Get(stationarySlot).typeHash)
+                    continue;
                 if (record.row != slotRows.Get(stationarySlot) || record.col != slotCols.Get(stationarySlot))
                     continue;
 
@@ -459,9 +472,9 @@ class TransferZSortPlanner : TransferZMaintenanceService
             }
         }
 
-        // Assign the remaining equivalent records directly to the cheapest free
-        // slot. Cost is O(1) because each slot's current overlap count was cached
-        // above, making the complete optimizer O(n^2) with no iterative passes.
+        // Assign the remaining records directly to the cheapest free same-type,
+        // equivalent slot. Cost is O(1) because each slot's current overlap count
+        // was cached above, keeping the complete optimizer O(n^2).
         for (int remainingIndex = 0; remainingIndex < recordCount; remainingIndex++)
         {
             if (assignedSlots.Get(remainingIndex) >= 0)
@@ -475,6 +488,8 @@ class TransferZSortPlanner : TransferZMaintenanceService
                 if (slotUsed.Get(candidateSlot) != 0)
                     continue;
                 if (targetWidths.Get(remainingIndex) != targetWidths.Get(candidateSlot) || targetHeights.Get(remainingIndex) != targetHeights.Get(candidateSlot))
+                    continue;
+                if (remainingRecord.typeHash != records.Get(candidateSlot).typeHash)
                     continue;
 
                 int candidateCost = EquivalentTargetSlotCostV4(remainingRecord, slotRows.Get(candidateSlot), slotCols.Get(candidateSlot), targetWidths.Get(remainingIndex), targetHeights.Get(remainingIndex), slotOverlapCounts.Get(candidateSlot));
@@ -795,6 +810,17 @@ class TransferZSortPlanner : TransferZMaintenanceService
             return false;
         if (record.width != blocker.width || record.height != blocker.height)
             return false;
+
+        // Grouping identical items deliberately creates exchanges between
+        // different classes with the same footprint. Do not use DayZ's native
+        // direct-swap command for those exchanges: on a dedicated server its
+        // result is not guaranteed to be synchronously observable by the
+        // transactional verifier. Let the planner evacuate through free cargo
+        // space instead; if no bounded in-cargo path exists, the transactional
+        // sorter will use its native hidden cargo buffer fallback.
+        if (record.typeHash != blocker.typeHash)
+            return false;
+
         if (!GameInventory.CanSwapEntitiesEx(record.item, blocker.item))
             return false;
 
