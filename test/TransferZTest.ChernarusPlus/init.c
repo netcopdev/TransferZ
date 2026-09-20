@@ -325,6 +325,7 @@ void TZTest_RunSortEmergencyDropSelfTest(PlayerBase player)
     TZTest_DeleteFixture(stranded);
 }
 
+
 void TZTest_RunSelfTests(PlayerBase player)
 {
     g_TZTestFailures = 0;

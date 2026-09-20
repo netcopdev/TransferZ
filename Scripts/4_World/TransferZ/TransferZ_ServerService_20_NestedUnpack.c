@@ -1,22 +1,28 @@
 class TransferZNestedUnpackService
 {
-    static void CollectNestedLeaves(EntityAI source, int sourceCargoIndex, EntityAI destination, notnull array<EntityAI> leaves)
+    static bool CollectNestedLeaves(EntityAI source, int sourceCargoIndex, EntityAI destination, notnull array<EntityAI> leaves, TransferZUnpackScanBudget budget)
     {
-        if (!source)
-            return;
+        if (!source || !budget || budget.exceeded)
+            return false;
 
         CargoBase cargo = TransferZCargo.Get(source, sourceCargoIndex);
         if (!cargo)
-            return;
+            return false;
 
         for (int i = 0; i < cargo.GetItemCount(); i++)
         {
+            if (!TransferZServerService.ConsumeUnpackScanNode(budget))
+                return false;
+
             EntityAI child = cargo.GetItem(i);
             if (!child || child == destination || !TransferZCargo.Exists(child, 0))
                 continue;
 
-            TransferZServerService.CollectUnpackLeaves(child, destination, leaves);
+            if (!TransferZServerService.CollectUnpackLeaves(child, destination, leaves, budget, 1))
+                return false;
         }
+
+        return true;
     }
 
     static int Unpack(PlayerBase player, EntityAI source, EntityAI destination, int sourceCargoIndex = 0, int destinationCargoIndex = 0)
@@ -34,7 +40,12 @@ class TransferZNestedUnpackService
             return 0;
 
         ref array<EntityAI> leaves = new array<EntityAI>();
-        CollectNestedLeaves(source, sourceCargoIndex, destination, leaves);
+        TransferZUnpackScanBudget budget = new TransferZUnpackScanBudget();
+        if (!CollectNestedLeaves(source, sourceCargoIndex, destination, leaves, budget))
+        {
+            Print("[TransferZ] Nested unpack rejected: traversal budget exceeded scanned=" + budget.scannedNodes.ToString() + " leaves=" + leaves.Count().ToString());
+            return 0;
+        }
 
         int moved = 0;
         foreach (EntityAI item : leaves)
@@ -51,7 +62,12 @@ class TransferZNestedUnpackService
             return 0;
 
         ref array<EntityAI> leaves = new array<EntityAI>();
-        CollectNestedLeaves(source, sourceCargoIndex, null, leaves);
+        TransferZUnpackScanBudget budget = new TransferZUnpackScanBudget();
+        if (!CollectNestedLeaves(source, sourceCargoIndex, null, leaves, budget))
+        {
+            Print("[TransferZ] Nested unpack to vicinity rejected: traversal budget exceeded scanned=" + budget.scannedNodes.ToString() + " leaves=" + leaves.Count().ToString());
+            return 0;
+        }
 
         int moved = 0;
         foreach (EntityAI item : leaves)
@@ -108,6 +124,12 @@ class TransferZNestedUnpackService
 
         if (sourceCargoIndex < 0 || destinationCargoIndex < 0 || !TransferZServerService.CanPlayerManipulate(player))
             return;
+
+        if (!TransferZRequestGuard.AcceptStandard(player))
+        {
+            Print("[TransferZ] Nested unpack RPC throttled");
+            return;
+        }
 
         EntityAI source = TransferZServerService.ResolveEntity(sourceLow, sourceHigh);
         EntityAI destination = TransferZServerService.ResolveEntity(destinationLow, destinationHigh);

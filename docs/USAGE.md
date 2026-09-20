@@ -263,6 +263,17 @@ Hovering Transfer or Unpack shows an advisory status color:
 
 This is only a preview. The server performs the authoritative move validation when the operation is requested.
 
+### Server work limits
+
+TransferZ bounds expensive server-authored inventory work so a modified client cannot turn one RPC into unbounded traversal or repeated large batches:
+
+- ordinary Transfer/Unpack/Class/MoveItem RPCs: at most one accepted request per player per 100 ms;
+- direct Transfer and exact-class source grids: maximum 1024 direct items;
+- Unpack traversal: maximum 2048 scanned cargo nodes, 32 nested cargo levels, and 1024 collected leaves;
+- Sort/Stack maintenance RPCs retain their 250 ms throttle.
+
+These are fail-before-mutation limits. If a request exceeds a limit, TransferZ rejects that operation rather than moving a prefix and leaving a surprise partial result.
+
 ## Failure behavior
 
 TransferZ fails conservatively. Normal routing failures leave items where DayZ left them rather than deleting/recreating them.
