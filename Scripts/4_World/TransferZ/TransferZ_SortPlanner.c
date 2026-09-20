@@ -25,6 +25,13 @@ class TransferZSortPlannerState
 
 class TransferZSortPlanner : TransferZMaintenanceService
 {
+    protected static bool SameExactClassV4(TransferZSortRecord left, TransferZSortRecord right)
+    {
+        if (!left || !right || !left.item || !right.item)
+            return false;
+        return left.item.GetType() == right.item.GetType();
+    }
+
     protected static bool ConsumePlannerCandidateV4(notnull TransferZSortPlannerState state)
     {
         if (state.candidateBudgetExceeded)
@@ -479,7 +486,7 @@ class TransferZSortPlanner : TransferZMaintenanceService
                     continue;
                 if (targetWidths.Get(recordIndex) != targetWidths.Get(stationarySlot) || targetHeights.Get(recordIndex) != targetHeights.Get(stationarySlot))
                     continue;
-                if (record.typeHash != records.Get(stationarySlot).typeHash)
+                if (!SameExactClassV4(record, records.Get(stationarySlot)))
                     continue;
                 if (record.row != slotRows.Get(stationarySlot) || record.col != slotCols.Get(stationarySlot))
                     continue;
@@ -507,7 +514,7 @@ class TransferZSortPlanner : TransferZMaintenanceService
                     continue;
                 if (targetWidths.Get(remainingIndex) != targetWidths.Get(candidateSlot) || targetHeights.Get(remainingIndex) != targetHeights.Get(candidateSlot))
                     continue;
-                if (remainingRecord.typeHash != records.Get(candidateSlot).typeHash)
+                if (!SameExactClassV4(remainingRecord, records.Get(candidateSlot)))
                     continue;
 
                 int candidateCost = EquivalentTargetSlotCostV4(remainingRecord, slotRows.Get(candidateSlot), slotCols.Get(candidateSlot), targetWidths.Get(remainingIndex), targetHeights.Get(remainingIndex), slotOverlapCounts.Get(candidateSlot));
@@ -848,7 +855,7 @@ class TransferZSortPlanner : TransferZMaintenanceService
         // transactional verifier. Let the planner evacuate through free cargo
         // space instead; if no bounded in-cargo path exists, the transactional
         // sorter will use its native hidden cargo buffer fallback.
-        if (record.typeHash != blocker.typeHash)
+        if (!SameExactClassV4(record, blocker))
             return false;
 
         if (!GameInventory.CanSwapEntitiesEx(record.item, blocker.item))
