@@ -202,24 +202,25 @@ modded class ItemBase
         if (!player || player.GetInventory().HasInventoryReservation(this, null))
             return false;
 
-        // The transient active D is the most explicit routing choice. If it is
-        // selected but cannot accept the split, do not silently choose P or source.
+        // The transient active D is the first routing preference. If it cannot
+        // accept the split, continue through source cargo and P before giving
+        // control back to vanilla DayZ.
         if (TransferZSplitDestinationBridge.HasDestination())
         {
             if (TransferZSplitDestinationBridge.IsVicinity())
             {
                 if (TransferZExecuteSplitToVicinity())
                     return true;
-                return false;
             }
-
-            EntityAI destination = TransferZSplitDestinationBridge.GetCargo();
-            if (destination && TransferZExecuteSplitTo(destination, true))
-                return true;
-            return false;
+            else
+            {
+                EntityAI destination = TransferZSplitDestinationBridge.GetCargo();
+                if (destination && TransferZExecuteSplitTo(destination, true))
+                    return true;
+            }
         }
 
-        // With no D selected, first keep a cargo stack in its immediate source
+        // If D is absent or unusable, first keep a cargo stack in its immediate source
         // container whenever there is room for the newly created entity. This is
         // the least surprising result for an ordinary right-click split: the new
         // stack stays beside the original instead of being routed elsewhere.
