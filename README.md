@@ -214,6 +214,7 @@ dist\release\@TransferZ\
   addons\
   keys\
   mod.cpp
+  meta.cpp
 ```
 
 ## Current scope
