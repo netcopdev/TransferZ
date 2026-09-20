@@ -630,53 +630,6 @@ class TransferZMaintenanceService
         return moved;
     }
 
-    static int Sort(PlayerBase player, EntityAI source)
-    {
-        if (!player || !source || !TransferZServerService.IsReachable(player, source) || !source.GetInventory().GetCargo())
-        {
-            Print("[TransferZ] Sort rejected: invalid or unreachable cargo source");
-            return -1;
-        }
-
-        ref array<ref TransferZSortRecord> records = new array<ref TransferZSortRecord>();
-        int cargoWidth;
-        int cargoHeight;
-        if (!SnapshotSortRecords(source, records, cargoWidth, cargoHeight))
-        {
-            Print("[TransferZ] Sort rejected: cargo snapshot failed for " + source.GetType());
-            return -1;
-        }
-        if (records.Count() < 2)
-        {
-            return 0;
-        }
-
-        ref array<ref TransferZSortMove> moves = new array<ref TransferZSortMove>();
-        if (!BuildSortPlan(player, source, records, cargoWidth, cargoHeight, moves))
-        {
-            Print("[TransferZ] Sort failed: no safe in-cargo rearrangement plan for " + source.GetType());
-            return -1;
-        }
-        if (moves.Count() == 0)
-        {
-            return 0;
-        }
-
-        int moved = 0;
-        foreach (TransferZSortMove move : moves)
-        {
-            if (!move || !move.item)
-                continue;
-            if (!TryMoveWithinCargo(player, source, move.item, move.row, move.col, move.flip))
-            {
-                Print("[TransferZ] Sort stopped after native move validation failed for " + source.GetType() + " at move " + moved.ToString() + "/" + moves.Count().ToString());
-                return -1;
-            }
-            moved++;
-        }
-        return moved;
-    }
-
     static int Stack(PlayerBase player, EntityAI source)
     {
         if (!player || !source || !TransferZServerService.IsReachable(player, source))
@@ -796,54 +749,4 @@ class TransferZMaintenanceService
         rpc.Send(player, TransferZMaintenanceRPC.RESULT, true, identity);
     }
 
-    static void HandleRequest(PlayerBase player, PlayerIdentity sender, ParamsReadContext ctx)
-    {
-        if (!player)
-            return;
-
-        if (GetGame().IsMultiplayer())
-        {
-            PlayerIdentity playerIdentity = player.GetIdentity();
-            if (!sender || !playerIdentity || sender.GetId() != playerIdentity.GetId())
-            {
-                Print("[TransferZ] Maintenance RPC rejected: sender does not own player");
-                return;
-            }
-        }
-
-        int operation;
-        int sourceLow;
-        int sourceHigh;
-        if (!ctx.Read(operation) || !ctx.Read(sourceLow) || !ctx.Read(sourceHigh))
-            return;
-
-        if (operation != TransferZMaintenanceOperation.SORT && operation != TransferZMaintenanceOperation.STACK)
-            return;
-
-        if (!AcceptServerMaintenanceRequest(player))
-        {
-            Print("[TransferZ] Maintenance RPC throttled for player=" + player.GetIdentity().GetId());
-            return;
-        }
-
-        EntityAI source = TransferZServerService.ResolveEntity(sourceLow, sourceHigh);
-        if (!source)
-        {
-            if (operation == TransferZMaintenanceOperation.SORT)
-                SendResult(player, operation, sourceLow, sourceHigh, false);
-            return;
-        }
-
-        if (operation == TransferZMaintenanceOperation.SORT)
-        {
-            int sortResult = Sort(player, source);
-            SendResult(player, operation, sourceLow, sourceHigh, sortResult >= 0);
-            player.UpdateInventoryMenu();
-        }
-        else if (operation == TransferZMaintenanceOperation.STACK)
-        {
-            Stack(player, source);
-            player.UpdateInventoryMenu();
-        }
-    }
 }

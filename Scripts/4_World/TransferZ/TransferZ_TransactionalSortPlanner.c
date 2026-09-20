@@ -581,7 +581,7 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         return staged + placed;
     }
 
-    override static int Sort(PlayerBase player, EntityAI source)
+    static int Sort(PlayerBase player, EntityAI source)
     {
         if (!player || !source || !TransferZServerService.IsReachable(player, source) || !source.GetInventory().GetCargo())
         {
@@ -658,7 +658,7 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         return moved;
     }
 
-    override static void HandleRequest(PlayerBase player, PlayerIdentity sender, ParamsReadContext ctx)
+    static void HandleRequest(PlayerBase player, PlayerIdentity sender, ParamsReadContext ctx)
     {
         if (!player)
             return;
