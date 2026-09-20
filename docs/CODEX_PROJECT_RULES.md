@@ -174,12 +174,12 @@ Community Framework (CF) is a mandatory TransferZ dependency.
 - Register TransferZ RPC ownership through one CF module.
 - Keep TransferZ's RPC identifiers in one contiguous range owned by that module.
 - Do not add new direct `PlayerBase.OnRPC` layers for TransferZ operations.
-- CF dispatch is transport/routing only; operation handlers must still validate sender identity and all current server-side inventory state.
+- CF dispatch is transport/routing only; reject requests while the requesting player is dead, unconscious, restrained, or inventory-locked, and operation handlers must still validate sender identity and all current server-side inventory state.
 - Client-side request debouncing is advisory only and never a security boundary.
 
 ## Move validation
 
-Move requests are executed on the server. Before moving an item, resolve current entities and locations again, verify that the sending player can reach the entities involved, respect cargo release/receive conditions, require free space in the exact selected cargo owner, and use DayZ inventory-location validation before the synchronized move.
+Move requests are executed on the server. Before moving an item, resolve current entities and locations again, verify that the sending player can reach the entities involved, validate every cargo hop in nested source/destination hierarchies, respect cargo display/release/receive conditions, accept only the source location types the requested TransferZ operation can legitimately produce, require free space in the exact selected cargo owner, and use DayZ inventory-location validation before the synchronized move.
 
 Vicinity/ground destinations use DayZ's standard inventory drop path. Do not invent arbitrary world placement when a native inventory drop operation exists.
 

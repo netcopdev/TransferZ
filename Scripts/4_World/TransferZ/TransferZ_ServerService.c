@@ -21,9 +21,51 @@ class TransferZServerService
         return false;
     }
 
+    static bool CanPlayerManipulate(PlayerBase player)
+    {
+        if (!player || !player.IsAlive())
+            return false;
+        if (player.IsUnconscious() || player.IsRestrained())
+            return false;
+        if (player.GetInventory().IsInventoryLocked())
+            return false;
+        return true;
+    }
+
+    // Validate every cargo hop, not only the direct source/destination. This
+    // prevents an RPC from reaching through closed/hidden nested containers.
+    static bool IsCargoChainAccessible(EntityAI entity)
+    {
+        if (!entity)
+            return false;
+
+        InventoryLocation hop = new InventoryLocation();
+        EntityAI child = entity;
+        EntityAI parent = entity.GetHierarchyParent();
+        while (parent)
+        {
+            if (!child.GetInventory().GetCurrentInventoryLocation(hop))
+                return false;
+
+            int hopType = hop.GetType();
+            if (hopType == InventoryLocationType.CARGO || hopType == InventoryLocationType.PROXYCARGO)
+            {
+                if (!parent.CanDisplayCargo() || !parent.CanReleaseCargo(child))
+                    return false;
+            }
+
+            child = parent;
+            parent = parent.GetHierarchyParent();
+        }
+        return true;
+    }
+
     static bool IsReachable(PlayerBase player, EntityAI entity)
     {
         if (!player || !entity)
+            return false;
+
+        if (!IsCargoChainAccessible(entity))
             return false;
 
         EntityAI root = entity.GetHierarchyRoot();
@@ -73,6 +115,8 @@ class TransferZServerService
         CargoBase destinationCargo = destination.GetInventory().GetCargo();
         if (!destinationCargo)
             return MoveFailure("destination has no cargo", item, destination);
+        if (!destination.CanDisplayCargo())
+            return MoveFailure("destination cargo is not accessible", item, destination);
 
         if (!item.GetInventory().CanRemoveEntity())
             return MoveFailure("item cannot be removed", item, destination);
@@ -86,6 +130,12 @@ class TransferZServerService
         // completed member instead of relocating it inside the same cargo.
         if (src.GetType() == InventoryLocationType.CARGO && src.GetParent() == destination)
             return true;
+
+        // TransferZ routes cargo children and loose vicinity items only. Hands
+        // and attachment sources remain under vanilla state-machine handling.
+        int srcType = src.GetType();
+        if (srcType != InventoryLocationType.CARGO && srcType != InventoryLocationType.GROUND)
+            return MoveFailure("source is not cargo or ground", item, destination);
 
         EntityAI sourceParent = src.GetParent();
         if (sourceParent && src.GetType() == InventoryLocationType.CARGO && !sourceParent.CanReleaseCargo(item))
@@ -138,6 +188,11 @@ class TransferZServerService
         InventoryLocation src = new InventoryLocation();
         if (!item.GetInventory().GetCurrentInventoryLocation(src))
             return MoveFailure("source location unavailable", item, null);
+
+        // Transfer-to-vicinity is defined only for cargo children. Ground is
+        // already vicinity; hands/attachments remain vanilla-owned.
+        if (src.GetType() != InventoryLocationType.CARGO)
+            return MoveFailure("vicinity move requires a cargo source", item, null);
 
         EntityAI sourceParent = src.GetParent();
         if (sourceParent && src.GetType() == InventoryLocationType.CARGO && !sourceParent.CanReleaseCargo(item))
