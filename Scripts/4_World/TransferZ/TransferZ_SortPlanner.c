@@ -952,7 +952,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
 
             if (!ParkRecordRecursiveV4(state, blockerIndex, recordIndex, 0))
             {
-                Print("[TransferZ] Sort planner V4 could not evacuate blocker=" + blockerIndex.ToString() + " for target=" + recordIndex.ToString());
                 return false;
             }
             clearGuard++;
@@ -1080,7 +1079,6 @@ class TransferZSortPlanner : TransferZMaintenanceService
             if (!EnsureRecordAtTargetV4(state, planIndex))
             {
                 moves.Clear();
-                Print("[TransferZ] Sort planner V4 stopped: target=" + planIndex.ToString() + " steps=" + state.stepCount.ToString() + "/" + state.maxSteps.ToString() + " search=" + state.searchCount.ToString() + "/" + state.maxSearch.ToString());
                 return false;
             }
         }
