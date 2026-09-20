@@ -3,6 +3,12 @@ modded class MissionGameplay
     protected float m_TransferZTransientCheckAccumulator;
     protected int m_TransferZSeenMaintenanceSequence;
 
+    override void HideInventory()
+    {
+        TransferZHeaderControls.OnInventoryClosed();
+        super.HideInventory();
+    }
+
     override void OnUpdate(float timeslice)
     {
         super.OnUpdate(timeslice);
