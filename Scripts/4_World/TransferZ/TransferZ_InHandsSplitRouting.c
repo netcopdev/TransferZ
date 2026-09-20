@@ -126,7 +126,10 @@ modded class ItemBase
         if (verifyReceive && !destinationEntity.CanReceiveItemIntoCargo(this))
             return false;
 
-        if (!destinationEntity.GetInventory().FindFirstFreeLocationForNewEntity(GetType(), FindInventoryLocationType.CARGO, destination))
+        // Match vanilla DayZ's native right-click split placement search.
+        // FindFreeLocationFor(this, ...) evaluates the actual item footprint and
+        // may return a rotated cargo location via destination.GetFlip().
+        if (!destinationEntity.GetInventory().FindFreeLocationFor(this, FindInventoryLocationType.CARGO, destination))
             return false;
         if (!destination.IsValid() || destination.GetType() != InventoryLocationType.CARGO || destination.GetParent() != destinationEntity)
             return false;
