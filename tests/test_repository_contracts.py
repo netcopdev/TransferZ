@@ -141,6 +141,72 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("PreserveSortBufferForRecovery", recover_body)
         self.assertIn("if (bufferEmpty)", recover_body)
 
+    def test_server_request_guard_throttles_and_expires_identity_entries(self) -> None:
+        guard = read("Scripts/4_World/TransferZ/TransferZ_RequestGuard.c")
+        standard = function_body(guard, "static bool AcceptStandard(")
+        maintenance = function_body(guard, "static bool AcceptMaintenance(")
+        cleanup = function_body(guard, "protected static void CleanupRequestMap(")
+
+        self.assertIn("STANDARD_REQUEST_THROTTLE_MS = 100", guard)
+        self.assertIn("MAINTENANCE_REQUEST_THROTTLE_MS = 250", guard)
+        self.assertIn("REQUEST_ENTRY_TTL_MS = 300000", guard)
+        self.assertIn("Accept(player, s_LastStandardRequestTime", standard)
+        self.assertIn("Accept(player, s_LastMaintenanceRequestTime", maintenance)
+        self.assertIn("requestTimes.Remove(key)", cleanup)
+
+        maintenance_service = read("Scripts/4_World/TransferZ/TransferZ_MaintenanceService.c")
+        accept_maintenance = function_body(maintenance_service, "protected static bool AcceptServerMaintenanceRequest(")
+        self.assertIn("TransferZRequestGuard.AcceptMaintenance(player)", accept_maintenance)
+        self.assertNotIn("s_LastMaintenanceRequestTime", maintenance_service)
+
+    def test_standard_rpc_throttles_before_entity_resolution(self) -> None:
+        server = read("Scripts/4_World/TransferZ/TransferZ_ServerService.c")
+        handle = function_body(server, "static void HandleRequest(")
+        self.assertIn("TransferZRequestGuard.AcceptStandard(player)", handle)
+        self.assertLess(
+            handle.index("TransferZRequestGuard.AcceptStandard(player)"),
+            handle.index("ResolveEntity(sourceLow, sourceHigh)"),
+        )
+
+        nested = read("Scripts/4_World/TransferZ/TransferZ_ServerService_20_NestedUnpack.c")
+        nested_handle = function_body(nested, "static void HandleRequest(")
+        self.assertIn("TransferZRequestGuard.AcceptStandard(player)", nested_handle)
+        self.assertLess(
+            nested_handle.index("TransferZRequestGuard.AcceptStandard(player)"),
+            nested_handle.index("ResolveEntity(sourceLow, sourceHigh)"),
+        )
+
+    def test_batch_and_unpack_work_are_bounded_before_mutation(self) -> None:
+        server = read("Scripts/4_World/TransferZ/TransferZ_ServerService.c")
+        self.assertIn("MAX_BATCH_ITEMS = 1024", server)
+        self.assertIn("MAX_UNPACK_SCAN_NODES = 2048", server)
+        self.assertIn("MAX_UNPACK_DEPTH = 32", server)
+
+        transfer = function_body(server, "static int Transfer(")
+        self.assertIn("DirectBatchWithinBudget", transfer)
+        self.assertLess(
+            transfer.index("DirectBatchWithinBudget"),
+            transfer.index("SnapshotDirectCargo"),
+        )
+
+        unpack = function_body(server, "static int Unpack(")
+        self.assertIn("TransferZUnpackScanBudget", unpack)
+        self.assertIn("CollectUnpackLeavesForOperation", unpack)
+        self.assertLess(
+            unpack.index("CollectUnpackLeavesForOperation"),
+            unpack.index("TryMoveToExactCargo"),
+        )
+
+        collect = function_body(server, "static bool CollectUnpackLeaves(")
+        self.assertIn("depth > MAX_UNPACK_DEPTH", collect)
+        self.assertIn("ConsumeUnpackScanNode", collect)
+        self.assertIn("AppendUnpackLeaf", collect)
+
+        nested = read("Scripts/4_World/TransferZ/TransferZ_ServerService_20_NestedUnpack.c")
+        nested_collect = function_body(nested, "static bool CollectNestedLeaves(")
+        self.assertIn("ConsumeUnpackScanNode", nested_collect)
+        self.assertIn("CollectUnpackLeaves", nested_collect)
+
     def test_rpc_entry_checks_player_state_and_service_rechecks_sender(self) -> None:
         dispatcher = read("Scripts/4_World/TransferZ/TransferZ_CFModule.c")
         dispatcher_body = function_body(dispatcher, "override void OnRPC(")
