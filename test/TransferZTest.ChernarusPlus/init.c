@@ -305,22 +305,17 @@ void TZTest_RunSortEmergencyDropSelfTest(PlayerBase player)
     TZTest_Check(buffer != null, "sort emergency-drop buffer fixture created");
     if (!buffer)
         return;
-
     EntityAI stranded = TZTest_CreateItem(buffer, "Apple");
     TZTest_Check(stranded != null, "sort emergency-drop fixture accepts staged item");
-
     InventoryMode moveMode = InventoryMode.SERVER;
     if (!GetGame().IsMultiplayer())
         moveMode = InventoryMode.LOCAL;
-
     bool dropped = false;
     if (stranded)
         dropped = stranded.GetInventory().DropEntity(moveMode, player, stranded);
-
     InventoryLocation location = new InventoryLocation();
     bool onGround = stranded && stranded.GetInventory().GetCurrentInventoryLocation(location) && location.GetType() == InventoryLocationType.GROUND;
     TZTest_Check(dropped && onGround, "sort emergency-drop uses native ground move");
-
     TZTest_DeleteFixture(buffer);
     TZTest_DeleteFixture(stranded);
 }
