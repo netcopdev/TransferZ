@@ -41,13 +41,13 @@ class TransferZOperationPreview
         return true;
     }
 
-    protected static void SnapshotDirectCargo(EntityAI source, notnull array<EntityAI> items)
+    protected static void SnapshotDirectCargo(EntityAI source, int sourceCargoIndex, notnull array<EntityAI> items)
     {
         items.Clear();
         if (!source)
             return;
 
-        CargoBase cargo = source.GetInventory().GetCargo();
+        CargoBase cargo = TransferZCargo.Get(source, sourceCargoIndex);
         if (!cargo)
             return;
 
@@ -64,39 +64,40 @@ class TransferZOperationPreview
         if (!container)
             return;
 
-        CargoBase cargo = container.GetInventory().GetCargo();
-        if (!cargo)
-            return;
-
-        for (int i = 0; i < cargo.GetItemCount(); i++)
+        for (int cargoIndex = 0; ; cargoIndex++)
         {
-            EntityAI item = cargo.GetItem(i);
-            if (!item || item == excludedDestination)
-                continue;
+            CargoBase cargo = TransferZCargo.Get(container, cargoIndex);
+            if (!cargo)
+                break;
 
-            if (item.GetInventory().GetCargo())
-                CollectUnpackLeaves(item, excludedDestination, leaves);
-            else
-                leaves.Insert(item);
+            for (int i = 0; i < cargo.GetItemCount(); i++)
+            {
+                EntityAI item = cargo.GetItem(i);
+                if (!item || item == excludedDestination)
+                    continue;
+
+                if (TransferZCargo.Exists(item, 0))
+                    CollectUnpackLeaves(item, excludedDestination, leaves);
+                else
+                    leaves.Insert(item);
+            }
         }
     }
 
-    protected static void CollectUnpackLeavesForOperation(EntityAI source, EntityAI destination, notnull array<EntityAI> leaves)
+    protected static void CollectUnpackLeavesForOperation(EntityAI source, int sourceCargoIndex, EntityAI destination, notnull array<EntityAI> leaves)
     {
         leaves.Clear();
         if (!source)
             return;
 
-        CargoBase cargo = source.GetInventory().GetCargo();
+        CargoBase cargo = TransferZCargo.Get(source, sourceCargoIndex);
         if (!cargo)
             return;
 
-        // Container U ignores loose direct cargo. Only leaf items found inside
-        // cargo-bearing child containers are candidates for extraction.
         for (int i = 0; i < cargo.GetItemCount(); i++)
         {
             EntityAI child = cargo.GetItem(i);
-            if (!child || child == destination || !child.GetInventory().GetCargo())
+            if (!child || child == destination || !TransferZCargo.Exists(child, 0))
                 continue;
 
             CollectUnpackLeaves(child, destination, leaves);
@@ -119,12 +120,12 @@ class TransferZOperationPreview
         return width * height;
     }
 
-    protected static int FreeCargoArea(EntityAI destination)
+    protected static int FreeCargoArea(EntityAI destination, int destinationCargoIndex)
     {
         if (!destination)
             return 0;
 
-        CargoBase cargo = destination.GetInventory().GetCargo();
+        CargoBase cargo = TransferZCargo.Get(destination, destinationCargoIndex);
         if (!cargo)
             return 0;
 
@@ -147,23 +148,20 @@ class TransferZOperationPreview
         return freeArea;
     }
 
-    protected static bool CanFitIndividually(EntityAI item, EntityAI destination)
+    protected static bool CanFitIndividually(EntityAI item, EntityAI destination, int destinationCargoIndex)
     {
         if (!item || !destination || item == destination)
             return false;
-        if (!destination.GetInventory().GetCargo())
+        if (!TransferZCargo.Exists(destination, destinationCargoIndex))
             return false;
         if (!destination.CanReceiveItemIntoCargo(item))
             return false;
 
-        InventoryLocation freeLocation = new InventoryLocation();
-        if (!destination.GetInventory().FindFreeLocationFor(item, FindInventoryLocationType.CARGO, freeLocation))
-            return false;
-
-        return freeLocation.IsValid() && freeLocation.GetType() == InventoryLocationType.CARGO && freeLocation.GetParent() == destination;
+        InventoryLocation freeLocation;
+        return TransferZCargo.FindFreeLocation(destination, destinationCargoIndex, item, freeLocation) && TransferZCargo.LocationMatches(freeLocation, destination, destinationCargoIndex);
     }
 
-    protected static int EvaluateCandidates(notnull array<EntityAI> candidates, EntityAI destination, bool destinationIsVicinity)
+    protected static int EvaluateCandidates(notnull array<EntityAI> candidates, EntityAI destination, int destinationCargoIndex, bool destinationIsVicinity)
     {
         if (candidates.Count() == 0)
             return TransferZOperationPreviewResult.IMPOSSIBLE;
@@ -184,7 +182,7 @@ class TransferZOperationPreview
                 continue;
             }
 
-            if (!CanFitIndividually(item, destination))
+            if (!CanFitIndividually(item, destination, destinationCargoIndex))
                 continue;
 
             individuallyFits++;
@@ -204,23 +202,27 @@ class TransferZOperationPreview
         if (individuallyFits < candidates.Count())
             return TransferZOperationPreviewResult.PARTIAL;
 
-        int freeArea = FreeCargoArea(destination);
+        int freeArea = FreeCargoArea(destination, destinationCargoIndex);
         if (requiredArea > freeArea)
             return TransferZOperationPreviewResult.PARTIAL;
 
         return TransferZOperationPreviewResult.READY;
     }
 
-    static int EvaluateContainerOperation(int operation, EntityAI source)
+    static int EvaluateContainerOperation(int operation, EntityAI source, int sourceCargoIndex = 0)
     {
-        if (!source || !source.GetInventory().GetCargo())
+        if (!source || !TransferZCargo.Exists(source, sourceCargoIndex))
             return TransferZOperationPreviewResult.IMPOSSIBLE;
 
         TransferZClientState state = TransferZClientState.Get();
         bool destinationIsVicinity = state.IsDestinationVicinity();
         EntityAI destination = null;
+        int destinationCargoIndex = 0;
         if (!destinationIsVicinity)
+        {
             destination = state.GetDestination();
+            destinationCargoIndex = state.GetDestinationCargoIndex();
+        }
 
         if (!destinationIsVicinity && !destination)
             return TransferZOperationPreviewResult.IMPOSSIBLE;
@@ -229,26 +231,26 @@ class TransferZOperationPreview
 
         if (operation == TransferZOperation.TRANSFER)
         {
-            if (!destinationIsVicinity && source == destination)
+            if (!destinationIsVicinity && source == destination && sourceCargoIndex == destinationCargoIndex)
                 return TransferZOperationPreviewResult.IMPOSSIBLE;
-            if (!destinationIsVicinity && IsDescendantOf(destination, source))
+            if (!destinationIsVicinity && destination != source && IsDescendantOf(destination, source))
                 return TransferZOperationPreviewResult.IMPOSSIBLE;
 
-            SnapshotDirectCargo(source, candidates);
+            SnapshotDirectCargo(source, sourceCargoIndex, candidates);
         }
         else if (operation == TransferZOperation.UNPACK)
         {
             if (!destinationIsVicinity && destination != source && IsDescendantOf(destination, source))
                 return TransferZOperationPreviewResult.IMPOSSIBLE;
 
-            CollectUnpackLeavesForOperation(source, destination, candidates);
+            CollectUnpackLeavesForOperation(source, sourceCargoIndex, destination, candidates);
         }
         else
         {
             return TransferZOperationPreviewResult.IMPOSSIBLE;
         }
 
-        return EvaluateCandidates(candidates, destination, destinationIsVicinity);
+        return EvaluateCandidates(candidates, destination, destinationCargoIndex, destinationIsVicinity);
     }
 
     static int EvaluateVicinityOperation(int operation, notnull array<EntityAI> visibleItems)
@@ -256,8 +258,12 @@ class TransferZOperationPreview
         TransferZClientState state = TransferZClientState.Get();
         bool destinationIsVicinity = state.IsDestinationVicinity();
         EntityAI destination = null;
+        int destinationCargoIndex = 0;
         if (!destinationIsVicinity)
+        {
             destination = state.GetDestination();
+            destinationCargoIndex = state.GetDestinationCargoIndex();
+        }
 
         if (!destinationIsVicinity && !destination)
             return TransferZOperationPreviewResult.IMPOSSIBLE;
@@ -266,13 +272,12 @@ class TransferZOperationPreview
 
         if (operation == TransferZOperation.TRANSFER)
         {
-            // Loose vicinity items are already at a vicinity destination.
             if (destinationIsVicinity)
                 return TransferZOperationPreviewResult.IMPOSSIBLE;
 
             foreach (EntityAI item : visibleItems)
             {
-                if (!item || item == destination || item.GetInventory().GetCargo())
+                if (!item || item == destination || TransferZCargo.Exists(item, 0))
                     continue;
 
                 ItemBase itemBase = ItemBase.Cast(item);
@@ -284,7 +289,7 @@ class TransferZOperationPreview
         {
             foreach (EntityAI container : visibleItems)
             {
-                if (!container || container == destination || !container.GetInventory().GetCargo())
+                if (!container || container == destination || !TransferZCargo.Exists(container, 0))
                     continue;
                 CollectUnpackLeaves(container, destination, candidates);
             }
@@ -294,6 +299,6 @@ class TransferZOperationPreview
             return TransferZOperationPreviewResult.IMPOSSIBLE;
         }
 
-        return EvaluateCandidates(candidates, destination, destinationIsVicinity);
+        return EvaluateCandidates(candidates, destination, destinationCargoIndex, destinationIsVicinity);
     }
 }
