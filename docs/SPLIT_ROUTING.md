@@ -9,17 +9,17 @@ TransferZ only influences the destination chosen for a native split.
 The split destination is resolved in this order:
 
 1. **Active destination (`D*`)** — when a valid transient destination is selected, it is the explicit split target. A container destination means that container's exact cargo. A `VICINITY` destination means DayZ's normal ground placement around the player.
-2. **Preferred destination (`P*`)** — when no `D*` is active and a preferred destination is configured, use its exact cargo.
-3. **Immediate source cargo** — only when neither `D*` nor `P*` is selected, keep a cargo stack in the same immediate container when that cargo has room for the newly created split entity.
+2. **Immediate source cargo** — when no `D*` is active and the stack is already in cargo, keep the split in that same immediate container whenever it has room for the new entity.
+3. **Preferred destination (`P*`)** — use the configured preferred cargo only when there is no usable immediate source cargo, including when the original stack is not in cargo or its source cargo has no room.
 4. **Vanilla DayZ fallback** — use DayZ's normal behavior in every remaining case.
 
-An explicitly selected route is not silently replaced by another TransferZ route. If active `D*` cannot accept the split, TransferZ falls back to vanilla rather than trying `P*` or the source. Likewise, if `P*` is configured but cannot currently resolve or accept the split, TransferZ falls back to vanilla rather than moving the result back into the source container.
+An explicitly selected `D*` is not silently replaced by another TransferZ route. If active `D*` cannot accept the split, TransferZ falls back to vanilla rather than trying the source or `P*`. If routing reaches `P*` and it cannot currently resolve or accept the split, TransferZ likewise falls back to vanilla.
 
 ## Source-local splitting
 
-When no `D*` or `P*` is selected and the stack is already in cargo, TransferZ asks the immediate cargo owner for a free location for the new split entity. If a valid location exists, the new stack remains beside the original stack in that same container.
+When no `D*` is selected and the stack is already in cargo, TransferZ asks the immediate cargo owner for a free location for the new split entity before considering `P*`. If a valid location exists, the new stack remains beside the original stack in that same container.
 
-This applies to normal cargo containers generally; it is not limited to containers currently held in hands. A stack itself in hands, an attachment, or an item on the ground has no immediate cargo source for this rule and therefore uses vanilla fallback when no explicit destination is selected.
+This applies to normal cargo containers generally; it is not limited to containers currently held in hands. A stack itself in hands, an attachment, or an item on the ground has no immediate cargo source for this rule, so routing may continue to `P*` before vanilla fallback.
 
 ## Native execution
 
