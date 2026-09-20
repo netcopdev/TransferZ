@@ -63,7 +63,10 @@ $projectRootFull = (Resolve-Path -LiteralPath $ProjectRoot).Path
 $outputDirFull = [System.IO.Path]::GetFullPath($OutputDir)
 New-Item -ItemType Directory -Force -Path $outputDirFull | Out-Null
 
-$projectName = Split-Path -Leaf $projectRootFull.TrimEnd('\')
+# config.cpp and runtime paths use the TransferZ prefix, and build.ps1
+# expects TransferZ.pbo. AddonBuilder derives the PBO name/prefix from the
+# staged folder, so keep that folder stable regardless of checkout name.
+$projectName = 'TransferZ'
 $stagingParent = Join-Path ([System.IO.Path]::GetTempPath()) ("TransferZ-Core-" + [guid]::NewGuid().ToString("N"))
 $stagedProjectRoot = Join-Path $stagingParent $projectName
 $expectedPbo = Join-Path $outputDirFull "$projectName.pbo"

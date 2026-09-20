@@ -7,7 +7,13 @@ ItemBase TZTest_CreateStack(EntityAI owner, string typeName, int quantity)
         return NULL;
 
     ItemBase item = ItemBase.Cast(owner.GetInventory().CreateInInventory(typeName));
-    if (item)
+
+    // Ammo piles store their quantity as magazine rounds rather than ItemBase
+    // quantity. Keep the generic quantity path for ordinary stackable items.
+    Magazine magazine = Magazine.Cast(item);
+    if (magazine)
+        magazine.ServerSetAmmoCount(quantity);
+    else if (item)
         item.SetQuantity(quantity);
 
     return item;

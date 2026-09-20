@@ -51,17 +51,20 @@ Unmodified left drag remains vanilla DayZ drag behavior. `Ctrl` interactions rem
 
 From a cargo container, `Alt + Left Drag` on one item selects all direct cargo items in that same source container whose exact `GetType()` matches the representative item. Drop onto another open TransferZ container to move those matches there. Dropping onto `VICINITY` moves those matching source-cargo items to the ground.
 
-From `VICINITY`, `Alt + Left Drag` selects currently shown loose, takeable, removable non-container items whose exact `GetType()` matches the representative item and moves that set into the destination container. Vicinity-to-vicinity is a no-op because those items are already there.
+From `VICINITY`, `Alt + Left Drag` selects currently shown loose, takeable, removable items whose exact `GetType()` matches the representative item, including same-class containers (which move intact with their contents), and moves that set into the destination container. Vicinity-to-vicinity is a no-op because those items are already there.
 
 Different classnames are never included just because they are similar items. For example, Alt-dragging one ammunition classname moves only that exact ammunition classname.
 
 ## Native stack splitting and P*
 
-TransferZ does not replace DayZ's stack-splitting rules. Right click still invokes the native split behavior.
+TransferZ does not replace DayZ's stack-splitting rules. Right click still invokes the native split behavior; TransferZ only chooses where the new split stack is placed, in this order:
 
-When the stack itself is held in hands, TransferZ tries to place the native split result into the resolved preferred destination (`P*`) when that exact cargo has room. If `P*` cannot accept it, normal DayZ fallback behavior remains in control.
+1. the active destination (`D*`), when one is selected: that container's exact cargo, or DayZ's normal ground placement around the player for `VICINITY`;
+2. otherwise the preferred destination (`P*`), when one is configured;
+3. otherwise, for a stack in cargo, the same immediate container when it has room for the new stack;
+4. otherwise normal DayZ behavior.
 
-For a stack inside cargo below a container currently held in hands, the established order is: exact source cargo, then `P*`, then normal DayZ fallback.
+A selected `D*` or `P*` that cannot accept the split falls back to normal DayZ behavior; it never falls through to the next rule. See [`docs/SPLIT_ROUTING.md`](docs/SPLIT_ROUTING.md).
 
 ## Destination behavior
 
@@ -132,7 +135,7 @@ TransferZ does not define its own ammo-family/category matching, does not merge 
 - `Shift + Click`: move one shown item to the active destination.
 - `Alt + Click`: move one shown item to the preferred personal destination.
 - `Shift + Left Drag`: move the shown eligible loose items as a transfer batch.
-- `Alt + Left Drag`: move shown eligible loose items of the dragged item's exact class.
+- `Alt + Left Drag`: move shown eligible items of the dragged item's exact class, including same-class cargo-bearing containers.
 
 With `VICINITY` itself selected, vicinity Transfer is a no-op and vicinity Unpack empties shown cargo containers onto the ground.
 

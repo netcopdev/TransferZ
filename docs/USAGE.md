@@ -183,7 +183,7 @@ From a cargo container:
 From vicinity:
 
 - the source is the currently shown loose vicinity list;
-- only shown loose, takeable, removable non-container items with the same exact `GetType()` are selected;
+- only shown loose, takeable, removable items with the same exact `GetType()` are selected, including same-class containers, which move intact with their contents;
 - drop onto an open container to move those matches there;
 - vicinity-to-vicinity is a no-op because those items are already there.
 
@@ -197,12 +197,16 @@ TransferZ does not claim Ctrl click/drag gestures. Vanilla DayZ behavior remains
 
 TransferZ does not implement its own stack split. DayZ still decides whether an item can be split, the split amount, resulting item state, and the item-manipulation protocol.
 
-TransferZ only influences destination selection in the following cases:
+TransferZ only influences where the new split stack is placed, in this order:
 
-- If the stack itself is currently in hands, the split result first tries the resolved preferred destination (`P*`) when that exact cargo has room. If `P*` cannot accept it, DayZ's normal fallback handles the split.
-- If the stack is in cargo at or below a container currently held in hands, the split result first tries the exact immediate source cargo, then `P*`, then DayZ's normal fallback.
+1. the active destination (`D*`), when one is selected: that container's exact cargo, or DayZ's normal ground placement around the player for `VICINITY`;
+2. otherwise the preferred destination (`P*`), when one is configured;
+3. otherwise, for a stack in cargo, the same immediate container when it has room for the new stack;
+4. otherwise normal DayZ behavior.
 
-This preserves native right-click behavior while making `P*` useful for hand-held splitting.
+A selected `D*` or `P*` that cannot accept the split falls back to normal DayZ behavior; it never falls through to the next rule. See [`SPLIT_ROUTING.md`](SPLIT_ROUTING.md).
+
+This preserves native right-click behavior while letting `D*` and `P*` receive split stacks.
 
 ## Double-click routing
 
