@@ -98,6 +98,20 @@ class RepositoryContracts(unittest.TestCase):
             fallback.index("CreateSortBuffer(player)"),
         )
 
+    def test_sort_rollback_emergency_drops_only_unrestored_items(self) -> None:
+        planner = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")
+        emergency = function_body(planner, "protected static bool EmergencyDropUnrestoredItems(")
+        recover = function_body(planner, "protected static bool RecoverBufferedSort(")
+        fixture = read("test/TransferZTest.ChernarusPlus/init.c")
+
+        self.assertIn("RecordAtCargoLocation(source, record)", emergency)
+        self.assertIn("currentParent != source && currentParent != buffer", emergency)
+        self.assertIn("record.item.GetInventory().DropEntity(moveMode, player, record.item)", emergency)
+        self.assertIn('EmergencyDropUnrestoredItems(player, source, buffer, originalRecords, "rollback-incomplete")', recover)
+        self.assertNotIn("EnableRecoveryMode", planner)
+        self.assertNotIn("PreserveSortBufferForRecovery", planner)
+        self.assertIn("TZTest_RunSortEmergencyDropSelfTest(player)", fixture)
+
     def test_sort_buffer_is_hidden_and_nonpersistent(self) -> None:
         buffer_source = read("Scripts/4_World/TransferZ/TransferZ_SortBuffer.c")
         planner = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")
