@@ -318,7 +318,6 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
 
         bool allDropped = true;
         int dropped = 0;
-
         foreach (TransferZSortRecord record : originalRecords)
         {
             if (!record || !record.item)
@@ -326,7 +325,6 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
                 allDropped = false;
                 continue;
             }
-
             if (RecordAtCargoLocation(source, record))
                 continue;
 
@@ -336,7 +334,6 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
                 allDropped = false;
                 continue;
             }
-
             if (current.GetType() != InventoryLocationType.CARGO)
             {
                 allDropped = false;
@@ -355,7 +352,6 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
                 allDropped = false;
                 continue;
             }
-
             dropped++;
         }
 

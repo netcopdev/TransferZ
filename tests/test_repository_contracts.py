@@ -75,6 +75,29 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("GameInventory.CheckRequestSrc", body)
         self.assertIn("CombineItems", body)
 
+    def test_only_v4_sort_planner_remains_active(self) -> None:
+        maintenance = read("Scripts/4_World/TransferZ/TransferZ_MaintenanceService.c")
+        snapshot = function_body(maintenance, "protected static bool SnapshotSortRecords(")
+
+        obsolete = (
+            "protected static bool SortBefore(",
+            "protected static void SortRecords(",
+            "protected static bool AssignTargets(",
+            "protected static void BuildTargetGrid(",
+            "protected static bool FindTemporaryPlacement(",
+            "protected static bool BuildSortPlan(",
+        )
+        for declaration in obsolete:
+            self.assertNotIn(declaration, maintenance)
+        self.assertNotIn("\n        SortRecords(records);", snapshot)
+
+        planner = read("Scripts/4_World/TransferZ/TransferZ_SortPlanner.c")
+        transactional = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")
+        self.assertIn("SortRecordsV4", planner)
+        self.assertIn("BuildSortPlanV4", planner)
+        self.assertIn("SortRecordsV4(originalRecords)", transactional)
+        self.assertIn("BuildSortPlanV4", transactional)
+
     def test_sort_keeps_transactional_verification_and_rollback(self) -> None:
         source = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")
         body = function_body(source, "static int Sort(")
@@ -87,7 +110,6 @@ class RepositoryContracts(unittest.TestCase):
         emergency = function_body(planner, "protected static bool EmergencyDropUnrestoredItems(")
         recover = function_body(planner, "protected static bool RecoverBufferedSort(")
         fixture = read("test/TransferZTest.ChernarusPlus/init.c")
-
         self.assertIn("RecordAtCargoLocation(source, record)", emergency)
         self.assertIn("currentParent != source && currentParent != buffer", emergency)
         self.assertIn("record.item.GetInventory().DropEntity(moveMode, player, record.item)", emergency)
@@ -100,7 +122,6 @@ class RepositoryContracts(unittest.TestCase):
         buffer_source = read("Scripts/4_World/TransferZ/TransferZ_SortBuffer.c")
         planner = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")
         create_body = function_body(planner, "protected static TransferZ_SortBuffer CreateSortBuffer(")
-
         self.assertIn("IsInventoryVisible", buffer_source)
         self.assertIn("return false;", buffer_source)
         self.assertIn("ECE_NOPERSISTENCY_WORLD", create_body)
