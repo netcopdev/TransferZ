@@ -4,6 +4,7 @@ class TransferZSortRollbackMove
     int row;
     int col;
     bool flip;
+    int cargoIndex;
     int forwardRow;
     int forwardCol;
     bool forwardFlip;
@@ -58,27 +59,34 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         if (!record.item.GetInventory().GetCurrentInventoryLocation(current))
             return false;
 
-        return current.GetType() == InventoryLocationType.CARGO && current.GetParent() == source && current.GetRow() == record.row && current.GetCol() == record.col && current.GetFlip() == record.flip;
+        return TransferZCargo.LocationMatches(current, source, record.cargoIndex) && current.GetRow() == record.row && current.GetCol() == record.col && current.GetFlip() == record.flip;
     }
 
     protected static bool VerifyLayout(EntityAI source, notnull array<ref TransferZSortRecord> expectedRecords)
     {
         if (!source)
             return false;
+        if (expectedRecords.Count() == 0)
+            return true;
 
-        CargoBase cargo = source.GetInventory().GetCargo();
+        TransferZSortRecord firstRecord = expectedRecords.Get(0);
+        if (!firstRecord)
+            return false;
+
+        int cargoIndex = firstRecord.cargoIndex;
+        CargoBase cargo = TransferZCargo.Get(source, cargoIndex);
         if (!cargo || cargo.GetItemCount() != expectedRecords.Count())
             return false;
 
         foreach (TransferZSortRecord expectedRecord : expectedRecords)
         {
-            if (!RecordAtCargoLocation(source, expectedRecord))
+            if (!expectedRecord || expectedRecord.cargoIndex != cargoIndex || !RecordAtCargoLocation(source, expectedRecord))
                 return false;
         }
         return true;
     }
 
-    protected static bool CaptureRollbackMove(EntityAI source, EntityAI item, out TransferZSortRollbackMove rollbackMove)
+    protected static bool CaptureRollbackMove(EntityAI source, int sourceCargoIndex, EntityAI item, out TransferZSortRollbackMove rollbackMove)
     {
         rollbackMove = null;
         if (!source || !item)
@@ -87,7 +95,7 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         InventoryLocation current = new InventoryLocation();
         if (!item.GetInventory().GetCurrentInventoryLocation(current))
             return false;
-        if (current.GetType() != InventoryLocationType.CARGO || current.GetParent() != source)
+        if (!TransferZCargo.LocationMatches(current, source, sourceCargoIndex))
             return false;
 
         rollbackMove = new TransferZSortRollbackMove();
@@ -95,10 +103,11 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         rollbackMove.row = current.GetRow();
         rollbackMove.col = current.GetCol();
         rollbackMove.flip = current.GetFlip();
+        rollbackMove.cargoIndex = sourceCargoIndex;
         return true;
     }
 
-    protected static bool ItemAtCargoCoordinates(EntityAI source, EntityAI item, int row, int col, bool flip)
+    protected static bool ItemAtCargoCoordinates(EntityAI source, int cargoIndex, EntityAI item, int row, int col, bool flip)
     {
         if (!source || !item)
             return false;
@@ -107,38 +116,38 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         if (!item.GetInventory().GetCurrentInventoryLocation(current))
             return false;
 
-        return current.GetType() == InventoryLocationType.CARGO && current.GetParent() == source && current.GetRow() == row && current.GetCol() == col && current.GetFlip() == flip;
+        return TransferZCargo.LocationMatches(current, source, cargoIndex) && current.GetRow() == row && current.GetCol() == col && current.GetFlip() == flip;
     }
 
     protected static bool ItemAtRollbackLocation(EntityAI source, TransferZSortRollbackMove rollbackMove)
     {
         if (!rollbackMove)
             return false;
-        return ItemAtCargoCoordinates(source, rollbackMove.item, rollbackMove.row, rollbackMove.col, rollbackMove.flip);
+        return ItemAtCargoCoordinates(source, rollbackMove.cargoIndex, rollbackMove.item, rollbackMove.row, rollbackMove.col, rollbackMove.flip);
     }
 
     protected static bool ItemAtForwardLocation(EntityAI source, TransferZSortRollbackMove rollbackMove)
     {
         if (!rollbackMove)
             return false;
-        return ItemAtCargoCoordinates(source, rollbackMove.item, rollbackMove.forwardRow, rollbackMove.forwardCol, rollbackMove.forwardFlip);
+        return ItemAtCargoCoordinates(source, rollbackMove.cargoIndex, rollbackMove.item, rollbackMove.forwardRow, rollbackMove.forwardCol, rollbackMove.forwardFlip);
     }
 
     protected static bool SwapAtRollbackLocations(EntityAI source, TransferZSortRollbackMove rollbackMove)
     {
         if (!rollbackMove || !rollbackMove.swapItem)
             return false;
-        return ItemAtCargoCoordinates(source, rollbackMove.item, rollbackMove.row, rollbackMove.col, rollbackMove.flip) && ItemAtCargoCoordinates(source, rollbackMove.swapItem, rollbackMove.swapRow, rollbackMove.swapCol, rollbackMove.swapFlip);
+        return ItemAtCargoCoordinates(source, rollbackMove.cargoIndex, rollbackMove.item, rollbackMove.row, rollbackMove.col, rollbackMove.flip) && ItemAtCargoCoordinates(source, rollbackMove.cargoIndex, rollbackMove.swapItem, rollbackMove.swapRow, rollbackMove.swapCol, rollbackMove.swapFlip);
     }
 
     protected static bool SwapAtForwardLocations(EntityAI source, TransferZSortRollbackMove rollbackMove)
     {
         if (!rollbackMove || !rollbackMove.swapItem)
             return false;
-        return ItemAtCargoCoordinates(source, rollbackMove.item, rollbackMove.forwardRow, rollbackMove.forwardCol, rollbackMove.forwardFlip) && ItemAtCargoCoordinates(source, rollbackMove.swapItem, rollbackMove.swapForwardRow, rollbackMove.swapForwardCol, rollbackMove.swapForwardFlip);
+        return ItemAtCargoCoordinates(source, rollbackMove.cargoIndex, rollbackMove.item, rollbackMove.forwardRow, rollbackMove.forwardCol, rollbackMove.forwardFlip) && ItemAtCargoCoordinates(source, rollbackMove.cargoIndex, rollbackMove.swapItem, rollbackMove.swapForwardRow, rollbackMove.swapForwardCol, rollbackMove.swapForwardFlip);
     }
 
-    protected static bool CaptureSwapRollbackMove(EntityAI source, EntityAI item1, EntityAI item2, out TransferZSortRollbackMove rollbackMove)
+    protected static bool CaptureSwapRollbackMove(EntityAI source, int sourceCargoIndex, EntityAI item1, EntityAI item2, out TransferZSortRollbackMove rollbackMove)
     {
         rollbackMove = null;
         if (!source || !item1 || !item2)
@@ -148,9 +157,7 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         InventoryLocation second = new InventoryLocation();
         if (!item1.GetInventory().GetCurrentInventoryLocation(first) || !item2.GetInventory().GetCurrentInventoryLocation(second))
             return false;
-        if (first.GetType() != InventoryLocationType.CARGO || second.GetType() != InventoryLocationType.CARGO)
-            return false;
-        if (first.GetParent() != source || second.GetParent() != source)
+        if (!TransferZCargo.LocationMatches(first, source, sourceCargoIndex) || !TransferZCargo.LocationMatches(second, source, sourceCargoIndex))
             return false;
 
         rollbackMove = new TransferZSortRollbackMove();
@@ -158,13 +165,12 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         rollbackMove.row = first.GetRow();
         rollbackMove.col = first.GetCol();
         rollbackMove.flip = first.GetFlip();
+        rollbackMove.cargoIndex = sourceCargoIndex;
         rollbackMove.swapItem = item2;
         rollbackMove.swapRow = second.GetRow();
         rollbackMove.swapCol = second.GetCol();
         rollbackMove.swapFlip = second.GetFlip();
 
-        // Native ordinary swap exchanges locations while preserving each item's
-        // own cargo orientation.
         rollbackMove.forwardRow = rollbackMove.swapRow;
         rollbackMove.forwardCol = rollbackMove.swapCol;
         rollbackMove.forwardFlip = rollbackMove.flip;
@@ -174,14 +180,14 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         return true;
     }
 
-    protected static bool RollbackExecutedMoves(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRollbackMove> rollbackMoves, notnull array<ref TransferZSortRecord> originalRecords)
+    protected static bool RollbackExecutedMoves(PlayerBase player, EntityAI source, int sourceCargoIndex, notnull array<ref TransferZSortRollbackMove> rollbackMoves, notnull array<ref TransferZSortRecord> originalRecords)
     {
         bool reverseMovesAccepted = true;
 
         for (int rollbackIndex = rollbackMoves.Count() - 1; rollbackIndex >= 0; rollbackIndex--)
         {
             TransferZSortRollbackMove rollbackMove = rollbackMoves.Get(rollbackIndex);
-            if (!rollbackMove || !rollbackMove.item)
+            if (!rollbackMove || !rollbackMove.item || rollbackMove.cargoIndex != sourceCargoIndex)
             {
                 reverseMovesAccepted = false;
                 continue;
@@ -197,7 +203,7 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
                     continue;
                 }
 
-                if (!TrySwapWithinCargo(player, source, rollbackMove.item, rollbackMove.swapItem) || !SwapAtRollbackLocations(source, rollbackMove))
+                if (!TrySwapWithinCargo(player, source, sourceCargoIndex, rollbackMove.item, rollbackMove.swapItem) || !SwapAtRollbackLocations(source, rollbackMove))
                     reverseMovesAccepted = false;
                 continue;
             }
@@ -205,16 +211,13 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
             if (ItemAtRollbackLocation(source, rollbackMove))
                 continue;
 
-            // Reverse only the exact forward state this entry produced. If the
-            // item is somewhere unexpected, fail closed rather than moving an
-            // unknown state and making recovery less deterministic.
             if (!ItemAtForwardLocation(source, rollbackMove))
             {
                 reverseMovesAccepted = false;
                 continue;
             }
 
-            if (!TryMoveWithinCargo(player, source, rollbackMove.item, rollbackMove.row, rollbackMove.col, rollbackMove.flip))
+            if (!TryMoveWithinCargo(player, source, sourceCargoIndex, rollbackMove.item, rollbackMove.row, rollbackMove.col, rollbackMove.flip))
                 reverseMovesAccepted = false;
         }
 
@@ -224,7 +227,7 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         return exact;
     }
 
-    protected static bool ExecutePlannedMove(PlayerBase player, EntityAI source, TransferZSortMove move, notnull array<ref TransferZSortRollbackMove> rollbackMoves)
+    protected static bool ExecutePlannedMove(PlayerBase player, EntityAI source, int sourceCargoIndex, TransferZSortMove move, notnull array<ref TransferZSortRollbackMove> rollbackMoves)
     {
         if (!move || !move.item)
             return false;
@@ -232,10 +235,10 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         if (move.swapItem)
         {
             TransferZSortRollbackMove swapRollback;
-            if (!CaptureSwapRollbackMove(source, move.item, move.swapItem, swapRollback))
+            if (!CaptureSwapRollbackMove(source, sourceCargoIndex, move.item, move.swapItem, swapRollback))
                 return false;
 
-            bool swapped = TrySwapWithinCargo(player, source, move.item, move.swapItem);
+            bool swapped = TrySwapWithinCargo(player, source, sourceCargoIndex, move.item, move.swapItem);
             if (!swapped)
             {
                 if (SwapAtForwardLocations(source, swapRollback))
@@ -248,18 +251,16 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         }
 
         TransferZSortRollbackMove rollbackMove;
-        if (!CaptureRollbackMove(source, move.item, rollbackMove))
+        if (!CaptureRollbackMove(source, sourceCargoIndex, move.item, rollbackMove))
             return false;
 
         rollbackMove.forwardRow = move.row;
         rollbackMove.forwardCol = move.col;
         rollbackMove.forwardFlip = move.flip;
 
-        bool moved = TryMoveWithinCargo(player, source, move.item, move.row, move.col, move.flip);
+        bool moved = TryMoveWithinCargo(player, source, sourceCargoIndex, move.item, move.row, move.col, move.flip);
         if (!moved)
         {
-            // Native false should mean no mutation. If the exact destination did
-            // commit anyway, retain the inverse so the caller can still unwind it.
             if (ItemAtForwardLocation(source, rollbackMove))
                 rollbackMoves.Insert(rollbackMove);
             return false;
@@ -318,15 +319,15 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         return current.GetType() == InventoryLocationType.CARGO && current.GetParent() == buffer;
     }
 
-    protected static bool TryMoveToSortBuffer(PlayerBase player, EntityAI source, TransferZ_SortBuffer buffer, EntityAI item)
+    protected static bool TryMoveToSortBuffer(PlayerBase player, EntityAI source, int sourceCargoIndex, TransferZ_SortBuffer buffer, EntityAI item)
     {
-        if (!player || !source || !buffer || !item || !IsDirectCargoItem(source, item))
+        if (!player || !source || !buffer || !item || !IsDirectCargoItem(source, item, sourceCargoIndex))
             return false;
         if (!item.GetInventory().CanRemoveEntity() || !source.CanReleaseCargo(item) || !buffer.CanReceiveItemIntoCargo(item))
             return false;
 
         InventoryLocation src = new InventoryLocation();
-        if (!item.GetInventory().GetCurrentInventoryLocation(src))
+        if (!item.GetInventory().GetCurrentInventoryLocation(src) || !TransferZCargo.LocationMatches(src, source, sourceCargoIndex))
             return false;
 
         InventoryLocation dst = new InventoryLocation();
@@ -350,7 +351,7 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
 
     protected static bool TryMoveFromSortBuffer(PlayerBase player, EntityAI source, TransferZ_SortBuffer buffer, EntityAI item, int cargoIndex, int row, int col, bool flip)
     {
-        if (!player || !source || !buffer || !item || !ItemInSortBuffer(buffer, item))
+        if (!player || !source || !buffer || !item || !TransferZCargo.Exists(source, cargoIndex) || !ItemInSortBuffer(buffer, item))
             return false;
         if (!item.GetInventory().CanRemoveEntity() || !buffer.CanReleaseCargo(item) || !source.CanReceiveItemIntoCargo(item))
             return false;
@@ -376,7 +377,7 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
 
         if (!item.GetInventory().TakeToDst(moveMode, src, dst))
             return false;
-        return ItemAtCargoCoordinates(source, item, row, col, flip);
+        return ItemAtCargoCoordinates(source, cargoIndex, item, row, col, flip);
     }
 
     protected static void BuildExpectedTargetRecords(notnull array<ref TransferZSortRecord> layoutRecords, notnull array<int> targetWidths, notnull array<int> targetHeights, notnull array<int> targetFlips, notnull array<ref TransferZSortRecord> expectedRecords)
@@ -422,7 +423,10 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
             }
         }
 
-        CargoBase sourceCargo = source.GetInventory().GetCargo();
+        int sourceCargoIndex = 0;
+        if (layoutRecords.Count() > 0 && layoutRecords.Get(0))
+            sourceCargoIndex = layoutRecords.Get(0).cargoIndex;
+        CargoBase sourceCargo = TransferZCargo.Get(source, sourceCargoIndex);
         CargoBase bufferCargo = buffer.GetInventory().GetCargo();
         return sourceCargo && bufferCargo && sourceCargo.GetItemCount() == stationary && bufferCargo.GetItemCount() == expectedStaged;
     }
@@ -460,7 +464,7 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
                 accepted = false;
                 continue;
             }
-            if (!TryMoveToSortBuffer(player, source, buffer, originalRecord.item))
+            if (!TryMoveToSortBuffer(player, source, originalRecord.cargoIndex, buffer, originalRecord.item))
                 accepted = false;
         }
 
@@ -531,7 +535,7 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
             if (RecordAtTargetV4(layoutRecord, stageIndex, targetFlips))
                 continue;
 
-            if (!TryMoveToSortBuffer(player, source, buffer, layoutRecord.item))
+            if (!TryMoveToSortBuffer(player, source, layoutRecord.cargoIndex, buffer, layoutRecord.item))
             {
                 bool stageRollback = RecoverBufferedSort(player, source, buffer, originalRecords);
                 Print("[TransferZ] Sort buffer fallback failed during staging staged=" + staged.ToString() + " rollback=" + stageRollback.ToString());
@@ -581,9 +585,9 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         return staged + placed;
     }
 
-    static int Sort(PlayerBase player, EntityAI source)
+    static int Sort(PlayerBase player, EntityAI source, int sourceCargoIndex = 0)
     {
-        if (!player || !source || !TransferZServerService.IsReachable(player, source) || !source.GetInventory().GetCargo())
+        if (!player || !source || !TransferZServerService.IsReachable(player, source) || !TransferZCargo.Exists(source, sourceCargoIndex))
         {
             Print("[TransferZ] Sort transactional rejected: invalid or unreachable cargo source");
             return -1;
@@ -592,7 +596,7 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         ref array<ref TransferZSortRecord> originalRecords = new array<ref TransferZSortRecord>();
         int cargoWidth;
         int cargoHeight;
-        if (!SnapshotSortRecords(source, originalRecords, cargoWidth, cargoHeight))
+        if (!SnapshotSortRecords(source, sourceCargoIndex, originalRecords, cargoWidth, cargoHeight))
         {
             Print("[TransferZ] Sort transactional rejected: cargo snapshot failed for " + source.GetType());
             return -1;
@@ -602,9 +606,6 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
 
         SortRecordsV4(originalRecords);
 
-        // Planning operates only on clones. BuildSortPlanV4 mutates its virtual
-        // record geometry while solving blockers/cycles, so the authoritative
-        // original snapshot remains untouched for rollback verification.
         ref array<ref TransferZSortRecord> plannedRecords = new array<ref TransferZSortRecord>();
         CloneSortRecords(originalRecords, plannedRecords);
         if (plannedRecords.Count() != originalRecords.Count())
@@ -616,9 +617,6 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         ref array<ref TransferZSortMove> moves = new array<ref TransferZSortMove>();
         if (!BuildSortPlanV4(player, source, plannedRecords, cargoWidth, cargoHeight, moves))
         {
-            // The target layout is valid but the source grid has no bounded
-            // intermediary path. Fall back to the hidden native cargo buffer;
-            // the same EntityAI objects remain alive throughout the transaction.
             int bufferedResult = SortWithNativeBuffer(player, source, originalRecords, cargoWidth, cargoHeight);
             if (bufferedResult < 0)
                 Print("[TransferZ] Sort transactional failed: in-cargo plan and native buffer fallback both failed for " + source.GetType());
@@ -627,8 +625,6 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         if (moves.Count() == 0)
             return 0;
 
-        // The planner is purely virtual. Refuse to execute if anything changed
-        // after the original snapshot was taken.
         if (!VerifyLayout(source, originalRecords))
         {
             Print("[TransferZ] Sort transactional rejected: source changed before execution");
@@ -639,9 +635,9 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         int moved = 0;
         foreach (TransferZSortMove move : moves)
         {
-            if (!ExecutePlannedMove(player, source, move, rollbackMoves))
+            if (!ExecutePlannedMove(player, source, sourceCargoIndex, move, rollbackMoves))
             {
-                bool rolledBackAfterMoveFailure = RollbackExecutedMoves(player, source, rollbackMoves, originalRecords);
+                bool rolledBackAfterMoveFailure = RollbackExecutedMoves(player, source, sourceCargoIndex, rollbackMoves, originalRecords);
                 string failedKind = "move";
                 if (move.swapItem)
                     failedKind = "swap";
@@ -656,7 +652,7 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
 
         if (!VerifyLayout(source, plannedRecords))
         {
-            bool rolledBackAfterVerifyFailure = RollbackExecutedMoves(player, source, rollbackMoves, originalRecords);
+            bool rolledBackAfterVerifyFailure = RollbackExecutedMoves(player, source, sourceCargoIndex, rollbackMoves, originalRecords);
             Print("[TransferZ] Sort transactional failed target verification rollback=" + rolledBackAfterVerifyFailure.ToString());
             return -1;
         }
@@ -682,10 +678,21 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         int operation;
         int sourceLow;
         int sourceHigh;
-        if (!ctx.Read(operation) || !ctx.Read(sourceLow) || !ctx.Read(sourceHigh))
+        int sourceCargoIndex;
+        if (!ctx.Read(operation))
+            return;
+        if (!ctx.Read(sourceLow))
+            return;
+        if (!ctx.Read(sourceHigh))
+            return;
+        if (!ctx.Read(sourceCargoIndex))
             return;
 
+        if (sourceCargoIndex < 0)
+            return;
         if (operation != TransferZMaintenanceOperation.SORT && operation != TransferZMaintenanceOperation.STACK)
+            return;
+        if (!TransferZServerService.CanPlayerManipulate(player))
             return;
 
         if (!AcceptServerMaintenanceRequest(player))
@@ -698,19 +705,19 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         if (!source)
         {
             if (operation == TransferZMaintenanceOperation.SORT)
-                SendResult(player, operation, sourceLow, sourceHigh, false);
+                SendResult(player, operation, sourceLow, sourceHigh, sourceCargoIndex, false);
             return;
         }
 
         if (operation == TransferZMaintenanceOperation.SORT)
         {
-            int sortResult = Sort(player, source);
-            SendResult(player, operation, sourceLow, sourceHigh, sortResult >= 0);
+            int sortResult = Sort(player, source, sourceCargoIndex);
+            SendResult(player, operation, sourceLow, sourceHigh, sourceCargoIndex, sortResult >= 0);
             player.UpdateInventoryMenu();
         }
         else if (operation == TransferZMaintenanceOperation.STACK)
         {
-            Stack(player, source);
+            Stack(player, source, sourceCargoIndex);
             player.UpdateInventoryMenu();
         }
     }

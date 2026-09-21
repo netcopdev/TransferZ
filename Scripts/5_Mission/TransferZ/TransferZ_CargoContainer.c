@@ -7,6 +7,7 @@ class TransferZHeaderControls : Managed
     protected static ref array<TransferZHeaderControls> s_Instances;
 
     protected EntityAI m_Entity;
+    protected int m_CargoIndex = 0;
     protected Container m_OwnerContainer;
     protected Widget m_HeaderHost;
     protected Widget m_DropHost;
@@ -43,6 +44,7 @@ class TransferZHeaderControls : Managed
     protected ImageWidget m_PreferredState;
 
     protected EntityAI m_PlacementEntity;
+    protected int m_PlacementCargoIndex = -1;
     protected bool m_InitialPlacementQueued;
 
     void TransferZHeaderControls(Widget parent, Container owner = null)
@@ -384,10 +386,10 @@ class TransferZHeaderControls : Managed
                 TransferZHeaderControls hoveredControls = s_Instances.Get(hoverIndex);
                 if (!hoveredControls || !hoveredControls.m_Entity || !hoveredControls.m_DropTarget || !hoveredControls.m_DropTarget.IsVisibleHierarchy() || !hoveredControls.IsOpenTarget())
                     continue;
-                if (!hoveredControls.m_Entity.GetInventory().GetCargo())
+                if (!TransferZCargo.Exists(hoveredControls.m_Entity, hoveredControls.m_CargoIndex))
                     continue;
 
-                if (source && source == hoveredControls.m_Entity)
+                if (source && source == hoveredControls.m_Entity && TransferZOperationDrag.GetSourceCargoIndex() == hoveredControls.m_CargoIndex)
                 {
                     bool hoveredSelfUnpack = TransferZOperationDrag.GetOperation() == TransferZOperation.UNPACK && !TransferZOperationDrag.IsClassTransfer() && !TransferZOperationDrag.IsFromVicinity();
                     if (!hoveredSelfUnpack)
@@ -402,7 +404,7 @@ class TransferZHeaderControls : Managed
                 {
                     continue;
                 }
-                bool hoveredHandled = TransferZOperationDrag.Complete(hoveredControls.m_Entity);
+                bool hoveredHandled = TransferZOperationDrag.Complete(hoveredControls.m_Entity, hoveredControls.m_CargoIndex);
                 SetOperationDropTargetsVisible(false);
                 RefreshAll();
                 return hoveredHandled;
@@ -421,10 +423,10 @@ class TransferZHeaderControls : Managed
                 TransferZHeaderControls controls = s_Instances.Get(i);
                 if (!controls || !controls.m_Entity || !controls.m_DropHost || !controls.IsOpenTarget())
                     continue;
-                if (!controls.m_Entity.GetInventory().GetCargo())
+                if (!TransferZCargo.Exists(controls.m_Entity, controls.m_CargoIndex))
                     continue;
 
-                if (source && source == controls.m_Entity)
+                if (source && source == controls.m_Entity && TransferZOperationDrag.GetSourceCargoIndex() == controls.m_CargoIndex)
                 {
                     bool selfUnpack = TransferZOperationDrag.GetOperation() == TransferZOperation.UNPACK && !TransferZOperationDrag.IsClassTransfer() && !TransferZOperationDrag.IsFromVicinity();
                     if (!selfUnpack)
@@ -453,7 +455,7 @@ class TransferZHeaderControls : Managed
 
         if (best)
         {
-            bool handled = TransferZOperationDrag.Complete(best.m_Entity);
+            bool handled = TransferZOperationDrag.Complete(best.m_Entity, best.m_CargoIndex);
             SetOperationDropTargetsVisible(false);
             RefreshAll();
             return handled;
@@ -496,10 +498,11 @@ class TransferZHeaderControls : Managed
         m_HeaderLabel.SetSize(m_HeaderLabelW, m_HeaderLabelH, true);
     }
 
-    void SetEntity(EntityAI entity)
+    void SetEntity(EntityAI entity, int cargoIndex = 0)
     {
         m_Entity = entity;
-        bool show = m_Entity && m_Entity.GetInventory().GetCargo();
+        m_CargoIndex = cargoIndex;
+        bool show = m_Entity && TransferZCargo.Exists(m_Entity, m_CargoIndex);
 
         if (m_Root)
             m_Root.Show(show);
@@ -520,7 +523,7 @@ class TransferZHeaderControls : Managed
     protected bool CanBePreferred()
     {
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
-        if (!player || !m_Entity || !m_Entity.GetInventory().GetCargo())
+        if (!player || !m_Entity || !TransferZCargo.Exists(m_Entity, m_CargoIndex))
             return false;
 
         EntityAI current = m_Entity;
@@ -573,7 +576,7 @@ class TransferZHeaderControls : Managed
 
         if (w == m_DestinationButton)
         {
-            if (state.IsDestination(m_Entity))
+            if (state.IsDestination(m_Entity, m_CargoIndex))
                 return "Destination: " + DisplayName(m_Entity);
             return "Set destination: " + DisplayName(m_Entity);
         }
@@ -591,10 +594,10 @@ class TransferZHeaderControls : Managed
         }
         if (w == m_LinkButton)
         {
-            EntityAI linked = state.GetLinkedDestination(m_Entity);
+            EntityAI linked = state.GetLinkedDestination(m_Entity, m_CargoIndex);
             if (linked)
                 return "Linked -> " + DisplayName(linked);
-            if (state.IsLinkAnchor(m_Entity))
+            if (state.IsLinkAnchor(m_Entity, m_CargoIndex))
                 return "Link anchor: choose another container";
 
             if (s_Instances)
@@ -602,7 +605,7 @@ class TransferZHeaderControls : Managed
                 for (int i = s_Instances.Count() - 1; i >= 0; i--)
                 {
                     TransferZHeaderControls controls = s_Instances.Get(i);
-                    if (controls && controls.m_Entity && controls.m_Entity != m_Entity && state.IsLinkAnchor(controls.m_Entity))
+                    if (controls && controls.m_Entity && (controls.m_Entity != m_Entity || controls.m_CargoIndex != m_CargoIndex) && state.IsLinkAnchor(controls.m_Entity, controls.m_CargoIndex))
                         return "Link to " + DisplayName(controls.m_Entity);
                 }
             }
@@ -610,7 +613,7 @@ class TransferZHeaderControls : Managed
         }
         if (w == m_PreferredButton)
         {
-            if (state.IsPreferred(m_Entity))
+            if (state.IsPreferred(m_Entity, m_CargoIndex))
                 return "Preferred pickup: " + DisplayName(m_Entity);
             return "Set preferred pickup: " + DisplayName(m_Entity);
         }
@@ -762,7 +765,7 @@ class TransferZHeaderControls : Managed
         if (!status || !m_Entity)
             return;
 
-        int result = TransferZOperationPreview.EvaluateContainerOperation(operation, m_Entity);
+        int result = TransferZOperationPreview.EvaluateContainerOperation(operation, m_Entity, m_CargoIndex);
         status.SetColor(StatusColor(result));
         status.Show(true);
         m_HoveredOperation = button;
@@ -898,7 +901,7 @@ class TransferZHeaderControls : Managed
 
     protected void ForcePlacementAfterLayout()
     {
-        if (!m_Root || !m_ManageRoot || !m_Entity || !m_Entity.GetInventory().GetCargo())
+        if (!m_Root || !m_ManageRoot || !m_Entity || !TransferZCargo.Exists(m_Entity, m_CargoIndex))
             return;
 
         RestoreHeaderText();
@@ -990,8 +993,8 @@ class TransferZHeaderControls : Managed
         if (!m_DropTarget)
             return;
 
-        bool canShow = show && TransferZOperationDrag.IsActive() && m_Entity && m_Entity.GetInventory().GetCargo() && IsOpenTarget();
-        if (canShow && source && source == m_Entity)
+        bool canShow = show && TransferZOperationDrag.IsActive() && m_Entity && TransferZCargo.Exists(m_Entity, m_CargoIndex) && IsOpenTarget();
+        if (canShow && source && source == m_Entity && TransferZOperationDrag.GetSourceCargoIndex() == m_CargoIndex)
         {
             bool selfUnpack = TransferZOperationDrag.GetOperation() == TransferZOperation.UNPACK && !TransferZOperationDrag.IsClassTransfer() && !TransferZOperationDrag.IsFromVicinity();
             if (!selfUnpack)
@@ -1045,9 +1048,9 @@ class TransferZHeaderControls : Managed
             return;
 
         if (w == m_TransferButton)
-            TransferZOperationDrag.BeginContainer(TransferZOperation.TRANSFER, m_Entity);
+            TransferZOperationDrag.BeginContainer(TransferZOperation.TRANSFER, m_Entity, m_CargoIndex);
         else if (w == m_UnpackButton)
-            TransferZOperationDrag.BeginContainer(TransferZOperation.UNPACK, m_Entity);
+            TransferZOperationDrag.BeginContainer(TransferZOperation.UNPACK, m_Entity, m_CargoIndex);
         else
             return;
 
@@ -1088,7 +1091,7 @@ class TransferZHeaderControls : Managed
             return;
         }
 
-        TransferZOperationDrag.Complete(m_Entity);
+        TransferZOperationDrag.Complete(m_Entity, m_CargoIndex);
         SetOperationDropTargetsVisible(false);
         RefreshAll();
     }
@@ -1118,15 +1121,15 @@ class TransferZHeaderControls : Managed
     {
         m_LastFullRefreshTime = GetGame().GetTime();
 
-        if (!m_Root || !m_ManageRoot || !m_Entity || !m_Entity.GetInventory().GetCargo())
+        if (!m_Root || !m_ManageRoot || !m_Entity || !TransferZCargo.Exists(m_Entity, m_CargoIndex))
             return;
 
         TransferZClientState state = TransferZClientState.Get();
-        bool destinationActive = state.IsDestination(m_Entity);
-        bool linked = state.IsLinked(m_Entity);
-        bool linkAnchor = !linked && state.IsLinkAnchor(m_Entity);
+        bool destinationActive = state.IsDestination(m_Entity, m_CargoIndex);
+        bool linked = state.IsLinked(m_Entity, m_CargoIndex);
+        bool linkAnchor = !linked && state.IsLinkAnchor(m_Entity, m_CargoIndex);
         bool canPrefer = CanBePreferred();
-        bool preferred = canPrefer && state.IsPreferred(m_Entity);
+        bool preferred = canPrefer && state.IsPreferred(m_Entity, m_CargoIndex);
 
         if (m_DestinationState)
             m_DestinationState.Show(destinationActive);
@@ -1149,9 +1152,10 @@ class TransferZHeaderControls : Managed
         if (m_HoveredTooltipButton)
             ShowTooltip(m_HoveredTooltipButton);
 
-        if (m_PlacementEntity != m_Entity)
+        if (m_PlacementEntity != m_Entity || m_PlacementCargoIndex != m_CargoIndex)
         {
             m_PlacementEntity = m_Entity;
+            m_PlacementCargoIndex = m_CargoIndex;
             m_InitialPlacementQueued = false;
             QueueInitialPlacement();
         }
@@ -1167,7 +1171,7 @@ class TransferZHeaderControls : Managed
         if (button != MouseState.LEFT || !m_Entity)
             return;
 
-        TransferZClientState.Get().ToggleDestinationSelection(m_Entity);
+        TransferZClientState.Get().ToggleDestinationSelection(m_Entity, m_CargoIndex);
         RefreshAll();
         ShowTooltip(w);
     }
@@ -1177,7 +1181,7 @@ class TransferZHeaderControls : Managed
         if (button != MouseState.LEFT || !m_Entity || GetGame().GetTime() < m_IgnoreOperationClickUntil)
             return;
 
-        TransferZClientState.Get().RequestTransfer(m_Entity);
+        TransferZClientState.Get().RequestTransfer(m_Entity, m_CargoIndex);
         ShowTooltip(w);
         RefreshOperationStatus();
     }
@@ -1187,7 +1191,7 @@ class TransferZHeaderControls : Managed
         if (button != MouseState.LEFT || !m_Entity || GetGame().GetTime() < m_IgnoreOperationClickUntil)
             return;
 
-        TransferZClientState.Get().RequestNestedUnpack(m_Entity);
+        TransferZClientState.Get().RequestNestedUnpack(m_Entity, m_CargoIndex);
         ShowTooltip(w);
         RefreshOperationStatus();
     }
@@ -1197,7 +1201,7 @@ class TransferZHeaderControls : Managed
         if (button != MouseState.LEFT || !m_Entity)
             return;
 
-        TransferZClientState.Get().ToggleLink(m_Entity);
+        TransferZClientState.Get().ToggleLink(m_Entity, m_CargoIndex);
         RefreshAll();
         ShowTooltip(w);
     }
@@ -1207,7 +1211,7 @@ class TransferZHeaderControls : Managed
         if (button != MouseState.LEFT || !m_Entity)
             return;
 
-        TransferZClientState.Get().TogglePreferred(m_Entity);
+        TransferZClientState.Get().TogglePreferred(m_Entity, m_CargoIndex);
         RefreshAll();
         ShowTooltip(w);
     }
@@ -1217,7 +1221,7 @@ class TransferZHeaderControls : Managed
         if (button != MouseState.LEFT || !m_Entity)
             return;
 
-        TransferZMaintenanceClient.RequestSort(m_Entity);
+        TransferZMaintenanceClient.RequestSort(m_Entity, m_CargoIndex);
         ShowTooltip(w);
     }
 
@@ -1226,7 +1230,7 @@ class TransferZHeaderControls : Managed
         if (button != MouseState.LEFT || !m_Entity)
             return;
 
-        TransferZMaintenanceClient.RequestStack(m_Entity);
+        TransferZMaintenanceClient.RequestStack(m_Entity, m_CargoIndex);
         ShowTooltip(w);
     }
 
@@ -1344,7 +1348,7 @@ modded class CargoContainer
     {
         super.SetEntity(item, cargo_index, immedUpdate);
         if (m_TransferZAttachmentHeaderControls)
-            m_TransferZAttachmentHeaderControls.SetEntity(item);
+            m_TransferZAttachmentHeaderControls.SetEntity(item, cargo_index);
     }
 
     override void UpdateInterval()

@@ -14,7 +14,7 @@ modded class TransferZClientState
 
         if (m_Destination)
         {
-            TransferZSplitDestinationBridge.SetCargo(m_Destination);
+            TransferZSplitDestinationBridge.SetCargo(m_Destination, m_DestinationCargoIndex);
             return;
         }
 
@@ -38,9 +38,9 @@ modded class TransferZClientState
         return active;
     }
 
-    override void SetDestination(EntityAI destination)
+    override void SetDestination(EntityAI destination, int cargoIndex = 0)
     {
-        super.SetDestination(destination);
+        super.SetDestination(destination, cargoIndex);
         TransferZSyncSplitDestinationBridge();
     }
 
@@ -50,9 +50,9 @@ modded class TransferZClientState
         TransferZSyncSplitDestinationBridge();
     }
 
-    override void ToggleDestinationSelection(EntityAI destination)
+    override void ToggleDestinationSelection(EntityAI destination, int cargoIndex = 0)
     {
-        super.ToggleDestinationSelection(destination);
+        super.ToggleDestinationSelection(destination, cargoIndex);
         TransferZSyncSplitDestinationBridge();
     }
 

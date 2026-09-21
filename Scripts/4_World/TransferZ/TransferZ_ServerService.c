@@ -109,7 +109,7 @@ class TransferZServerService
         return false;
     }
 
-    static bool TryMoveToExactCargo(PlayerBase player, EntityAI item, EntityAI destination)
+    static bool TryMoveToExactCargo(PlayerBase player, EntityAI item, EntityAI destination, int destinationCargoIndex = 0)
     {
         if (!player || !item || !destination || item == destination)
             return MoveFailure("invalid arguments", item, destination);
@@ -120,9 +120,9 @@ class TransferZServerService
         if (!IsReachable(player, destination))
             return MoveFailure("destination not reachable", item, destination);
 
-        CargoBase destinationCargo = destination.GetInventory().GetCargo();
+        CargoBase destinationCargo = TransferZCargo.Get(destination, destinationCargoIndex);
         if (!destinationCargo)
-            return MoveFailure("destination has no cargo", item, destination);
+            return MoveFailure("destination cargo grid unavailable", item, destination);
         if (!destination.CanDisplayCargo())
             return MoveFailure("destination cargo is not accessible", item, destination);
 
@@ -134,36 +134,26 @@ class TransferZServerService
             return MoveFailure("source location unavailable", item, destination);
 
         // A client-predicted representative drag can reach the requested cargo
-        // before its TransferZ batch RPC is processed. Treat that as an already
-        // completed member instead of relocating it inside the same cargo.
-        if (src.GetType() == InventoryLocationType.CARGO && src.GetParent() == destination)
+        // before its TransferZ batch RPC is processed. Treat that exact grid as
+        // already completed, but never collapse two cargo grids on one owner.
+        if (TransferZCargo.LocationMatches(src, destination, destinationCargoIndex))
             return true;
 
-        // TransferZ routes cargo children and loose vicinity items only. Hands
-        // and attachment sources remain under vanilla state-machine handling.
         int srcType = src.GetType();
         if (srcType != InventoryLocationType.CARGO && srcType != InventoryLocationType.GROUND)
             return MoveFailure("source is not cargo or ground", item, destination);
 
         EntityAI sourceParent = src.GetParent();
-        if (sourceParent && src.GetType() == InventoryLocationType.CARGO && !sourceParent.CanReleaseCargo(item))
+        if (sourceParent && srcType == InventoryLocationType.CARGO && !sourceParent.CanReleaseCargo(item))
             return MoveFailure("source cargo refuses release", item, destination);
 
         if (!destination.CanReceiveItemIntoCargo(item))
             return MoveFailure("destination refuses cargo item", item, destination);
 
-        InventoryLocation dst = new InventoryLocation();
-        // Running out of suitable cells is an expected batch-transfer outcome:
-        // move everything that fits, then stop accepting individual members.
-        // Do not flood the server log for normal capacity misses.
-        if (!destination.GetInventory().FindFreeLocationFor(item, FindInventoryLocationType.CARGO, dst))
+        InventoryLocation dst;
+        if (!TransferZCargo.FindFreeLocation(destination, destinationCargoIndex, item, dst))
             return false;
-
-        // Modded cargo implementations can occasionally decline to resolve an
-        // exact cargo location even after reporting a candidate. Treat that the
-        // same as an ordinary no-fit result; native validation still guards every
-        // location that does reach the mutation path below.
-        if (!dst.IsValid() || dst.GetType() != InventoryLocationType.CARGO || dst.GetParent() != destination)
+        if (!TransferZCargo.LocationMatches(dst, destination, destinationCargoIndex))
             return false;
 
         if (!GameInventory.CheckMoveToDstRequest(player, src, dst, GameInventory.c_MaxItemDistanceRadius))
@@ -179,13 +169,6 @@ class TransferZServerService
         if (!GetGame().IsMultiplayer())
             moveMode = InventoryMode.LOCAL;
 
-        // Do not route server-authored batch moves through DayZPlayerInventory.
-        // Its SERVER path queues a sync juncture for the remote player and does
-        // not update the authoritative location immediately. A TransferZ batch
-        // then plans every following item against stale cargo state and usually
-        // only the first move survives. The item's GameInventory SERVER path
-        // performs LocationSyncMoveEntity immediately and emits the server move
-        // to clients, so each next batch step sees the committed state.
         if (!item.GetInventory().TakeToDst(moveMode, src, dst))
             return MoveFailure("TakeToDst failed", item, destination);
 
@@ -239,9 +222,9 @@ class TransferZServerService
         return true;
     }
 
-    static void SnapshotDirectCargo(EntityAI source, notnull array<EntityAI> items)
+    static void SnapshotDirectCargo(EntityAI source, int sourceCargoIndex, notnull array<EntityAI> items)
     {
-        CargoBase cargo = source.GetInventory().GetCargo();
+        CargoBase cargo = TransferZCargo.Get(source, sourceCargoIndex);
         if (!cargo)
             return;
 
@@ -258,82 +241,83 @@ class TransferZServerService
         if (!container)
             return;
 
-        CargoBase cargo = container.GetInventory().GetCargo();
-        if (!cargo)
-            return;
-
-        for (int i = 0; i < cargo.GetItemCount(); i++)
+        for (int cargoIndex = 0; ; cargoIndex++)
         {
-            EntityAI item = cargo.GetItem(i);
-            if (!item || item == destination)
-                continue;
+            CargoBase cargo = TransferZCargo.Get(container, cargoIndex);
+            if (!cargo)
+                break;
 
-            CargoBase nestedCargo = item.GetInventory().GetCargo();
-            if (nestedCargo)
-                CollectUnpackLeaves(item, destination, leaves);
-            else
-                leaves.Insert(item);
+            for (int i = 0; i < cargo.GetItemCount(); i++)
+            {
+                EntityAI item = cargo.GetItem(i);
+                if (!item || item == destination)
+                    continue;
+
+                if (TransferZCargo.Exists(item, 0))
+                    CollectUnpackLeaves(item, destination, leaves);
+                else
+                    leaves.Insert(item);
+            }
         }
     }
 
-    static void CollectUnpackLeavesForOperation(EntityAI source, EntityAI destination, notnull array<EntityAI> leaves)
+    static void CollectUnpackLeavesForOperation(EntityAI source, int sourceCargoIndex, EntityAI destination, bool nestedOnly, notnull array<EntityAI> leaves)
     {
         if (!source)
             return;
 
-        if (source != destination)
-        {
-            CollectUnpackLeaves(source, destination, leaves);
-            return;
-        }
-
-        CargoBase sourceCargo = source.GetInventory().GetCargo();
+        CargoBase sourceCargo = TransferZCargo.Get(source, sourceCargoIndex);
         if (!sourceCargo)
             return;
 
-        // Self-unpack flattens nested cargo into the source. Direct loose items
-        // are already in the requested destination and must not be moved.
         for (int i = 0; i < sourceCargo.GetItemCount(); i++)
         {
             EntityAI child = sourceCargo.GetItem(i);
-            if (child && child.GetInventory().GetCargo())
-                CollectUnpackLeaves(child, source, leaves);
+            if (!child || child == destination)
+                continue;
+
+            if (TransferZCargo.Exists(child, 0))
+                CollectUnpackLeaves(child, destination, leaves);
+            else if (!nestedOnly)
+                leaves.Insert(child);
         }
     }
 
-    static int Transfer(PlayerBase player, EntityAI source, EntityAI destination)
+    static int Transfer(PlayerBase player, EntityAI source, EntityAI destination, int sourceCargoIndex = 0, int destinationCargoIndex = 0)
     {
-        if (!player || !source || !destination || source == destination)
+        if (!player || !source || !destination)
+            return 0;
+        if (source == destination && sourceCargoIndex == destinationCargoIndex)
             return 0;
 
         if (!IsReachable(player, source) || !IsReachable(player, destination))
             return 0;
 
-        if (!source.GetInventory().GetCargo() || !destination.GetInventory().GetCargo())
+        if (!TransferZCargo.Exists(source, sourceCargoIndex) || !TransferZCargo.Exists(destination, destinationCargoIndex))
             return 0;
 
-        if (IsDescendantOf(destination, source))
+        if (destination != source && IsDescendantOf(destination, source))
             return 0;
 
         ref array<EntityAI> items = new array<EntityAI>();
-        SnapshotDirectCargo(source, items);
+        SnapshotDirectCargo(source, sourceCargoIndex, items);
 
         int moved = 0;
         foreach (EntityAI item : items)
         {
-            if (TryMoveToExactCargo(player, item, destination))
+            if (TryMoveToExactCargo(player, item, destination, destinationCargoIndex))
                 moved++;
         }
         return moved;
     }
 
-    static int TransferToVicinity(PlayerBase player, EntityAI source)
+    static int TransferToVicinity(PlayerBase player, EntityAI source, int sourceCargoIndex = 0)
     {
-        if (!player || !source || !IsReachable(player, source) || !source.GetInventory().GetCargo())
+        if (!player || !source || !IsReachable(player, source) || !TransferZCargo.Exists(source, sourceCargoIndex))
             return 0;
 
         ref array<EntityAI> items = new array<EntityAI>();
-        SnapshotDirectCargo(source, items);
+        SnapshotDirectCargo(source, sourceCargoIndex, items);
 
         int moved = 0;
         foreach (EntityAI item : items)
@@ -344,26 +328,28 @@ class TransferZServerService
         return moved;
     }
 
-    static int TransferClass(PlayerBase player, EntityAI source, EntityAI destination, EntityAI representative)
+    static int TransferClass(PlayerBase player, EntityAI source, EntityAI destination, EntityAI representative, int sourceCargoIndex = 0, int destinationCargoIndex = 0)
     {
-        if (!player || !source || !destination || !representative || source == destination)
+        if (!player || !source || !destination || !representative)
+            return 0;
+        if (source == destination && sourceCargoIndex == destinationCargoIndex)
             return 0;
 
         if (!IsReachable(player, source) || !IsReachable(player, destination) || !IsReachable(player, representative))
             return 0;
 
-        if (!source.GetInventory().GetCargo() || !destination.GetInventory().GetCargo())
+        if (!TransferZCargo.Exists(source, sourceCargoIndex) || !TransferZCargo.Exists(destination, destinationCargoIndex))
             return 0;
 
-        if (IsDescendantOf(destination, source))
+        if (destination != source && IsDescendantOf(destination, source))
             return 0;
 
         InventoryLocation representativeLocation = new InventoryLocation();
         if (!representative.GetInventory().GetCurrentInventoryLocation(representativeLocation))
             return 0;
 
-        bool representativeInSource = representativeLocation.GetType() == InventoryLocationType.CARGO && representativeLocation.GetParent() == source;
-        bool representativeAtDestination = representativeLocation.GetType() == InventoryLocationType.CARGO && representativeLocation.GetParent() == destination;
+        bool representativeInSource = TransferZCargo.LocationMatches(representativeLocation, source, sourceCargoIndex);
+        bool representativeAtDestination = TransferZCargo.LocationMatches(representativeLocation, destination, destinationCargoIndex);
         if (!representativeInSource && !representativeAtDestination)
             return 0;
 
@@ -372,35 +358,33 @@ class TransferZServerService
             return 0;
 
         ref array<EntityAI> items = new array<EntityAI>();
-        SnapshotDirectCargo(source, items);
+        SnapshotDirectCargo(source, sourceCargoIndex, items);
 
-        int matched = 0;
         int moved = 0;
         foreach (EntityAI item : items)
         {
             if (!item || item.GetType() != className)
                 continue;
 
-            matched++;
-            if (TryMoveToExactCargo(player, item, destination))
+            if (TryMoveToExactCargo(player, item, destination, destinationCargoIndex))
                 moved++;
         }
         return moved;
     }
 
-    static int TransferClassToVicinity(PlayerBase player, EntityAI source, EntityAI representative)
+    static int TransferClassToVicinity(PlayerBase player, EntityAI source, EntityAI representative, int sourceCargoIndex = 0)
     {
         if (!player || !source || !representative)
             return 0;
 
-        if (!IsReachable(player, source) || !IsReachable(player, representative) || !source.GetInventory().GetCargo())
+        if (!IsReachable(player, source) || !IsReachable(player, representative) || !TransferZCargo.Exists(source, sourceCargoIndex))
             return 0;
 
         InventoryLocation representativeLocation = new InventoryLocation();
         if (!representative.GetInventory().GetCurrentInventoryLocation(representativeLocation))
             return 0;
 
-        bool representativeInSource = representativeLocation.GetType() == InventoryLocationType.CARGO && representativeLocation.GetParent() == source;
+        bool representativeInSource = TransferZCargo.LocationMatches(representativeLocation, source, sourceCargoIndex);
         bool representativeAlreadyGround = representativeLocation.GetType() == InventoryLocationType.GROUND;
         if (!representativeInSource && !representativeAlreadyGround)
             return 0;
@@ -410,23 +394,21 @@ class TransferZServerService
             return 0;
 
         ref array<EntityAI> items = new array<EntityAI>();
-        SnapshotDirectCargo(source, items);
+        SnapshotDirectCargo(source, sourceCargoIndex, items);
 
-        int matched = 0;
         int moved = 0;
         foreach (EntityAI item : items)
         {
             if (!item || item.GetType() != className)
                 continue;
 
-            matched++;
             if (TryMoveToVicinity(player, item))
                 moved++;
         }
         return moved;
     }
 
-    static int Unpack(PlayerBase player, EntityAI source, EntityAI destination)
+    static int Unpack(PlayerBase player, EntityAI source, EntityAI destination, int sourceCargoIndex = 0, int destinationCargoIndex = 0)
     {
         if (!player || !source || !destination)
             return 0;
@@ -434,31 +416,31 @@ class TransferZServerService
         if (!IsReachable(player, source) || !IsReachable(player, destination))
             return 0;
 
-        if (!source.GetInventory().GetCargo() || !destination.GetInventory().GetCargo())
+        if (!TransferZCargo.Exists(source, sourceCargoIndex) || !TransferZCargo.Exists(destination, destinationCargoIndex))
             return 0;
 
         if (destination != source && IsDescendantOf(destination, source))
             return 0;
 
         ref array<EntityAI> leaves = new array<EntityAI>();
-        CollectUnpackLeavesForOperation(source, destination, leaves);
+        CollectUnpackLeavesForOperation(source, sourceCargoIndex, destination, source == destination && sourceCargoIndex == destinationCargoIndex, leaves);
 
         int moved = 0;
         foreach (EntityAI item : leaves)
         {
-            if (TryMoveToExactCargo(player, item, destination))
+            if (TryMoveToExactCargo(player, item, destination, destinationCargoIndex))
                 moved++;
         }
         return moved;
     }
 
-    static int UnpackToVicinity(PlayerBase player, EntityAI source)
+    static int UnpackToVicinity(PlayerBase player, EntityAI source, int sourceCargoIndex = 0)
     {
-        if (!player || !source || !IsReachable(player, source) || !source.GetInventory().GetCargo())
+        if (!player || !source || !IsReachable(player, source) || !TransferZCargo.Exists(source, sourceCargoIndex))
             return 0;
 
         ref array<EntityAI> leaves = new array<EntityAI>();
-        CollectUnpackLeaves(source, null, leaves);
+        CollectUnpackLeavesForOperation(source, sourceCargoIndex, null, false, leaves);
 
         int moved = 0;
         foreach (EntityAI item : leaves)
@@ -469,7 +451,7 @@ class TransferZServerService
         return moved;
     }
 
-    static bool MoveItem(PlayerBase player, EntityAI item, EntityAI destination)
+    static bool MoveItem(PlayerBase player, EntityAI item, EntityAI destination, int destinationCargoIndex = 0)
     {
         if (!player || !item || !destination)
             return false;
@@ -477,11 +459,7 @@ class TransferZServerService
         if (IsDescendantOf(destination, item))
             return false;
 
-        bool moved = TryMoveToExactCargo(player, item, destination);
-        string movedText = "false";
-        if (moved)
-            movedText = "true";
-        return moved;
+        return TryMoveToExactCargo(player, item, destination, destinationCargoIndex);
     }
 
     static bool MoveItemToVicinity(PlayerBase player, EntityAI item)
@@ -520,8 +498,10 @@ class TransferZServerService
         int operation;
         int sourceLow;
         int sourceHigh;
+        int sourceCargoIndex;
         int destinationLow;
         int destinationHigh;
+        int destinationCargoIndex;
         int itemLow;
         int itemHigh;
         bool destinationIsVicinity;
@@ -532,9 +512,13 @@ class TransferZServerService
             return;
         if (!ctx.Read(sourceHigh))
             return;
+        if (!ctx.Read(sourceCargoIndex))
+            return;
         if (!ctx.Read(destinationLow))
             return;
         if (!ctx.Read(destinationHigh))
+            return;
+        if (!ctx.Read(destinationCargoIndex))
             return;
         if (!ctx.Read(itemLow))
             return;
@@ -543,30 +527,36 @@ class TransferZServerService
         if (!ctx.Read(destinationIsVicinity))
             return;
 
+        if (sourceCargoIndex < 0 || destinationCargoIndex < 0)
+            return;
+
         EntityAI source = ResolveEntity(sourceLow, sourceHigh);
         EntityAI destination = ResolveEntity(destinationLow, destinationHigh);
         EntityAI item = ResolveEntity(itemLow, itemHigh);
 
+        if (!CanPlayerManipulate(player))
+            return;
+
         if (destinationIsVicinity)
         {
             if (operation == TransferZOperation.TRANSFER)
-                TransferToVicinity(player, source);
+                TransferToVicinity(player, source, sourceCargoIndex);
             else if (operation == TransferZOperation.UNPACK)
-                UnpackToVicinity(player, source);
+                UnpackToVicinity(player, source, sourceCargoIndex);
             else if (operation == TransferZOperation.MOVE_ITEM)
                 MoveItemToVicinity(player, item);
             else if (operation == TransferZOperation.TRANSFER_CLASS)
-                TransferClassToVicinity(player, source, item);
+                TransferClassToVicinity(player, source, item, sourceCargoIndex);
             return;
         }
 
         if (operation == TransferZOperation.TRANSFER)
-            Transfer(player, source, destination);
+            Transfer(player, source, destination, sourceCargoIndex, destinationCargoIndex);
         else if (operation == TransferZOperation.UNPACK)
-            Unpack(player, source, destination);
+            Unpack(player, source, destination, sourceCargoIndex, destinationCargoIndex);
         else if (operation == TransferZOperation.MOVE_ITEM)
-            MoveItem(player, item, destination);
+            MoveItem(player, item, destination, destinationCargoIndex);
         else if (operation == TransferZOperation.TRANSFER_CLASS)
-            TransferClass(player, source, destination, item);
+            TransferClass(player, source, destination, item, sourceCargoIndex, destinationCargoIndex);
     }
 }

@@ -55,7 +55,7 @@ class TransferZMaintenanceService
         return true;
     }
 
-    protected static bool IsDirectCargoItem(EntityAI source, EntityAI item)
+    protected static bool IsDirectCargoItem(EntityAI source, EntityAI item, int sourceCargoIndex)
     {
         if (!source || !item)
             return false;
@@ -64,7 +64,7 @@ class TransferZMaintenanceService
         if (!item.GetInventory().GetCurrentInventoryLocation(location))
             return false;
 
-        return location.GetType() == InventoryLocationType.CARGO && location.GetParent() == source;
+        return TransferZCargo.LocationMatches(location, source, sourceCargoIndex);
     }
 
     // CombineItems can synchronously mark an emptied donor for deletion while
@@ -105,7 +105,7 @@ class TransferZMaintenanceService
         }
     }
 
-    protected static bool SnapshotSortRecords(EntityAI source, notnull array<ref TransferZSortRecord> records, out int cargoWidth, out int cargoHeight)
+    protected static bool SnapshotSortRecords(EntityAI source, int sourceCargoIndex, notnull array<ref TransferZSortRecord> records, out int cargoWidth, out int cargoHeight)
     {
         records.Clear();
         cargoWidth = 0;
@@ -114,7 +114,7 @@ class TransferZMaintenanceService
         if (!source)
             return false;
 
-        CargoBase cargo = source.GetInventory().GetCargo();
+        CargoBase cargo = TransferZCargo.Get(source, sourceCargoIndex);
         if (!cargo)
             return false;
 
@@ -122,7 +122,7 @@ class TransferZMaintenanceService
         cargoHeight = cargo.GetHeight();
         if (cargoWidth <= 0 || cargoHeight <= 0)
         {
-            Print("[TransferZ] Sort snapshot failed: invalid cargo dimensions for " + source.GetType());
+            Print("[TransferZ] Sort snapshot failed: invalid cargo dimensions for " + source.GetType() + " grid=" + sourceCargoIndex.ToString());
             return false;
         }
 
@@ -138,9 +138,9 @@ class TransferZMaintenanceService
                 Print("[TransferZ] Sort snapshot failed: no inventory location for item index=" + cargoItemIndex.ToString() + " type=" + item.GetType());
                 return false;
             }
-            if (location.GetType() != InventoryLocationType.CARGO || location.GetParent() != source)
+            if (!TransferZCargo.LocationMatches(location, source, sourceCargoIndex))
             {
-                Print("[TransferZ] Sort snapshot failed: item is not direct cargo index=" + cargoItemIndex.ToString() + " type=" + item.GetType());
+                Print("[TransferZ] Sort snapshot failed: item left requested cargo grid index=" + cargoItemIndex.ToString() + " type=" + item.GetType());
                 return false;
             }
 
@@ -171,7 +171,7 @@ class TransferZMaintenanceService
             record.width = itemWidth;
             record.height = itemHeight;
             record.flip = itemFlip;
-            record.cargoIndex = location.GetIdx();
+            record.cargoIndex = sourceCargoIndex;
 
             string typeName = item.GetType();
             typeName.ToLower();
@@ -549,7 +549,7 @@ class TransferZMaintenanceService
         return true;
     }
 
-    protected static bool TryMoveWithinCargo(PlayerBase player, EntityAI source, EntityAI item, int row, int col, bool flip)
+    protected static bool TryMoveWithinCargo(PlayerBase player, EntityAI source, int sourceCargoIndex, EntityAI item, int row, int col, bool flip)
     {
         if (!player || !source || !item)
         {
@@ -561,9 +561,9 @@ class TransferZMaintenanceService
             Print("[TransferZ] Sort move rejected: unreachable item=" + item.GetType());
             return false;
         }
-        if (!IsDirectCargoItem(source, item))
+        if (!IsDirectCargoItem(source, item, sourceCargoIndex))
         {
-            Print("[TransferZ] Sort move rejected: item no longer direct cargo item=" + item.GetType());
+            Print("[TransferZ] Sort move rejected: item no longer in requested cargo grid item=" + item.GetType());
             return false;
         }
         if (!item.GetInventory().CanRemoveEntity())
@@ -583,14 +583,14 @@ class TransferZMaintenanceService
         }
 
         InventoryLocation src = new InventoryLocation();
-        if (!item.GetInventory().GetCurrentInventoryLocation(src))
+        if (!item.GetInventory().GetCurrentInventoryLocation(src) || !TransferZCargo.LocationMatches(src, source, sourceCargoIndex))
         {
-            Print("[TransferZ] Sort move rejected: current inventory location unavailable item=" + item.GetType());
+            Print("[TransferZ] Sort move rejected: current cargo grid changed item=" + item.GetType());
             return false;
         }
 
         InventoryLocation dst = new InventoryLocation();
-        dst.SetCargo(source, item, src.GetIdx(), row, col, flip);
+        dst.SetCargo(source, item, sourceCargoIndex, row, col, flip);
 
         HumanInventory humanInventory = player.GetHumanInventory();
         if (humanInventory && humanInventory.GetUserReservedLocationCount() > 0 && humanInventory.FindCollidingUserReservedLocationIndex(item, dst) >= 0)
@@ -601,12 +601,12 @@ class TransferZMaintenanceService
 
         if (!GameInventory.CheckMoveToDstRequest(player, src, dst, GameInventory.c_MaxItemDistanceRadius))
         {
-            Print("[TransferZ] Sort move rejected: CheckMoveToDstRequest=false item=" + item.GetType() + " src=" + src.GetRow().ToString() + "," + src.GetCol().ToString() + " dst=" + row.ToString() + "," + col.ToString() + " flip=" + flip.ToString());
+            Print("[TransferZ] Sort move rejected: CheckMoveToDstRequest=false item=" + item.GetType());
             return false;
         }
         if (!GameInventory.LocationCanMoveEntity(src, dst))
         {
-            Print("[TransferZ] Sort move rejected: LocationCanMoveEntity=false item=" + item.GetType() + " src=" + src.GetRow().ToString() + "," + src.GetCol().ToString() + " dst=" + row.ToString() + "," + col.ToString() + " flip=" + flip.ToString());
+            Print("[TransferZ] Sort move rejected: LocationCanMoveEntity=false item=" + item.GetType());
             return false;
         }
 
@@ -620,29 +620,25 @@ class TransferZMaintenanceService
         if (!GetGame().IsMultiplayer())
             moveMode = InventoryMode.LOCAL;
 
-        // Use the moved item's generic GameInventory. On dedicated servers this
-        // commits each authoritative cargo-to-cargo step synchronously so the
-        // next planned move validates against the state just produced.
         bool moved = item.GetInventory().TakeToDst(moveMode, src, dst);
-
         if (!moved)
-            Print("[TransferZ] Sort move rejected: native TakeToDst returned false item=" + item.GetType() + " src=" + src.GetRow().ToString() + "," + src.GetCol().ToString() + " dst=" + row.ToString() + "," + col.ToString() + " flip=" + flip.ToString());
+            Print("[TransferZ] Sort move rejected: native TakeToDst returned false item=" + item.GetType());
         return moved;
     }
 
-    static int Stack(PlayerBase player, EntityAI source)
+    static int Stack(PlayerBase player, EntityAI source, int sourceCargoIndex = 0)
     {
         if (!player || !source || !TransferZServerService.IsReachable(player, source))
             return 0;
 
-        CargoBase cargo = source.GetInventory().GetCargo();
+        CargoBase cargo = TransferZCargo.Get(source, sourceCargoIndex);
         if (!cargo)
             return 0;
 
         ref array<EntityAI> items = new array<EntityAI>();
-        for (int cargoIndex = 0; cargoIndex < cargo.GetItemCount(); cargoIndex++)
+        for (int cargoItemIndex = 0; cargoItemIndex < cargo.GetItemCount(); cargoItemIndex++)
         {
-            EntityAI entity = cargo.GetItem(cargoIndex);
+            EntityAI entity = cargo.GetItem(cargoItemIndex);
             if (entity)
                 items.Insert(entity);
         }
@@ -654,10 +650,6 @@ class TransferZMaintenanceService
             if (!IsLiveStackItem(target))
                 continue;
 
-            // Most pairs in a mixed inventory cannot combine. Defer the target's
-            // current-location/native-source validation until the first donor
-            // that DayZ itself reports as combinable, then reuse that validation
-            // for the rest of this target just as the previous implementation did.
             bool targetValidated = false;
 
             for (int sourceIndex = targetIndex + 1; sourceIndex < items.Count(); sourceIndex++)
@@ -665,10 +657,6 @@ class TransferZMaintenanceService
                 ItemBase donor = ItemBase.Cast(items.Get(sourceIndex));
                 if (!IsLiveStackItem(donor))
                     continue;
-
-                // CanBeCombined is the authoritative cheap compatibility gate.
-                // Do not infer compatibility from class names: modded items may
-                // legitimately combine across different concrete types.
                 if (!target.CanBeCombined(donor, false, false))
                     continue;
 
@@ -677,22 +665,17 @@ class TransferZMaintenanceService
                     InventoryLocation targetLocation = new InventoryLocation();
                     if (!target.GetInventory().GetCurrentInventoryLocation(targetLocation))
                         break;
-                    if (targetLocation.GetType() != InventoryLocationType.CARGO || targetLocation.GetParent() != source)
+                    if (!TransferZCargo.LocationMatches(targetLocation, source, sourceCargoIndex))
                         break;
                     if (!GameInventory.CheckRequestSrc(player, targetLocation, GameInventory.c_MaxItemDistanceRadius))
                         break;
-
                     targetValidated = true;
                 }
 
-                // Only compatible pairs pay the current-location and native
-                // request-validation cost. Read the location once, then verify
-                // both direct-cargo ownership and DayZ's authoritative source
-                // request before mutation.
                 InventoryLocation donorLocation = new InventoryLocation();
                 if (!donor.GetInventory().GetCurrentInventoryLocation(donorLocation))
                     continue;
-                if (donorLocation.GetType() != InventoryLocationType.CARGO || donorLocation.GetParent() != source)
+                if (!TransferZCargo.LocationMatches(donorLocation, source, sourceCargoIndex))
                     continue;
                 if (!GameInventory.CheckRequestSrc(player, donorLocation, GameInventory.c_MaxItemDistanceRadius))
                     continue;
@@ -703,7 +686,7 @@ class TransferZMaintenanceService
                 target.CombineItems(donor, true);
                 combined++;
 
-                if (!IsDirectCargoItem(source, target))
+                if (!IsDirectCargoItem(source, target, sourceCargoIndex))
                     break;
                 if (target.IsFullQuantity())
                     break;
@@ -712,11 +695,11 @@ class TransferZMaintenanceService
         return combined;
     }
 
-    protected static bool TrySwapWithinCargo(PlayerBase player, EntityAI source, EntityAI item1, EntityAI item2)
+    protected static bool TrySwapWithinCargo(PlayerBase player, EntityAI source, int sourceCargoIndex, EntityAI item1, EntityAI item2)
     {
         if (!player || !source || !item1 || !item2 || item1 == item2)
             return false;
-        if (!IsDirectCargoItem(source, item1) || !IsDirectCargoItem(source, item2))
+        if (!IsDirectCargoItem(source, item1, sourceCargoIndex) || !IsDirectCargoItem(source, item2, sourceCargoIndex))
             return false;
         if (!item1.GetInventory().CanRemoveEntity() || !item2.GetInventory().CanRemoveEntity())
             return false;
@@ -731,9 +714,9 @@ class TransferZMaintenanceService
             return false;
         if (!src1 || !src2 || !dst1 || !dst2)
             return false;
-        if (src1.GetType() != InventoryLocationType.CARGO || src2.GetType() != InventoryLocationType.CARGO)
+        if (!TransferZCargo.LocationMatches(src1, source, sourceCargoIndex) || !TransferZCargo.LocationMatches(src2, source, sourceCargoIndex))
             return false;
-        if (src1.GetParent() != source || src2.GetParent() != source || dst1.GetParent() != source || dst2.GetParent() != source)
+        if (!TransferZCargo.LocationMatches(dst1, source, sourceCargoIndex) || !TransferZCargo.LocationMatches(dst2, source, sourceCargoIndex))
             return false;
 
         HumanInventory humanInventory = player.GetHumanInventory();
@@ -750,8 +733,6 @@ class TransferZMaintenanceService
 
         if (GetGame().IsMultiplayer())
         {
-            // DayZ's server swap command performs and synchronizes the native
-            // swap as one operation; no empty intermediary cargo cell is needed.
             InventoryInputUserData.SendServerSwap(src1, src2, dst1, dst2);
             return true;
         }
@@ -760,7 +741,7 @@ class TransferZMaintenanceService
     }
 
 
-    protected static void SendResult(PlayerBase player, int operation, int sourceLow, int sourceHigh, bool success)
+    protected static void SendResult(PlayerBase player, int operation, int sourceLow, int sourceHigh, int sourceCargoIndex, bool success)
     {
         if (!player || !GetGame().IsMultiplayer())
             return;
@@ -773,6 +754,7 @@ class TransferZMaintenanceService
         rpc.Write(operation);
         rpc.Write(sourceLow);
         rpc.Write(sourceHigh);
+        rpc.Write(sourceCargoIndex);
         rpc.Write(success);
         rpc.Send(player, TransferZMaintenanceRPC.RESULT, true, identity);
     }

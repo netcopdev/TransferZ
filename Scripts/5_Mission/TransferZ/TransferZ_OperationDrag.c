@@ -2,6 +2,7 @@ class TransferZOperationDrag
 {
     protected static int s_Operation = 0;
     protected static EntityAI s_Source;
+    protected static int s_SourceCargoIndex = 0;
     protected static EntityAI s_RepresentativeItem;
     protected static bool s_ClassTransfer = false;
     protected static bool s_FromVicinity = false;
@@ -97,13 +98,14 @@ class TransferZOperationDrag
         SetModifierItemDrag(true);
     }
 
-    static void BeginContainer(int operation, EntityAI source)
+    static void BeginContainer(int operation, EntityAI source, int sourceCargoIndex = 0)
     {
-        if (!source)
+        if (!source || !TransferZCargo.Exists(source, sourceCargoIndex))
             return;
 
         s_Operation = operation;
         s_Source = source;
+        s_SourceCargoIndex = sourceCargoIndex;
         s_RepresentativeItem = null;
         s_ClassTransfer = false;
         s_FromVicinity = false;
@@ -114,13 +116,14 @@ class TransferZOperationDrag
         SetModifierItemDrag(false);
     }
 
-    static void BeginClassTransfer(EntityAI source, EntityAI representative)
+    static void BeginClassTransfer(EntityAI source, EntityAI representative, int sourceCargoIndex = 0)
     {
-        if (!source || !representative)
+        if (!source || !representative || !TransferZCargo.Exists(source, sourceCargoIndex))
             return;
 
         s_Operation = TransferZOperation.TRANSFER_CLASS;
         s_Source = source;
+        s_SourceCargoIndex = sourceCargoIndex;
         s_RepresentativeItem = representative;
         s_ClassTransfer = true;
         s_FromVicinity = false;
@@ -128,7 +131,6 @@ class TransferZOperationDrag
         if (s_VicinityItems)
             s_VicinityItems.Clear();
 
-        // Class transfer is created only by the Alt-modified item drag path.
         SetModifierItemDrag(true);
     }
 
@@ -136,6 +138,7 @@ class TransferZOperationDrag
     {
         s_Operation = operation;
         s_Source = null;
+        s_SourceCargoIndex = 0;
         s_RepresentativeItem = null;
         s_ClassTransfer = false;
         s_FromVicinity = true;
@@ -174,6 +177,11 @@ class TransferZOperationDrag
         return s_Source;
     }
 
+    static int GetSourceCargoIndex()
+    {
+        return s_SourceCargoIndex;
+    }
+
     static EntityAI GetRepresentativeItem()
     {
         return s_RepresentativeItem;
@@ -189,9 +197,9 @@ class TransferZOperationDrag
         return s_Operation;
     }
 
-    static bool Complete(EntityAI destination)
+    static bool Complete(EntityAI destination, int destinationCargoIndex = 0)
     {
-        if (!IsActive() || !destination)
+        if (!IsActive() || !destination || !TransferZCargo.Exists(destination, destinationCargoIndex))
             return false;
 
         bool handled = false;
@@ -199,31 +207,29 @@ class TransferZOperationDrag
 
         if (s_ClassTransfer)
         {
-            if (s_Source && s_RepresentativeItem && s_Source != destination)
-                handled = state.RequestClassTransferTo(s_Source, destination, s_RepresentativeItem);
+            if (s_Source && s_RepresentativeItem && (s_Source != destination || s_SourceCargoIndex != destinationCargoIndex))
+                handled = state.RequestClassTransferTo(s_Source, destination, s_RepresentativeItem, s_SourceCargoIndex, destinationCargoIndex);
         }
         else if (s_FromVicinity)
         {
             if (s_VicinityItems)
             {
                 if (s_Operation == TransferZOperation.TRANSFER)
-                    handled = state.RequestVicinityTransferTo(s_VicinityItems, destination);
+                    handled = state.RequestVicinityTransferTo(s_VicinityItems, destination, destinationCargoIndex);
                 else if (s_Operation == TransferZOperation.UNPACK)
-                    handled = state.RequestVicinityUnpackTo(s_VicinityItems, destination);
+                    handled = state.RequestVicinityUnpackTo(s_VicinityItems, destination, destinationCargoIndex);
             }
         }
         else if (s_Source)
         {
             if (s_Operation == TransferZOperation.TRANSFER)
             {
-                if (s_Source != destination)
-                    handled = state.RequestTransferTo(s_Source, destination);
+                if (s_Source != destination || s_SourceCargoIndex != destinationCargoIndex)
+                    handled = state.RequestTransferTo(s_Source, destination, s_SourceCargoIndex, destinationCargoIndex);
             }
             else if (s_Operation == TransferZOperation.UNPACK)
             {
-                // U may be dropped back onto its own source to flatten cargo
-                // from nested child containers into that source container.
-                handled = state.RequestNestedUnpackTo(s_Source, destination);
+                handled = state.RequestNestedUnpackTo(s_Source, destination, s_SourceCargoIndex, destinationCargoIndex);
             }
         }
 
@@ -242,21 +248,19 @@ class TransferZOperationDrag
         if (s_ClassTransfer)
         {
             if (s_Source && s_RepresentativeItem)
-                handled = state.RequestClassTransferToVicinity(s_Source, s_RepresentativeItem);
+                handled = state.RequestClassTransferToVicinity(s_Source, s_RepresentativeItem, s_SourceCargoIndex);
         }
         else if (s_FromVicinity)
         {
             if (s_VicinityItems && s_Operation == TransferZOperation.UNPACK)
                 handled = state.RequestVicinityUnpackToVicinity(s_VicinityItems);
-            // Vicinity T -> Vicinity is deliberately a no-op: those loose
-            // items are already in the requested destination.
         }
         else if (s_Source)
         {
             if (s_Operation == TransferZOperation.TRANSFER)
-                handled = state.RequestTransferToVicinity(s_Source);
+                handled = state.RequestTransferToVicinity(s_Source, s_SourceCargoIndex);
             else if (s_Operation == TransferZOperation.UNPACK)
-                handled = state.RequestNestedUnpackToVicinity(s_Source);
+                handled = state.RequestNestedUnpackToVicinity(s_Source, s_SourceCargoIndex);
         }
 
         ForceClear();
@@ -290,6 +294,7 @@ class TransferZOperationDrag
     {
         s_Operation = 0;
         s_Source = null;
+        s_SourceCargoIndex = 0;
         s_RepresentativeItem = null;
         s_ClassTransfer = false;
         s_FromVicinity = false;

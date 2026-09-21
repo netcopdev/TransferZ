@@ -13,7 +13,7 @@ Cargo headers show two compact groups:
 
 `VICINITY` shows Destination, Transfer, and Unpack on the left only.
 
-A destination always means that exact container's own cargo. TransferZ does not silently search through other player inventory space when the chosen destination cannot accept an item.
+A destination always means the exact `(owner entity, cargo grid index)` represented by that header. TransferZ does not silently search another grid on the same entity or other player inventory space when the chosen grid cannot accept an item.
 
 Open vehicle cargo is a supported source and destination for TransferZ routing and maintenance operations. Vehicle access is not judged from the vehicle model origin; actual item moves remain subject to DayZ's native source/destination access and distance validation.
 
@@ -21,9 +21,9 @@ Open vehicle cargo is a supported source and destination for TransferZ routing a
 
 ### Destination (`D`)
 
-Click `D` on an open cargo container to make it the active destination. The active destination receives a subdued state highlight.
+Click `D` on an open cargo grid to make that exact grid the active destination. The active destination receives a subdued state highlight.
 
-Clicking `D` on another container replaces the previous destination. Clicking `D` on the active destination again clears it. `VICINITY` also has a `D` control; selecting it makes the ground/vicinity zone the destination.
+Clicking `D` on another cargo grid replaces the previous destination. Clicking `D` on the active grid again clears it. `VICINITY` also has a `D` control; selecting it makes the ground/vicinity zone the destination.
 
 Container destinations are intentionally temporary. TransferZ clears them when the selected container is no longer a valid open/in-hand reachable participant. A vicinity destination is cleared when the vicinity panel closes.
 
@@ -80,13 +80,13 @@ Click `L` on one container, then `L` on another.
 - Clicking Link on a linked participant removes the link.
 - Starting another link replaces the old pair.
 
-Only one link pair exists at a time. Links are session-local and require both containers to remain valid/open/in-hand and reachable.
+Only one link pair exists at a time. Links are session-local and bind exact cargo grids; two grids on the same owning entity are distinct participants. Both participants must remain valid/open/in-hand and reachable.
 
 ### Preferred (`P`)
 
 `P` appears on cargo-bearing items in the player's attachment hierarchy.
 
-Selecting it stores that attachment path as the preferred personal destination and highlights it when resolved. Selecting the currently preferred target again clears the preference. Selecting another valid target replaces the stored path.
+Selecting it stores that attachment path **and cargo-grid index** as the preferred personal destination and highlights it when resolved. Selecting the currently preferred target again clears the preference. Selecting another valid target replaces the stored path.
 
 Examples of stored paths:
 
@@ -106,7 +106,7 @@ $profile:TransferZ/preferences.json
 
 ### Sort — right-side maintenance control
 
-Sort reorganizes the selected container's **direct cargo grid only** while preserving the original item entities.
+Sort reorganizes the selected **cargo grid only** while preserving the original item entities. Other cargo grids on the same entity are not part of that transaction.
 
 TransferZ first snapshots every direct cargo item's exact row, column and orientation and calculates a deterministic compacted rotation-aware target layout. If the target already matches the snapshot, Sort is a successful no-op.
 
@@ -128,7 +128,7 @@ If the bounded in-cargo planner cannot reach the requested compact layout, Sort 
 
 ### Stack — right-side maintenance control
 
-Stack scans the selected container's direct cargo and asks DayZ whether pairs can be combined.
+Stack scans only the selected cargo grid and asks DayZ whether pairs can be combined.
 
 Only pairs accepted by DayZ's own `CanBeCombined` logic are passed to DayZ's native `CombineItems` behavior. This means TransferZ does not invent compatibility between related ammo types, different magazines, different food variants, or any other classes that DayZ itself refuses to combine.
 
@@ -200,8 +200,8 @@ TransferZ does not implement its own stack split. DayZ still decides whether an 
 
 TransferZ only influences where the new split stack is placed, in this order:
 
-1. the active destination (`D*`), when one is selected: that container's exact cargo, or DayZ's normal ground placement around the player for `VICINITY`;
-2. otherwise, for a stack in cargo, the same immediate container when it has room for the new stack;
+1. the active destination (`D*`), when one is selected: that exact cargo grid, or DayZ's normal ground placement around the player for `VICINITY`;
+2. otherwise, for a stack in cargo, the same immediate cargo grid when it has room for the new stack;
 3. otherwise the preferred destination (`P*`), when one is configured;
 4. otherwise normal DayZ behavior.
 
@@ -215,7 +215,7 @@ This preserves native right-click behavior while letting `D*` and `P*` receive s
 
 TransferZ routing priority is:
 
-1. linked partner, when the immediate source container is linked;
+1. linked partner grid, when the immediate source cargo grid is linked;
 2. otherwise the preferred target for external or in-hand containers;
 3. otherwise vanilla DayZ behavior.
 
