@@ -33,17 +33,42 @@ def function_body(source: str, signature_fragment: str) -> str:
 
 
 class RepositoryContracts(unittest.TestCase):
+    def test_enforce_for_loops_do_not_use_empty_conditions(self) -> None:
+        pattern = re.compile(r"for\s*\([^;\n]*;\s*;")
+        offenders: list[str] = []
+
+        for root_name in ("Scripts", "test"):
+            root = ROOT / root_name
+            if not root.exists():
+                continue
+            for path in sorted(root.rglob("*.c")):
+                relative = path.relative_to(ROOT)
+                for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                    if pattern.search(line):
+                        offenders.append(f"{relative}:{line_number}: {line.strip()}")
+
+        self.assertEqual(
+            [],
+            offenders,
+            "Enforce Script rejects C/C++-style for loops with an empty condition:\n" + "\n".join(offenders),
+        )
+
     def test_version_is_synchronized(self) -> None:
         version = read("VERSION").strip()
         config = read("config.cpp")
         mod = read("mod.cpp")
+        readme = read("README.md")
 
         config_match = re.search(r'\bversion\s*=\s*"([^"]+)"', config)
         mod_match = re.search(r'\bversion\s*=\s*"([^"]+)"', mod)
+        readme_match = re.search(r"Current version:\s*\*\*([^*]+)\*\*\.", readme)
         self.assertIsNotNone(config_match)
         self.assertIsNotNone(mod_match)
+        self.assertIsNotNone(readme_match)
         self.assertEqual(version, config_match.group(1))
         self.assertEqual(version, mod_match.group(1))
+        self.assertEqual(version, readme_match.group(1))
+        self.assertTrue((ROOT / "tools/version_metadata.py").is_file())
 
     def test_runtime_script_roots_do_not_pack_test_fixture(self) -> None:
         config = read("config.cpp")
@@ -98,6 +123,29 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("SortRecordsV4(originalRecords)", transactional)
         self.assertIn("BuildSortPlanFromTargetsV4", transactional)
 
+    def test_native_split_preferences_are_session_cached(self) -> None:
+        shared = read("Scripts/3_Game/TransferZ/TransferZ_Preferences.c")
+        client = read("Scripts/5_Mission/TransferZ/TransferZ_ClientState.c")
+        split = read("Scripts/4_World/TransferZ/TransferZ_InHandsSplitRouting.c")
+
+        self.assertIn("class TransferZPreferences", shared)
+        self.assertNotIn("class TransferZPreferences", client)
+        self.assertNotIn("class TransferZSplitPreferences", split)
+
+        load = function_body(client, "protected void LoadPreferences(")
+        save = function_body(client, "protected void SavePreferences(")
+        sync = function_body(client, "protected void SyncSplitPreferences(")
+        ensure = function_body(split, "protected static void EnsureLoaded(")
+        resolve = function_body(split, "static EntityAI Resolve(")
+
+        self.assertIn("Failed to load preferences", load)
+        self.assertIn("Failed to save preferences", save)
+        self.assertIn("TransferZSplitPreferenceResolver.Update", sync)
+        self.assertIn("s_LoadAttempted", ensure)
+        self.assertIn("JsonFileLoader<TransferZPreferences>.LoadFile", ensure)
+        self.assertNotIn("JsonFileLoader", resolve)
+        self.assertIn("EnsureLoaded()", resolve)
+
     def test_batch_preview_does_not_claim_joint_fit_from_area_alone(self) -> None:
         preview = read("Scripts/5_Mission/TransferZ/TransferZ_OperationPreview.c")
         evaluate = function_body(preview, "protected static int EvaluateCandidates(")
@@ -130,6 +178,28 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("s_TransferZModifierClickSuppressItem = null", suppress)
         self.assertIn("TransferZSuppressModifierClick(clickedItem)", click)
         self.assertNotIn("TransferZSuppressModifierClick()", vicinity)
+
+    def test_single_item_sort_is_not_skipped(self) -> None:
+        transactional = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")
+        sort = function_body(transactional, "static int Sort(")
+        self.assertIn("originalRecords.Count() < 1", sort)
+        self.assertNotIn("originalRecords.Count() < 2", sort)
+
+        fixture = read("test/TransferZTest.ChernarusPlus/init.c")
+        self.assertIn("TZTest_RunSingleItemSortSelfTest(player)", fixture)
+        self.assertIn("CreateEntityInCargoEx(typeName, cargoIndex, row, col, flip)", fixture)
+        self.assertIn("location.GetRow() == 0 && location.GetCol() == 0", fixture)
+
+    def test_multiplayer_sort_avoids_recursive_parking_explosion(self) -> None:
+        planner = read("Scripts/4_World/TransferZ/TransferZ_SortPlanner.c")
+        park = function_body(planner, "protected static bool ParkRecordRecursiveV4(")
+        direct = park.index("FindTemporaryPlacementV4")
+        multiplayer = park.index("if (GetGame().IsMultiplayer())")
+        recursive_candidates = park.index("for (int orientationIndex = 0; orientationIndex < orientationCount; orientationIndex++)")
+        self.assertLess(direct, multiplayer)
+        self.assertLess(multiplayer, recursive_candidates)
+        self.assertIn("state.activeParking.Set(recordIndex, 0);", park)
+        self.assertNotIn("candidate work budget exhausted", planner)
 
     def test_sort_reuses_one_target_layout_and_bounds_parking_search(self) -> None:
         planner = read("Scripts/4_World/TransferZ/TransferZ_SortPlanner.c")
@@ -227,6 +297,68 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("TransferZRequestGuard.AcceptMaintenance(player)", accept_maintenance)
         self.assertNotIn("s_LastMaintenanceRequestTime", maintenance_service)
 
+    def test_vicinity_modifier_batch_uses_one_throttled_rpc(self) -> None:
+        constants = read("Scripts/3_Game/TransferZ/TransferZ_Constants.c")
+        client = read("Scripts/5_Mission/TransferZ/TransferZ_ClientState.c")
+        server = read("Scripts/4_World/TransferZ/TransferZ_ServerService.c")
+        fixture = read("test/TransferZTest.ChernarusPlus/init.c")
+
+        self.assertIn("VICINITY_BATCH = 5", constants)
+
+        request = function_body(client, "bool RequestVicinityTransferTo(")
+        send_batch = function_body(client, "protected bool SendVicinityBatchRequest(")
+        self.assertIn("SendVicinityBatchRequest(candidates, destination, destinationCargoIndex)", request)
+        self.assertNotIn("RequestMoveItem(", request)
+        self.assertEqual(send_batch.count("rpc.Send("), 1)
+        self.assertIn("rpc.Write(items.Count())", send_batch)
+        self.assertIn("TransferZOperation.VICINITY_BATCH", send_batch)
+
+        handle = function_body(server, "static void HandleRequest(")
+        batch = function_body(server, "static int MoveItemsFromVicinity(")
+        self.assertLess(
+            handle.index("TransferZRequestGuard.AcceptStandard(player)"),
+            handle.index("operation == TransferZOperation.VICINITY_BATCH"),
+        )
+        self.assertIn("batchCount > MAX_BATCH_ITEMS", handle)
+        self.assertIn("batchLocation.GetType() != InventoryLocationType.GROUND", batch)
+        self.assertIn("MoveItem(player, batchItem, destination, destinationCargoIndex)", batch)
+
+        self.assertIn("TZTest_RunVicinityBatchSelfTest(player)", fixture)
+        self.assertIn("MoveItemsFromVicinity(player, items, destination)", fixture)
+
+    def test_vicinity_unpack_batch_uses_one_throttled_rpc(self) -> None:
+        constants = read("Scripts/3_Game/TransferZ/TransferZ_Constants.c")
+        client = read("Scripts/5_Mission/TransferZ/TransferZ_ClientState.c")
+        server = read("Scripts/4_World/TransferZ/TransferZ_ServerService.c")
+        nested = read("Scripts/4_World/TransferZ/TransferZ_NestedUnpackService.c")
+        fixture = read("test/TransferZTest.ChernarusPlus/init.c")
+
+        self.assertIn("VICINITY_UNPACK_BATCH = 6", constants)
+        send_batch = function_body(client, "protected bool SendVicinityUnpackBatchRequest(")
+        self.assertEqual(send_batch.count("rpc.Send("), 1)
+        self.assertIn("rpc.Write(sources.Count())", send_batch)
+
+        unpack_to = function_body(client, "bool RequestVicinityUnpackTo(")
+        unpack_vicinity = function_body(client, "bool RequestVicinityUnpackToVicinity(")
+        self.assertIn("SendVicinityUnpackBatchRequest(sources, destination, destinationCargoIndex, false)", unpack_to)
+        self.assertIn("SendVicinityUnpackBatchRequest(sources, null, 0, true)", unpack_vicinity)
+        self.assertNotIn("RequestNestedUnpackTo(", unpack_to)
+        self.assertNotIn("RequestNestedUnpackToVicinity(", unpack_vicinity)
+
+        handle = function_body(server, "static void HandleRequest(")
+        self.assertIn("operation == TransferZOperation.VICINITY_UNPACK_BATCH", handle)
+        self.assertIn("unpackBatchCount > MAX_BATCH_ITEMS", handle)
+        self.assertIn("TransferZNestedUnpackService.UnpackMany", handle)
+
+        unpack_many = function_body(nested, "static int UnpackMany(")
+        self.assertIn("TransferZUnpackScanBudget", unpack_many)
+        self.assertIn("CollectNestedLeaves", unpack_many)
+        self.assertIn("TryMoveToExactCargo", unpack_many)
+        self.assertIn("TryMoveToVicinity", unpack_many)
+
+        self.assertIn("TZTest_RunVicinityUnpackBatchSelfTest(player)", fixture)
+        self.assertIn("UnpackMany(player, sources, destination, 0, false)", fixture)
+
     def test_standard_rpc_throttles_before_entity_resolution(self) -> None:
         server = read("Scripts/4_World/TransferZ/TransferZ_ServerService.c")
         handle = function_body(server, "static void HandleRequest(")
@@ -236,7 +368,7 @@ class RepositoryContracts(unittest.TestCase):
             handle.index("ResolveEntity(sourceLow, sourceHigh)"),
         )
 
-        nested = read("Scripts/4_World/TransferZ/TransferZ_ServerService_20_NestedUnpack.c")
+        nested = read("Scripts/4_World/TransferZ/TransferZ_NestedUnpackService.c")
         nested_handle = function_body(nested, "static void HandleRequest(")
         self.assertIn("TransferZRequestGuard.AcceptStandard(player)", nested_handle)
         self.assertLess(
@@ -257,23 +389,25 @@ class RepositoryContracts(unittest.TestCase):
             transfer.index("SnapshotDirectCargo"),
         )
 
-        unpack = function_body(server, "static int Unpack(")
-        self.assertIn("TransferZUnpackScanBudget", unpack)
-        self.assertIn("CollectUnpackLeavesForOperation", unpack)
-        self.assertLess(
-            unpack.index("CollectUnpackLeavesForOperation"),
-            unpack.index("TryMoveToExactCargo"),
-        )
+        self.assertNotIn("static int Unpack(", server)
+        self.assertNotIn("CollectUnpackLeavesForOperation", server)
 
         collect = function_body(server, "static bool CollectUnpackLeaves(")
         self.assertIn("depth > MAX_UNPACK_DEPTH", collect)
         self.assertIn("ConsumeUnpackScanNode", collect)
         self.assertIn("AppendUnpackLeaf", collect)
 
-        nested = read("Scripts/4_World/TransferZ/TransferZ_ServerService_20_NestedUnpack.c")
+        nested = read("Scripts/4_World/TransferZ/TransferZ_NestedUnpackService.c")
         nested_collect = function_body(nested, "static bool CollectNestedLeaves(")
+        nested_unpack = function_body(nested, "static int Unpack(")
         self.assertIn("ConsumeUnpackScanNode", nested_collect)
         self.assertIn("CollectUnpackLeaves", nested_collect)
+        self.assertIn("TransferZUnpackScanBudget", nested_unpack)
+        self.assertIn("CollectNestedLeaves", nested_unpack)
+        self.assertLess(
+            nested_unpack.index("CollectNestedLeaves"),
+            nested_unpack.index("TryMoveToExactCargo"),
+        )
 
     def test_rpc_entry_checks_player_state_and_service_rechecks_sender(self) -> None:
         dispatcher = read("Scripts/4_World/TransferZ/TransferZ_CFModule.c")
@@ -288,6 +422,8 @@ class RepositoryContracts(unittest.TestCase):
     def test_cargo_identity_uses_owner_and_grid_index(self) -> None:
         cargo = read("Scripts/3_Game/TransferZ/TransferZ_Cargo.c")
         self.assertIn("GetCargoFromIndex(cargoIndex)", cargo)
+        self.assertIn("cargo.GetCargoOwner() != owner", cargo)
+        self.assertIn("cargo.GetOwnerCargoIndex() != cargoIndex", cargo)
         self.assertIn("location.GetIdx() == cargoIndex", cargo)
         self.assertIn("candidate.SetCargo(owner, item, cargoIndex", cargo)
 
@@ -341,10 +477,39 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("sourceCargoIndex", route)
         self.assertIn("preferredCargoIndex", route)
 
+    def test_nested_unpack_uses_descriptive_source_filename(self) -> None:
+        self.assertTrue((ROOT / "Scripts/4_World/TransferZ/TransferZ_NestedUnpackService.c").is_file())
+        self.assertFalse((ROOT / "Scripts/4_World/TransferZ/TransferZ_ServerService_20_NestedUnpack.c").exists())
+
+    def test_ui_unpack_uses_only_nested_unpack_service(self) -> None:
+        client = read("Scripts/5_Mission/TransferZ/TransferZ_ClientState.c")
+        server = read("Scripts/4_World/TransferZ/TransferZ_ServerService.c")
+        cargo_ui = read("Scripts/5_Mission/TransferZ/TransferZ_CargoContainer.c")
+        drag = read("Scripts/5_Mission/TransferZ/TransferZ_OperationDrag.c")
+        fixture = read("test/TransferZTest.ChernarusPlus/init.c")
+
+        self.assertNotIn("bool RequestUnpackTo(", client)
+        self.assertNotIn("bool RequestUnpackToVicinity(", client)
+        self.assertNotIn("bool RequestUnpack(", client)
+        self.assertNotIn("TransferZServerService.Unpack", client)
+        self.assertNotIn("TransferZOperation.UNPACK", function_body(server, "static void HandleRequest("))
+        self.assertIn("RequestNestedUnpack(m_Entity, m_CargoIndex)", cargo_ui)
+        self.assertIn("RequestNestedUnpackTo(", drag)
+        self.assertIn("RequestNestedUnpackToVicinity(", drag)
+        self.assertIn("TransferZNestedUnpackService.UnpackMany(player, sources, destination", client)
+        self.assertIn("TransferZNestedUnpackService.UnpackMany(player, sources, null, 0, true)", client)
+        self.assertIn("SendVicinityUnpackBatchRequest(sources, destination", client)
+        self.assertIn("SendVicinityUnpackBatchRequest(sources, null, 0, true)", client)
+        self.assertIn("TransferZNestedUnpackService.Unpack(player, source, destination)", fixture)
+
     def test_diag_fixture_has_machine_readable_suite_marker(self) -> None:
         fixture = read("test/TransferZTest.ChernarusPlus/init.c")
         self.assertIn("[TransferZTest] SUITE PASS", fixture)
         self.assertIn("[TransferZTest] SUITE FAIL", fixture)
+        self.assertIn("[TransferZTest] RUN unpack", fixture)
+        self.assertIn("CreateEntityInCargo(typeName)", fixture)
+        self.assertIn('TZTest_CreateCargoItem(nested, "BandageDressing")', fixture)
+        self.assertIn('TZTest_CreateCargoItem(nested, "Battery9V")', fixture)
         self.assertIn("TZTest_RunSelfTests", fixture)
 
 

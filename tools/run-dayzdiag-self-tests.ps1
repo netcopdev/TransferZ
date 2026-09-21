@@ -61,6 +61,8 @@ $passMarker = "[TransferZTest] SUITE PASS"
 $failMarker = "[TransferZTest] SUITE FAIL"
 $matchedFile = $null
 $matchedLine = $null
+$lastProgressFile = $null
+$lastProgressLine = $null
 
 try {
     while ((Get-Date) -lt $deadline) {
@@ -68,6 +70,13 @@ try {
             Where-Object { $_.LastWriteTime -ge $startedAt.AddSeconds(-2) -and ($_.Extension -ieq ".log" -or $_.Extension -ieq ".rpt") }
 
         foreach ($file in $candidateFiles) {
+            $progressMatches = Select-String -LiteralPath $file.FullName -SimpleMatch -Pattern "[TransferZTest]" -ErrorAction SilentlyContinue
+            if ($progressMatches) {
+                $lastProgress = $progressMatches | Select-Object -Last 1
+                $lastProgressFile = $file.FullName
+                $lastProgressLine = $lastProgress.Line
+            }
+
             $matches = Select-String -LiteralPath $file.FullName -SimpleMatch -Pattern $passMarker, $failMarker -ErrorAction SilentlyContinue
             if ($matches) {
                 $lastMatch = $matches | Select-Object -Last 1
@@ -106,7 +115,12 @@ finally {
 }
 
 if (-not $matchedLine) {
-    Write-Error "No TransferZ self-test suite marker was found within $TimeoutSeconds seconds. Inspect logs under $profilesFullPath."
+    if ($lastProgressLine) {
+        Write-Error "No TransferZ self-test suite marker was found within $TimeoutSeconds seconds. Last test output: $lastProgressLine. Log: $lastProgressFile"
+    }
+    else {
+        Write-Error "No TransferZ self-test suite marker was found within $TimeoutSeconds seconds. No TransferZ test progress marker was found. Inspect logs under $profilesFullPath."
+    }
     exit 2
 }
 

@@ -223,10 +223,12 @@ dist\release\@TransferZ\
 
 ## Current scope
 
-TransferZ 0.1.0 intentionally does not provide arbitrary category filters, TransferZ-owned stack splitting, persistent world-container links, attachment traversal during Unpack, or persistent preferred targets for containers nested in cargo rather than attached through slots.
+This release intentionally does not provide arbitrary category filters, TransferZ-owned stack splitting, persistent world-container links, attachment traversal during Unpack, or persistent preferred targets for containers nested in cargo rather than attached through slots.
 
 Exact-class matching is available through `Alt + Left Drag`. Stack merging is available only through DayZ's own native compatibility rules.
 
 ## Development
 
 Read `AGENTS.md` and `docs/CODEX_PROJECT_RULES.md` before modifying the project. `main` is the stable integration branch and feature work is branch-first.
+
+`VERSION` is the canonical release version. Use `python tools/version_metadata.py --set X.Y.Z` to bump it and synchronize `config.cpp`, `mod.cpp`, and the README banner. Use `python tools/version_metadata.py --check` to verify metadata without changing files.

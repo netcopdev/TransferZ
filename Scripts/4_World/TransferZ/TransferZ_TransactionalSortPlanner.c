@@ -689,7 +689,7 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
             Print("[TransferZ] Sort transactional rejected: cargo snapshot failed for " + source.GetType());
             return -1;
         }
-        if (originalRecords.Count() < 2)
+        if (originalRecords.Count() < 1)
             return 0;
 
         SortRecordsV4(originalRecords);

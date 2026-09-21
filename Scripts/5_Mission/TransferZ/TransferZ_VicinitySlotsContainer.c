@@ -196,8 +196,7 @@ class TransferZVicinityHeaderControls : Managed
             s_Instance.SetDropTargetVisible(show);
     }
 
-    // Kept only so the older header helper still compiles on this feature branch.
-    // No RMB event path calls it after right-click routing was removed.
+    // Shared registration for the current vicinity header controls.
     protected void RegisterButton(ButtonWidget button, string clickFunction)
     {
         if (!button)
