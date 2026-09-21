@@ -35,6 +35,14 @@ EntityAI TZTest_CreateCargoItem(EntityAI owner, string typeName)
     return owner.GetInventory().CreateEntityInCargo(typeName);
 }
 
+EntityAI TZTest_CreateCargoItemAt(EntityAI owner, string typeName, int cargoIndex, int row, int col, bool flip)
+{
+    if (!owner)
+        return NULL;
+
+    return owner.GetInventory().CreateEntityInCargoEx(typeName, cargoIndex, row, col, flip);
+}
+
 EntityAI TZTest_CreateWorldItem(string typeName, vector position)
 {
     return EntityAI.Cast(GetGame().CreateObjectEx(typeName, position, ECE_PLACE_ON_SURFACE));
@@ -296,6 +304,22 @@ void TZTest_RunStackSelfTest(PlayerBase player)
     TZTest_DeleteFixture(source);
 }
 
+void TZTest_RunSingleItemSortSelfTest(PlayerBase player)
+{
+    vector basePos = player.GetPosition();
+    EntityAI source = TZTest_CreateWorldItem("WoodenCrate", basePos + "1.2 0 -0.8");
+    EntityAI apple = TZTest_CreateCargoItemAt(source, "Apple", 0, 2, 3, false);
+    TZTest_Check(apple != null, "single-item sort fixture created away from origin");
+
+    int result = TransferZTransactionalSortPlanner.Sort(player, source);
+    InventoryLocation location = new InventoryLocation();
+    bool located = apple && apple.GetInventory().GetCurrentInventoryLocation(location);
+    TZTest_Check(result > 0, "single-item sort performs a move");
+    TZTest_Check(located && location.GetType() == InventoryLocationType.CARGO && location.GetParent() == source && location.GetIdx() == 0 && location.GetRow() == 0 && location.GetCol() == 0, "single-item sort compacts to top-left");
+
+    TZTest_DeleteFixture(source);
+}
+
 void TZTest_RunSortSelfTest(PlayerBase player)
 {
     vector basePos = player.GetPosition();
@@ -351,6 +375,8 @@ void TZTest_RunSelfTests(PlayerBase player)
     TZTest_RunClassTransferSelfTest(player);
     Print("[TransferZTest] RUN stack");
     TZTest_RunStackSelfTest(player);
+    Print("[TransferZTest] RUN single-item-sort");
+    TZTest_RunSingleItemSortSelfTest(player);
     Print("[TransferZTest] RUN sort");
     TZTest_RunSortSelfTest(player);
     Print("[TransferZTest] RUN sort-emergency-drop");

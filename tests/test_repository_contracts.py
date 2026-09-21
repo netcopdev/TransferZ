@@ -179,6 +179,28 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("TransferZSuppressModifierClick(clickedItem)", click)
         self.assertNotIn("TransferZSuppressModifierClick()", vicinity)
 
+    def test_single_item_sort_is_not_skipped(self) -> None:
+        transactional = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")
+        sort = function_body(transactional, "static int Sort(")
+        self.assertIn("originalRecords.Count() < 1", sort)
+        self.assertNotIn("originalRecords.Count() < 2", sort)
+
+        fixture = read("test/TransferZTest.ChernarusPlus/init.c")
+        self.assertIn("TZTest_RunSingleItemSortSelfTest(player)", fixture)
+        self.assertIn("CreateEntityInCargoEx(typeName, cargoIndex, row, col, flip)", fixture)
+        self.assertIn("location.GetRow() == 0 && location.GetCol() == 0", fixture)
+
+    def test_multiplayer_sort_avoids_recursive_parking_explosion(self) -> None:
+        planner = read("Scripts/4_World/TransferZ/TransferZ_SortPlanner.c")
+        park = function_body(planner, "protected static bool ParkRecordRecursiveV4(")
+        direct = park.index("FindTemporaryPlacementV4")
+        multiplayer = park.index("if (GetGame().IsMultiplayer())")
+        recursive_candidates = park.index("for (int orientationIndex = 0; orientationIndex < orientationCount; orientationIndex++)")
+        self.assertLess(direct, multiplayer)
+        self.assertLess(multiplayer, recursive_candidates)
+        self.assertIn("state.activeParking.Set(recordIndex, 0);", park)
+        self.assertNotIn("candidate work budget exhausted", planner)
+
     def test_sort_reuses_one_target_layout_and_bounds_parking_search(self) -> None:
         planner = read("Scripts/4_World/TransferZ/TransferZ_SortPlanner.c")
         transactional = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")

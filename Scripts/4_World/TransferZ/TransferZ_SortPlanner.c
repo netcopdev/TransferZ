@@ -888,6 +888,18 @@ class TransferZSortPlanner : TransferZMaintenanceService
             return true;
         }
 
+        // On a dedicated/multiplayer server, do not turn a blocked temporary
+        // placement into a combinatorial recursive parking search. If no direct
+        // free parking location exists, the transactional sorter already has a
+        // native hidden-buffer fallback that is deterministic and bounded.
+        // Keep the deeper search only for offline/single-player where native
+        // synchronous swaps are also available.
+        if (GetGame().IsMultiplayer())
+        {
+            state.activeParking.Set(recordIndex, 0);
+            return false;
+        }
+
         TransferZSortRecord record = state.records.Get(recordIndex);
         TransferZSortRecord protectedTarget;
         int protectedWidth = 0;
@@ -1144,8 +1156,10 @@ class TransferZSortPlanner : TransferZMaintenanceService
         {
             if (!EnsureRecordAtTargetV4(state, planIndex))
             {
-                if (state.candidateBudgetExceeded)
-                    Print("[TransferZ] Sort planner V4 stopped: candidate work budget exhausted checks=" + state.candidateChecks.ToString() + "/" + state.maxCandidateChecks.ToString());
+                // Planner failure is not itself a Sort failure. The caller
+                // deliberately falls back to the bounded native sort buffer.
+                // Keep routine planner-budget exhaustion out of server logs;
+                // actual fallback failure is logged by the transactional layer.
                 moves.Clear();
                 return false;
             }
