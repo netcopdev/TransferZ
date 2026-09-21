@@ -184,6 +184,8 @@ TransferZ never deletes and recreates items to simulate movement, sorting, or st
 
 The client requests operations; the server re-resolves entities and validates sender ownership, reachability, source removal, destination acceptance, exact cargo space, and DayZ inventory locations before moving anything.
 
+Server work is also bounded before mutation. Ordinary Transfer/Unpack/Class/MoveItem RPCs are throttled per player to one accepted request per 100 ms (the stock client already debounces more slowly). Direct Transfer and exact-class batches reject source grids above **1024 direct items**. Unpack scans at most **2048 cargo nodes**, descends at most **32 nested cargo levels**, and collects at most **1024 leaves**. A request that exceeds a bound is rejected before its move loop starts rather than partially processed. Sort/Stack keep their existing 250 ms maintenance throttle. Expired throttle entries are evicted, so disconnected identities do not accumulate forever.
+
 Sort has an additional rollback contract: original cargo coordinates and orientation are captured before execution, and any failed transaction must restore and verify that snapshot before returning a normal failure. In-cargo execution reverses its move journal; buffered execution restores through the hidden native cargo buffer. Absolute recovery still depends on the DayZ native inventory API continuing to accept valid recovery moves; engine-level refusal or process termination cannot be made atomic purely in script.
 
 ## Install
