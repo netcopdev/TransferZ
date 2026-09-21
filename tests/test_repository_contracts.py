@@ -94,9 +94,29 @@ class RepositoryContracts(unittest.TestCase):
         planner = read("Scripts/4_World/TransferZ/TransferZ_SortPlanner.c")
         transactional = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")
         self.assertIn("SortRecordsV4", planner)
-        self.assertIn("BuildSortPlanV4", planner)
+        self.assertIn("BuildSortPlanFromTargetsV4", planner)
         self.assertIn("SortRecordsV4(originalRecords)", transactional)
-        self.assertIn("BuildSortPlanV4", transactional)
+        self.assertIn("BuildSortPlanFromTargetsV4", transactional)
+
+    def test_sort_reuses_one_target_layout_and_bounds_parking_search(self) -> None:
+        planner = read("Scripts/4_World/TransferZ/TransferZ_SortPlanner.c")
+        transactional = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")
+        sort = function_body(transactional, "static int Sort(")
+        buffer_fallback = function_body(transactional, "protected static int SortWithNativeBuffer(")
+        plan = function_body(planner, "protected static bool BuildSortPlanFromTargetsV4(")
+        temporary = function_body(planner, "protected static bool FindTemporaryPlacementV4(")
+        recursive = function_body(planner, "protected static bool ParkRecordRecursiveV4(")
+
+        self.assertEqual(sort.count("BuildTargetLayoutV4("), 1)
+        self.assertNotIn("BuildTargetLayoutV4(", buffer_fallback)
+        self.assertIn("BuildSortPlanFromTargetsV4", sort)
+        self.assertIn("layoutRecords, targetWidths, targetHeights, targetFlips", sort)
+
+        self.assertIn("maxCandidateChecks", plan)
+        self.assertIn("131072", plan)
+        self.assertIn("ConsumePlannerCandidateV4(state)", temporary)
+        self.assertIn("ConsumePlannerCandidateV4(state)", recursive)
+        self.assertIn("candidateBudgetExceeded", planner)
 
     def test_sort_keeps_transactional_verification_and_rollback(self) -> None:
         source = read("Scripts/4_World/TransferZ/TransferZ_TransactionalSortPlanner.c")
