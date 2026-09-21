@@ -307,6 +307,67 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         return true;
     }
 
+    protected static bool EmergencyDropUnrestoredItems(PlayerBase player, EntityAI source, TransferZ_SortBuffer buffer, notnull array<ref TransferZSortRecord> originalRecords, string reason)
+    {
+        if (!player || !source || !buffer)
+            return false;
+
+        InventoryMode moveMode = InventoryMode.SERVER;
+        if (!GetGame().IsMultiplayer())
+            moveMode = InventoryMode.LOCAL;
+
+        bool allDropped = true;
+        int dropped = 0;
+
+        foreach (TransferZSortRecord record : originalRecords)
+        {
+            if (!record || !record.item)
+            {
+                allDropped = false;
+                continue;
+            }
+
+            if (RecordAtCargoLocation(source, record))
+                continue;
+
+            InventoryLocation current = new InventoryLocation();
+            if (!record.item.GetInventory().GetCurrentInventoryLocation(current))
+            {
+                allDropped = false;
+                continue;
+            }
+
+            if (current.GetType() != InventoryLocationType.CARGO)
+            {
+                allDropped = false;
+                continue;
+            }
+
+            EntityAI currentParent = current.GetParent();
+            if (currentParent != source && currentParent != buffer)
+            {
+                allDropped = false;
+                continue;
+            }
+
+            if (!record.item.GetInventory().DropEntity(moveMode, player, record.item))
+            {
+                allDropped = false;
+                continue;
+            }
+
+            dropped++;
+        }
+
+        CargoBase bufferCargo = buffer.GetInventory().GetCargo();
+        bool bufferEmpty = bufferCargo && bufferCargo.GetItemCount() == 0;
+        if (bufferEmpty)
+            buffer.Delete();
+
+        Print("[TransferZ] Sort EMERGENCY ground drop reason=" + reason + " dropped=" + dropped.ToString() + " complete=" + allDropped.ToString() + " bufferEmpty=" + bufferEmpty.ToString());
+        return allDropped && bufferEmpty;
+    }
+
     protected static bool ItemInSortBuffer(TransferZ_SortBuffer buffer, EntityAI item)
     {
         if (!buffer || !item)
@@ -523,11 +584,14 @@ class TransferZTransactionalSortPlanner : TransferZSortPlanner
         CargoBase bufferCargo = buffer.GetInventory().GetCargo();
         bool bufferEmpty = bufferCargo && bufferCargo.GetItemCount() == 0;
         if (exact && bufferEmpty)
+        {
             DeleteSortBufferIfEmpty(buffer);
-        else
-            Print("[TransferZ] Sort buffer CRITICAL rollback incomplete accepted=" + accepted.ToString() + " exact=" + exact.ToString() + " bufferEmpty=" + bufferEmpty.ToString());
+            return true;
+        }
 
-        return exact && bufferEmpty;
+        bool emergencyDropped = EmergencyDropUnrestoredItems(player, source, buffer, originalRecords, "rollback-incomplete");
+        Print("[TransferZ] Sort buffer CRITICAL rollback incomplete accepted=" + accepted.ToString() + " exact=" + exact.ToString() + " bufferEmpty=" + bufferEmpty.ToString() + " emergencyDropped=" + emergencyDropped.ToString());
+        return false;
     }
 
     protected static int SortWithNativeBuffer(PlayerBase player, EntityAI source, notnull array<ref TransferZSortRecord> originalRecords, int cargoWidth, int cargoHeight)

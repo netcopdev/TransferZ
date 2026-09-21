@@ -29,9 +29,11 @@ Before the buffer is created, every tracked item must still be in the requested 
 
 Both paths move the same original entity objects through DayZ's native inventory system. The buffer path therefore preserves chambers, attachments, nested cargo, quantities and mod-defined entity state by object identity rather than serialization/reconstruction. The buffer is networked so clients observe a valid native inventory parent while an item is staged; it is not a local-only phantom parent.
 
-If buffered staging or placement fails, TransferZ uses the immutable original snapshot to evacuate displaced tracked items back into the buffer as necessary and restore exact original row/column/orientation. The buffer is deleted only after the original or final layout has been verified and its cargo is empty. A non-empty buffer is never deleted; failure to restore the exact snapshot is logged as `CRITICAL rollback incomplete`.
+If buffered staging or placement fails, TransferZ first uses the immutable original snapshot to restore exact original row/column/orientation. A complete rollback deletes the empty hidden buffer normally.
 
-Normal world-drop physics and vicinity/drop callbacks are therefore not part of sorting. A hard server-process termination during the short buffered transaction cannot be made fully atomic in script, but normal execution never deletes/recreates the player's items.
+If that rollback itself fails — an emergency invariant violation that should not occur during normal operation — TransferZ does not create or preserve a special recovery container. Only tracked items that could not be restored are moved to the ground beside the requesting player through DayZ's native inventory drop path. Items already restored to their exact original cells are left untouched. The Sort reports failure and logs the emergency drop result.
+
+The staging buffer remains hidden and non-persistent. Normal successful sorting does not use ground/vicinity staging and still never deletes/recreates the player's sorted items.
 
 ## UI feedback
 

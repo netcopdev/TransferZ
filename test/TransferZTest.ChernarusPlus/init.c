@@ -298,6 +298,33 @@ void TZTest_RunSortSelfTest(PlayerBase player)
     TZTest_DeleteFixture(source);
 }
 
+void TZTest_RunSortEmergencyDropSelfTest(PlayerBase player)
+{
+    vector basePos = player.GetPosition();
+    TransferZ_SortBuffer buffer = TransferZ_SortBuffer.Cast(GetGame().CreateObjectEx("TransferZ_SortBuffer", basePos + "2.2 0 -1.2", ECE_SETUP | ECE_KEEPHEIGHT | ECE_NOLIFETIME | ECE_NOPERSISTENCY_WORLD | ECE_NOPERSISTENCY_CHAR));
+    TZTest_Check(buffer != null, "sort emergency-drop buffer fixture created");
+    if (!buffer)
+        return;
+
+    EntityAI stranded = TZTest_CreateItem(buffer, "Apple");
+    TZTest_Check(stranded != null, "sort emergency-drop fixture accepts staged item");
+
+    InventoryMode moveMode = InventoryMode.SERVER;
+    if (!GetGame().IsMultiplayer())
+        moveMode = InventoryMode.LOCAL;
+
+    bool dropped = false;
+    if (stranded)
+        dropped = stranded.GetInventory().DropEntity(moveMode, player, stranded);
+
+    InventoryLocation location = new InventoryLocation();
+    bool onGround = stranded && stranded.GetInventory().GetCurrentInventoryLocation(location) && location.GetType() == InventoryLocationType.GROUND;
+    TZTest_Check(dropped && onGround, "sort emergency-drop uses native ground move");
+
+    TZTest_DeleteFixture(buffer);
+    TZTest_DeleteFixture(stranded);
+}
+
 void TZTest_RunSelfTests(PlayerBase player)
 {
     g_TZTestFailures = 0;
@@ -308,6 +335,7 @@ void TZTest_RunSelfTests(PlayerBase player)
     TZTest_RunClassTransferSelfTest(player);
     TZTest_RunStackSelfTest(player);
     TZTest_RunSortSelfTest(player);
+    TZTest_RunSortEmergencyDropSelfTest(player);
 
     if (g_TZTestFailures == 0)
         Print("[TransferZTest] SUITE PASS");
