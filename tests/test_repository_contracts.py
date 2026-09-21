@@ -496,10 +496,10 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("RequestNestedUnpack(m_Entity, m_CargoIndex)", cargo_ui)
         self.assertIn("RequestNestedUnpackTo(", drag)
         self.assertIn("RequestNestedUnpackToVicinity(", drag)
-        self.assertIn("TransferZNestedUnpackService.Unpack(player, offlineContainer, destination", client)
-        self.assertIn("TransferZNestedUnpackService.UnpackToVicinity(player, offlineContainer)", client)
-        self.assertIn("RequestNestedUnpackTo(container, destination", client)
-        self.assertIn("RequestNestedUnpackToVicinity(container)", client)
+        self.assertIn("TransferZNestedUnpackService.UnpackMany(player, sources, destination", client)
+        self.assertIn("TransferZNestedUnpackService.UnpackMany(player, sources, null, 0, true)", client)
+        self.assertIn("SendVicinityUnpackBatchRequest(sources, destination", client)
+        self.assertIn("SendVicinityUnpackBatchRequest(sources, null, 0, true)", client)
         self.assertIn("TransferZNestedUnpackService.Unpack(player, source, destination)", fixture)
 
     def test_diag_fixture_has_machine_readable_suite_marker(self) -> None:
