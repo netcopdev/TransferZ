@@ -257,11 +257,11 @@ Vicinity does not expose Sort or Stack because it is a list of world items rathe
 
 Hovering Transfer or Unpack shows an advisory status color:
 
-- green — expected normal/full execution;
-- yellow — likely partial execution;
+- green — a single-item cargo placement is individually proven, or the complete vicinity action is currently eligible;
+- yellow — partial execution is known **or** a multi-item cargo batch is geometrically uncertain;
 - red — currently impossible.
 
-This is only a preview. The server performs the authoritative move validation when the operation is requested.
+For container batches, TransferZ deliberately does not infer a guaranteed joint fit from aggregate free area. Several items may each fit individually and still fragment the grid when moved together, so those previews stay yellow until the server performs the authoritative sequence.
 
 ### Server work limits
 

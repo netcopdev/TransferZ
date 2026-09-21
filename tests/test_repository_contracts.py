@@ -98,6 +98,18 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("SortRecordsV4(originalRecords)", transactional)
         self.assertIn("BuildSortPlanFromTargetsV4", transactional)
 
+    def test_batch_preview_does_not_claim_joint_fit_from_area_alone(self) -> None:
+        preview = read("Scripts/5_Mission/TransferZ/TransferZ_OperationPreview.c")
+        evaluate = function_body(preview, "protected static int EvaluateCandidates(")
+
+        self.assertIn("requiredArea > freeArea", evaluate)
+        self.assertIn("if (candidates.Count() > 1)", evaluate)
+        self.assertIn("return TransferZOperationPreviewResult.PARTIAL;", evaluate)
+        self.assertLess(
+            evaluate.index("if (candidates.Count() > 1)"),
+            evaluate.rindex("return TransferZOperationPreviewResult.READY;"),
+        )
+
     def test_ui_suppression_is_scoped_to_exact_drag_subject(self) -> None:
         drag = read("Scripts/5_Mission/TransferZ/TransferZ_OperationDrag.c")
         arm = function_body(drag, "static void ArmNativeDropSuppression(")

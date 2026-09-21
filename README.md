@@ -31,7 +31,7 @@ Transfer/navigation controls remain on the **left** side of cargo headers. Conta
 
 `VICINITY` exposes Destination, Transfer, and Unpack only.
 
-Hover a control for a short explanation. Transfer and Unpack also show a subdued green/yellow/red preview for ready/partial/impossible operations.
+Hover a control for a short explanation. Transfer and Unpack also show a subdued green/yellow/red preview: green for a proven single-item cargo fit (or fully eligible vicinity action), yellow for partial **or geometrically uncertain multi-item** cargo work, and red for currently impossible operations.
 
 ## Item shortcuts
 
