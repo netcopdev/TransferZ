@@ -114,7 +114,7 @@ Current Sort behavior:
 - detachable magazines prefer vertical orientation only after an all-current-orientation layout has failed;
 - equivalent items already in valid final slots are kept stationary when possible;
 - native DayZ move validation remains authoritative for every step;
-- if no bounded in-cargo rearrangement exists, Sort uses the dedicated hidden native cargo buffer; a normal failure restores the exact original layout and never falls back to ground staging.
+- if no bounded in-cargo rearrangement exists, Sort uses the dedicated hidden native cargo buffer; that single buffer is the intentional staging-capacity limit. If the transaction cannot stage through it, Sort rolls back and fails rather than allocating additional buffers or alternate staging space.
 
 Sort is transactional at the TransferZ level. The in-cargo path journals inverse moves/swaps and reverses them in strict reverse order on failure. The buffer path uses the immutable original snapshot to evacuate displaced items back through the buffer and restore exact original cells. The buffer is deleted only when verified empty. A rollback invariant violation is logged as critical rather than accepted as a partial sort.
 
