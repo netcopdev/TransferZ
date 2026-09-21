@@ -589,6 +589,36 @@ class TransferZServerService
         EntityAI destination = ResolveEntity(destinationLow, destinationHigh);
         EntityAI item = ResolveEntity(itemLow, itemHigh);
 
+        if (operation == TransferZOperation.VICINITY_UNPACK_BATCH)
+        {
+            int unpackBatchCount;
+            if (!ctx.Read(unpackBatchCount))
+                return;
+            if (unpackBatchCount < 1 || unpackBatchCount > MAX_BATCH_ITEMS)
+            {
+                Print("[TransferZ] Vicinity unpack batch rejected: item count out of bounds count=" + unpackBatchCount.ToString());
+                return;
+            }
+
+            ref array<EntityAI> unpackBatchSources = new array<EntityAI>();
+            for (int unpackBatchIndex = 0; unpackBatchIndex < unpackBatchCount; unpackBatchIndex++)
+            {
+                int unpackLow;
+                int unpackHigh;
+                if (!ctx.Read(unpackLow))
+                    return;
+                if (!ctx.Read(unpackHigh))
+                    return;
+
+                EntityAI unpackSource = ResolveEntity(unpackLow, unpackHigh);
+                if (unpackSource && unpackBatchSources.Find(unpackSource) < 0)
+                    unpackBatchSources.Insert(unpackSource);
+            }
+
+            TransferZNestedUnpackService.UnpackMany(player, unpackBatchSources, destination, destinationCargoIndex, destinationIsVicinity);
+            return;
+        }
+
         if (operation == TransferZOperation.VICINITY_BATCH)
         {
             if (destinationIsVicinity || !destination)

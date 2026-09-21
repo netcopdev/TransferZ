@@ -4,7 +4,8 @@ enum TransferZOperation
     UNPACK = 2,
     MOVE_ITEM = 3,
     TRANSFER_CLASS = 4,
-    VICINITY_BATCH = 5
+    VICINITY_BATCH = 5,
+    VICINITY_UNPACK_BATCH = 6
 }
 
 class TransferZRPC

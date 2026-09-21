@@ -622,6 +622,46 @@ class TransferZClientState
         return true;
     }
 
+    protected bool SendVicinityUnpackBatchRequest(notnull array<EntityAI> sources, EntityAI destination, int destinationCargoIndex, bool destinationIsVicinity)
+    {
+        PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
+        if (!player || sources.Count() < 1 || sources.Count() > TransferZServerService.MAX_BATCH_ITEMS)
+            return false;
+        if (!destinationIsVicinity && (!destination || !IsParticipantReachable(destination, destinationCargoIndex)))
+            return false;
+        if (IsDuplicateRequest(TransferZOperation.VICINITY_UNPACK_BATCH, null, 0, destination, destinationCargoIndex, null, destinationIsVicinity))
+            return false;
+
+        int destinationLow;
+        int destinationHigh;
+        TransferZNet.GetEntityNetworkId(destination, destinationLow, destinationHigh);
+
+        ScriptRPC rpc = new ScriptRPC();
+        rpc.Write(TransferZOperation.VICINITY_UNPACK_BATCH);
+        rpc.Write(0);
+        rpc.Write(0);
+        rpc.Write(0);
+        rpc.Write(destinationLow);
+        rpc.Write(destinationHigh);
+        rpc.Write(destinationCargoIndex);
+        rpc.Write(0);
+        rpc.Write(0);
+        rpc.Write(destinationIsVicinity);
+        rpc.Write(sources.Count());
+
+        foreach (EntityAI source : sources)
+        {
+            int sourceLow;
+            int sourceHigh;
+            TransferZNet.GetEntityNetworkId(source, sourceLow, sourceHigh);
+            rpc.Write(sourceLow);
+            rpc.Write(sourceHigh);
+        }
+
+        rpc.Send(player, TransferZRPC.REQUEST, true, player.GetIdentity());
+        return true;
+    }
+
     protected void SendNestedUnpackRequest(EntityAI source, int sourceCargoIndex, EntityAI destination, int destinationCargoIndex, bool destinationIsVicinity)
     {
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
@@ -864,64 +904,60 @@ class TransferZClientState
         if (!IsParticipantReachable(destination, destinationCargoIndex))
             return false;
 
-        bool requested = false;
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
         if (!player)
             return false;
 
-        if (!GetGame().IsMultiplayer())
-        {
-            foreach (EntityAI offlineContainer : items)
-            {
-                if (!offlineContainer || offlineContainer == destination || !TransferZCargo.Exists(offlineContainer, 0))
-                    continue;
-                if (TransferZNestedUnpackService.Unpack(player, offlineContainer, destination, 0, destinationCargoIndex) > 0)
-                    requested = true;
-            }
-            if (requested)
-                player.UpdateInventoryMenu();
-            return requested;
-        }
-
+        ref array<EntityAI> sources = new array<EntityAI>();
         foreach (EntityAI container : items)
         {
             if (!container || container == destination || !TransferZCargo.Exists(container, 0))
                 continue;
-            if (RequestNestedUnpackTo(container, destination, 0, destinationCargoIndex))
-                requested = true;
+            sources.Insert(container);
+            if (sources.Count() > TransferZServerService.MAX_BATCH_ITEMS)
+                return false;
         }
-        return requested;
-    }
-
-    bool RequestVicinityUnpackToVicinity(notnull array<EntityAI> items)
-    {
-        bool requested = false;
-        PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
-        if (!player)
+        if (sources.Count() == 0)
             return false;
 
         if (!GetGame().IsMultiplayer())
         {
-            foreach (EntityAI offlineContainer : items)
-            {
-                if (!offlineContainer || !TransferZCargo.Exists(offlineContainer, 0))
-                    continue;
-                if (TransferZNestedUnpackService.UnpackToVicinity(player, offlineContainer) > 0)
-                    requested = true;
-            }
-            if (requested)
+            int moved = TransferZNestedUnpackService.UnpackMany(player, sources, destination, destinationCargoIndex, false);
+            if (moved > 0)
                 player.UpdateInventoryMenu();
-            return requested;
+            return moved > 0;
         }
 
+        return SendVicinityUnpackBatchRequest(sources, destination, destinationCargoIndex, false);
+    }
+
+    bool RequestVicinityUnpackToVicinity(notnull array<EntityAI> items)
+    {
+        PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
+        if (!player)
+            return false;
+
+        ref array<EntityAI> sources = new array<EntityAI>();
         foreach (EntityAI container : items)
         {
             if (!container || !TransferZCargo.Exists(container, 0))
                 continue;
-            if (RequestNestedUnpackToVicinity(container))
-                requested = true;
+            sources.Insert(container);
+            if (sources.Count() > TransferZServerService.MAX_BATCH_ITEMS)
+                return false;
         }
-        return requested;
+        if (sources.Count() == 0)
+            return false;
+
+        if (!GetGame().IsMultiplayer())
+        {
+            int moved = TransferZNestedUnpackService.UnpackMany(player, sources, null, 0, true);
+            if (moved > 0)
+                player.UpdateInventoryMenu();
+            return moved > 0;
+        }
+
+        return SendVicinityUnpackBatchRequest(sources, null, 0, true);
     }
 
     bool RequestVicinityUnpack(notnull array<EntityAI> items)

@@ -290,6 +290,31 @@ void TZTest_RunVicinityBatchSelfTest(PlayerBase player)
     TZTest_DeleteFixture(destination);
 }
 
+void TZTest_RunVicinityUnpackBatchSelfTest(PlayerBase player)
+{
+    vector basePos = player.GetPosition();
+    EntityAI destination = TZTest_CreateWorldItem("WoodenCrate", basePos + "-1.2 0 -0.8");
+    EntityAI sourceA = TZTest_CreateWorldItem("SmallProtectorCase", basePos + "0.4 0 -0.5");
+    EntityAI sourceB = TZTest_CreateWorldItem("SmallProtectorCase", basePos + "0.8 0 -0.5");
+    EntityAI nestedA = TZTest_CreateCargoItem(sourceA, "FirstAidKit");
+    EntityAI nestedB = TZTest_CreateCargoItem(sourceB, "FirstAidKit");
+    EntityAI bandageA = TZTest_CreateCargoItem(nestedA, "BandageDressing");
+    EntityAI bandageB = TZTest_CreateCargoItem(nestedB, "BandageDressing");
+
+    ref array<EntityAI> sources = new array<EntityAI>();
+    sources.Insert(sourceA);
+    sources.Insert(sourceB);
+
+    int moved = TransferZNestedUnpackService.UnpackMany(player, sources, destination, 0, false);
+    TZTest_Check(moved == 2, "vicinity unpack batch moved leaves from all containers");
+    TZTest_Check(TZTest_IsDirectCargoChild(destination, bandageA), "vicinity unpack batch moved first nested leaf");
+    TZTest_Check(TZTest_IsDirectCargoChild(destination, bandageB), "vicinity unpack batch moved second nested leaf");
+
+    TZTest_DeleteFixture(sourceA);
+    TZTest_DeleteFixture(sourceB);
+    TZTest_DeleteFixture(destination);
+}
+
 void TZTest_RunClassTransferSelfTest(PlayerBase player)
 {
     vector basePos = player.GetPosition();
@@ -395,6 +420,8 @@ void TZTest_RunSelfTests(PlayerBase player)
     TZTest_RunUnpackSelfTest(player);
     Print("[TransferZTest] RUN vicinity-batch");
     TZTest_RunVicinityBatchSelfTest(player);
+    Print("[TransferZTest] RUN vicinity-unpack-batch");
+    TZTest_RunVicinityUnpackBatchSelfTest(player);
     Print("[TransferZTest] RUN class-transfer");
     TZTest_RunClassTransferSelfTest(player);
     Print("[TransferZTest] RUN stack");

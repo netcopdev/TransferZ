@@ -23,6 +23,7 @@ Active PR stack: **#41–#48, then #50–#52**. PR #49 was closed after review a
 - Fixed Sort so a single item is compacted to the deterministic top-left target instead of being treated as a no-op.
 - On multiplayer/dedicated servers, Sort now abandons recursive blocker-parking as soon as no direct temporary placement exists and uses the existing bounded native buffer fallback instead. Routine planner candidate-budget exhaustion is no longer logged as an error-like event when fallback is available.
 - Fixed modifier batch drags from VICINITY: Shift/Alt previously emitted one MOVE_ITEM RPC per selected ground item, so the server's 100 ms standard-request throttle accepted the first and rejected the rest. VICINITY batches now send one bounded RPC containing the selected ground-item identities; the server validates and moves each item through the existing native MoveItem path.
+- Audited the rest of the client for the same RPC-fanout pattern and found it in multi-container VICINITY Unpack. It now sends one bounded VICINITY_UNPACK_BATCH RPC and collects nested leaves under one shared scan/leaf budget before any mutation.
 
 ## Validation
 
@@ -39,6 +40,8 @@ The latest user-run DayZDiag pass reached the production nested-Unpack service, 
 The following user-run DayZDiag preflight on head `3a504a74af23fe5391920e2062c5c7071427d04d` reached `[TransferZTest] SUITE PASS`. Subsequent in-game testing found two Sort issues not covered by that fixture: a one-item cargo was skipped entirely, and a small dedicated-server sort could exhaust the 16,384-candidate recursive parking budget before falling back. The branch now includes a runtime single-item top-left regression and a multiplayer planner guard that prefers the bounded native buffer over combinatorial recursive parking.
 
 Further in-game testing found Shift/Alt modifier drags from ground/VICINITY only moved one item and produced repeated `[TransferZ] RPC throttled` messages. Root cause: `RequestVicinityTransferTo()` sent one standard MOVE_ITEM RPC per selected item while the server correctly throttled standard RPCs to 100 ms. The client/server protocol now carries a bounded VICINITY_BATCH in one standard RPC, and the DayZDiag fixture includes a three-ground-item batch move regression.
+
+A follow-up scan for the same failure mode found exactly two more client loops: VICINITY multi-container Unpack to cargo and to vicinity. Both would have produced the same throttle behavior. They now use the single bounded unpack-batch RPC; no other client-side loop that fan-outs TransferZ request methods remains.
 
 The connector environment still cannot itself claim a complete DayZ runtime pass. The repository contains `tools/run-transferz-self-test.ps1` and the DayZDiag fixture for the exact-build runtime gate on a Windows machine with DayZ/DayZDiag and CF installed.
 

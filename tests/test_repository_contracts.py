@@ -326,6 +326,39 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("TZTest_RunVicinityBatchSelfTest(player)", fixture)
         self.assertIn("MoveItemsFromVicinity(player, items, destination)", fixture)
 
+    def test_vicinity_unpack_batch_uses_one_throttled_rpc(self) -> None:
+        constants = read("Scripts/3_Game/TransferZ/TransferZ_Constants.c")
+        client = read("Scripts/5_Mission/TransferZ/TransferZ_ClientState.c")
+        server = read("Scripts/4_World/TransferZ/TransferZ_ServerService.c")
+        nested = read("Scripts/4_World/TransferZ/TransferZ_NestedUnpackService.c")
+        fixture = read("test/TransferZTest.ChernarusPlus/init.c")
+
+        self.assertIn("VICINITY_UNPACK_BATCH = 6", constants)
+        send_batch = function_body(client, "protected bool SendVicinityUnpackBatchRequest(")
+        self.assertEqual(send_batch.count("rpc.Send("), 1)
+        self.assertIn("rpc.Write(sources.Count())", send_batch)
+
+        unpack_to = function_body(client, "bool RequestVicinityUnpackTo(")
+        unpack_vicinity = function_body(client, "bool RequestVicinityUnpackToVicinity(")
+        self.assertIn("SendVicinityUnpackBatchRequest(sources, destination, destinationCargoIndex, false)", unpack_to)
+        self.assertIn("SendVicinityUnpackBatchRequest(sources, null, 0, true)", unpack_vicinity)
+        self.assertNotIn("RequestNestedUnpackTo(", unpack_to)
+        self.assertNotIn("RequestNestedUnpackToVicinity(", unpack_vicinity)
+
+        handle = function_body(server, "static void HandleRequest(")
+        self.assertIn("operation == TransferZOperation.VICINITY_UNPACK_BATCH", handle)
+        self.assertIn("unpackBatchCount > MAX_BATCH_ITEMS", handle)
+        self.assertIn("TransferZNestedUnpackService.UnpackMany", handle)
+
+        unpack_many = function_body(nested, "static int UnpackMany(")
+        self.assertIn("TransferZUnpackScanBudget", unpack_many)
+        self.assertIn("CollectNestedLeaves", unpack_many)
+        self.assertIn("TryMoveToExactCargo", unpack_many)
+        self.assertIn("TryMoveToVicinity", unpack_many)
+
+        self.assertIn("TZTest_RunVicinityUnpackBatchSelfTest(player)", fixture)
+        self.assertIn("UnpackMany(player, sources, destination, 0, false)", fixture)
+
     def test_standard_rpc_throttles_before_entity_resolution(self) -> None:
         server = read("Scripts/4_World/TransferZ/TransferZ_ServerService.c")
         handle = function_body(server, "static void HandleRequest(")

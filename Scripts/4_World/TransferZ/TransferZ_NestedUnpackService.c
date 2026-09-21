@@ -78,6 +78,54 @@ class TransferZNestedUnpackService
         return moved;
     }
 
+    static int UnpackMany(PlayerBase player, notnull array<EntityAI> sources, EntityAI destination, int destinationCargoIndex, bool destinationIsVicinity)
+    {
+        if (!player || sources.Count() < 1 || sources.Count() > TransferZServerService.MAX_BATCH_ITEMS)
+            return 0;
+
+        if (!destinationIsVicinity)
+        {
+            if (!destination || !TransferZServerService.IsReachable(player, destination) || !TransferZCargo.Exists(destination, destinationCargoIndex))
+                return 0;
+        }
+
+        ref array<EntityAI> leaves = new array<EntityAI>();
+        TransferZUnpackScanBudget budget = new TransferZUnpackScanBudget();
+
+        foreach (EntityAI source : sources)
+        {
+            if (!source || !TransferZServerService.IsReachable(player, source) || !TransferZCargo.Exists(source, 0))
+                continue;
+            if (!destinationIsVicinity && destination != source && TransferZServerService.IsDescendantOf(destination, source))
+                continue;
+
+            EntityAI excludedDestination = destination;
+            if (destinationIsVicinity)
+                excludedDestination = null;
+
+            if (!CollectNestedLeaves(source, 0, excludedDestination, leaves, budget))
+            {
+                Print("[TransferZ] Nested unpack batch rejected: traversal budget exceeded scanned=" + budget.scannedNodes.ToString() + " leaves=" + leaves.Count().ToString());
+                return 0;
+            }
+        }
+
+        int moved = 0;
+        foreach (EntityAI item : leaves)
+        {
+            if (destinationIsVicinity)
+            {
+                if (TransferZServerService.TryMoveToVicinity(player, item))
+                    moved++;
+            }
+            else if (TransferZServerService.TryMoveToExactCargo(player, item, destination, destinationCargoIndex))
+            {
+                moved++;
+            }
+        }
+        return moved;
+    }
+
     static void HandleRequest(PlayerBase player, PlayerIdentity sender, ParamsReadContext ctx)
     {
         if (!player)
