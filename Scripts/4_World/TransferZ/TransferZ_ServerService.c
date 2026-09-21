@@ -495,6 +495,31 @@ class TransferZServerService
         return moved;
     }
 
+    static int MoveItemsFromVicinity(PlayerBase player, notnull array<EntityAI> items, EntityAI destination, int destinationCargoIndex = 0)
+    {
+        if (!player || !destination || items.Count() < 1 || items.Count() > MAX_BATCH_ITEMS)
+            return 0;
+        if (!IsReachable(player, destination) || !TransferZCargo.Exists(destination, destinationCargoIndex))
+            return 0;
+
+        int moved = 0;
+        foreach (EntityAI batchItem : items)
+        {
+            if (!batchItem || batchItem == destination)
+                continue;
+
+            InventoryLocation batchLocation = new InventoryLocation();
+            if (!batchItem.GetInventory().GetCurrentInventoryLocation(batchLocation))
+                continue;
+            if (batchLocation.GetType() != InventoryLocationType.GROUND)
+                continue;
+
+            if (MoveItem(player, batchItem, destination, destinationCargoIndex))
+                moved++;
+        }
+        return moved;
+    }
+
     static void HandleRequest(PlayerBase player, PlayerIdentity sender, ParamsReadContext ctx)
     {
         if (!player)
@@ -563,6 +588,39 @@ class TransferZServerService
         EntityAI source = ResolveEntity(sourceLow, sourceHigh);
         EntityAI destination = ResolveEntity(destinationLow, destinationHigh);
         EntityAI item = ResolveEntity(itemLow, itemHigh);
+
+        if (operation == TransferZOperation.VICINITY_BATCH)
+        {
+            if (destinationIsVicinity || !destination)
+                return;
+
+            int batchCount;
+            if (!ctx.Read(batchCount))
+                return;
+            if (batchCount < 1 || batchCount > MAX_BATCH_ITEMS)
+            {
+                Print("[TransferZ] Vicinity batch rejected: item count out of bounds count=" + batchCount.ToString());
+                return;
+            }
+
+            ref array<EntityAI> batchItems = new array<EntityAI>();
+            for (int batchIndex = 0; batchIndex < batchCount; batchIndex++)
+            {
+                int batchLow;
+                int batchHigh;
+                if (!ctx.Read(batchLow))
+                    return;
+                if (!ctx.Read(batchHigh))
+                    return;
+
+                EntityAI batchItem = ResolveEntity(batchLow, batchHigh);
+                if (batchItem && batchItems.Find(batchItem) < 0)
+                    batchItems.Insert(batchItem);
+            }
+
+            MoveItemsFromVicinity(player, batchItems, destination, destinationCargoIndex);
+            return;
+        }
 
         if (destinationIsVicinity)
         {

@@ -22,6 +22,7 @@ Active PR stack: **#41–#48, then #50–#52**. PR #49 was closed after review a
 - Made `VERSION` the canonical release-version source and added `tools/version_metadata.py`.
 - Fixed Sort so a single item is compacted to the deterministic top-left target instead of being treated as a no-op.
 - On multiplayer/dedicated servers, Sort now abandons recursive blocker-parking as soon as no direct temporary placement exists and uses the existing bounded native buffer fallback instead. Routine planner candidate-budget exhaustion is no longer logged as an error-like event when fallback is available.
+- Fixed modifier batch drags from VICINITY: Shift/Alt previously emitted one MOVE_ITEM RPC per selected ground item, so the server's 100 ms standard-request throttle accepted the first and rejected the rest. VICINITY batches now send one bounded RPC containing the selected ground-item identities; the server validates and moves each item through the existing native MoveItem path.
 
 ## Validation
 
@@ -36,6 +37,8 @@ A subsequent DayZDiag run completed the entire suite rather than hanging. Transf
 The latest user-run DayZDiag pass reached the production nested-Unpack service, but the fixture itself failed to create the nested BandageDressing and Battery9V, so the remaining Unpack failures were not evidence against production Unpack behavior. The fixture now uses DayZ's direct `CreateEntityInCargo()` API for those nested cargo items instead of the broader `CreateInInventory()` search.
 
 The following user-run DayZDiag preflight on head `3a504a74af23fe5391920e2062c5c7071427d04d` reached `[TransferZTest] SUITE PASS`. Subsequent in-game testing found two Sort issues not covered by that fixture: a one-item cargo was skipped entirely, and a small dedicated-server sort could exhaust the 16,384-candidate recursive parking budget before falling back. The branch now includes a runtime single-item top-left regression and a multiplayer planner guard that prefers the bounded native buffer over combinatorial recursive parking.
+
+Further in-game testing found Shift/Alt modifier drags from ground/VICINITY only moved one item and produced repeated `[TransferZ] RPC throttled` messages. Root cause: `RequestVicinityTransferTo()` sent one standard MOVE_ITEM RPC per selected item while the server correctly throttled standard RPCs to 100 ms. The client/server protocol now carries a bounded VICINITY_BATCH in one standard RPC, and the DayZDiag fixture includes a three-ground-item batch move regression.
 
 The connector environment still cannot itself claim a complete DayZ runtime pass. The repository contains `tools/run-transferz-self-test.ps1` and the DayZDiag fixture for the exact-build runtime gate on a Windows machine with DayZ/DayZDiag and CF installed.
 

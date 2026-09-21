@@ -268,6 +268,28 @@ void TZTest_RunUnpackSelfTest(PlayerBase player)
     TZTest_DeleteFixture(destination);
 }
 
+void TZTest_RunVicinityBatchSelfTest(PlayerBase player)
+{
+    vector basePos = player.GetPosition();
+    EntityAI destination = TZTest_CreateWorldItem("WoodenCrate", basePos + "-1.2 0 -0.8");
+    EntityAI appleA = TZTest_CreateWorldItem("Apple", basePos + "0.4 0 -0.4");
+    EntityAI appleB = TZTest_CreateWorldItem("Apple", basePos + "0.6 0 -0.4");
+    EntityAI appleC = TZTest_CreateWorldItem("Apple", basePos + "0.8 0 -0.4");
+
+    ref array<EntityAI> items = new array<EntityAI>();
+    items.Insert(appleA);
+    items.Insert(appleB);
+    items.Insert(appleC);
+
+    int moved = TransferZServerService.MoveItemsFromVicinity(player, items, destination);
+    TZTest_Check(moved == 3, "vicinity batch moved all ground items in one operation");
+    TZTest_Check(TZTest_IsDirectCargoChild(destination, appleA), "vicinity batch moved first item");
+    TZTest_Check(TZTest_IsDirectCargoChild(destination, appleB), "vicinity batch moved second item");
+    TZTest_Check(TZTest_IsDirectCargoChild(destination, appleC), "vicinity batch moved third item");
+
+    TZTest_DeleteFixture(destination);
+}
+
 void TZTest_RunClassTransferSelfTest(PlayerBase player)
 {
     vector basePos = player.GetPosition();
@@ -371,6 +393,8 @@ void TZTest_RunSelfTests(PlayerBase player)
     TZTest_RunTransferSelfTest(player);
     Print("[TransferZTest] RUN unpack");
     TZTest_RunUnpackSelfTest(player);
+    Print("[TransferZTest] RUN vicinity-batch");
+    TZTest_RunVicinityBatchSelfTest(player);
     Print("[TransferZTest] RUN class-transfer");
     TZTest_RunClassTransferSelfTest(player);
     Print("[TransferZTest] RUN stack");

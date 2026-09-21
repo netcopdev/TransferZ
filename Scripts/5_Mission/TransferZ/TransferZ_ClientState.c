@@ -582,6 +582,46 @@ class TransferZClientState
         rpc.Send(player, TransferZRPC.REQUEST, true, player.GetIdentity());
     }
 
+    protected bool SendVicinityBatchRequest(notnull array<EntityAI> items, EntityAI destination, int destinationCargoIndex)
+    {
+        PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
+        if (!player || !destination || !IsParticipantReachable(destination, destinationCargoIndex))
+            return false;
+        if (items.Count() < 1 || items.Count() > TransferZServerService.MAX_BATCH_ITEMS)
+            return false;
+        if (IsDuplicateRequest(TransferZOperation.VICINITY_BATCH, null, 0, destination, destinationCargoIndex, null, false))
+            return false;
+
+        int destinationLow;
+        int destinationHigh;
+        TransferZNet.GetEntityNetworkId(destination, destinationLow, destinationHigh);
+
+        ScriptRPC rpc = new ScriptRPC();
+        rpc.Write(TransferZOperation.VICINITY_BATCH);
+        rpc.Write(0);
+        rpc.Write(0);
+        rpc.Write(0);
+        rpc.Write(destinationLow);
+        rpc.Write(destinationHigh);
+        rpc.Write(destinationCargoIndex);
+        rpc.Write(0);
+        rpc.Write(0);
+        rpc.Write(false);
+        rpc.Write(items.Count());
+
+        foreach (EntityAI batchItem : items)
+        {
+            int itemLow;
+            int itemHigh;
+            TransferZNet.GetEntityNetworkId(batchItem, itemLow, itemHigh);
+            rpc.Write(itemLow);
+            rpc.Write(itemHigh);
+        }
+
+        rpc.Send(player, TransferZRPC.REQUEST, true, player.GetIdentity());
+        return true;
+    }
+
     protected void SendNestedUnpackRequest(EntityAI source, int sourceCargoIndex, EntityAI destination, int destinationCargoIndex, bool destinationIsVicinity)
     {
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
@@ -784,33 +824,31 @@ class TransferZClientState
         if (!IsParticipantReachable(destination, destinationCargoIndex))
             return false;
 
-        bool requested = false;
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
         if (!player)
             return false;
 
-        if (!GetGame().IsMultiplayer())
-        {
-            foreach (EntityAI offlineItem : items)
-            {
-                if (!IsVicinityTransferCandidate(offlineItem, destination))
-                    continue;
-                if (TransferZServerService.MoveItem(player, offlineItem, destination, destinationCargoIndex))
-                    requested = true;
-            }
-            if (requested)
-                player.UpdateInventoryMenu();
-            return requested;
-        }
-
+        ref array<EntityAI> candidates = new array<EntityAI>();
         foreach (EntityAI item : items)
         {
             if (!IsVicinityTransferCandidate(item, destination))
                 continue;
-            if (RequestMoveItem(item, destination, destinationCargoIndex))
-                requested = true;
+            candidates.Insert(item);
+            if (candidates.Count() > TransferZServerService.MAX_BATCH_ITEMS)
+                return false;
         }
-        return requested;
+        if (candidates.Count() == 0)
+            return false;
+
+        if (!GetGame().IsMultiplayer())
+        {
+            int moved = TransferZServerService.MoveItemsFromVicinity(player, candidates, destination, destinationCargoIndex);
+            if (moved > 0)
+                player.UpdateInventoryMenu();
+            return moved > 0;
+        }
+
+        return SendVicinityBatchRequest(candidates, destination, destinationCargoIndex);
     }
 
     bool RequestVicinityTransfer(notnull array<EntityAI> items)

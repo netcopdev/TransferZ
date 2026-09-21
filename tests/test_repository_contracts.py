@@ -297,6 +297,35 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("TransferZRequestGuard.AcceptMaintenance(player)", accept_maintenance)
         self.assertNotIn("s_LastMaintenanceRequestTime", maintenance_service)
 
+    def test_vicinity_modifier_batch_uses_one_throttled_rpc(self) -> None:
+        constants = read("Scripts/3_Game/TransferZ/TransferZ_Constants.c")
+        client = read("Scripts/5_Mission/TransferZ/TransferZ_ClientState.c")
+        server = read("Scripts/4_World/TransferZ/TransferZ_ServerService.c")
+        fixture = read("test/TransferZTest.ChernarusPlus/init.c")
+
+        self.assertIn("VICINITY_BATCH = 5", constants)
+
+        request = function_body(client, "bool RequestVicinityTransferTo(")
+        send_batch = function_body(client, "protected bool SendVicinityBatchRequest(")
+        self.assertIn("SendVicinityBatchRequest(candidates, destination, destinationCargoIndex)", request)
+        self.assertNotIn("RequestMoveItem(", request)
+        self.assertEqual(send_batch.count("rpc.Send("), 1)
+        self.assertIn("rpc.Write(items.Count())", send_batch)
+        self.assertIn("TransferZOperation.VICINITY_BATCH", send_batch)
+
+        handle = function_body(server, "static void HandleRequest(")
+        batch = function_body(server, "static int MoveItemsFromVicinity(")
+        self.assertLess(
+            handle.index("TransferZRequestGuard.AcceptStandard(player)"),
+            handle.index("operation == TransferZOperation.VICINITY_BATCH"),
+        )
+        self.assertIn("batchCount > MAX_BATCH_ITEMS", handle)
+        self.assertIn("batchLocation.GetType() != InventoryLocationType.GROUND", batch)
+        self.assertIn("MoveItem(player, batchItem, destination, destinationCargoIndex)", batch)
+
+        self.assertIn("TZTest_RunVicinityBatchSelfTest(player)", fixture)
+        self.assertIn("MoveItemsFromVicinity(player, items, destination)", fixture)
+
     def test_standard_rpc_throttles_before_entity_resolution(self) -> None:
         server = read("Scripts/4_World/TransferZ/TransferZ_ServerService.c")
         handle = function_body(server, "static void HandleRequest(")
