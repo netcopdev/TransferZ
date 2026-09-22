@@ -24,6 +24,7 @@ class CfgMods
         author = "TransferZ contributors";
         version = "0.1.0";
         type = "mod";
+        inputs = "TransferZ/inputs.xml";
         dependencies[] =
         {
             "Game",

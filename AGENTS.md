@@ -21,9 +21,12 @@ Before modifying this repository, read this file and `docs/CODEX_PROJECT_RULES.m
 - `Transfer` moves direct cargo children and preserves nested container structure.
 - Container `Unpack` moves non-container leaf items found inside cargo-bearing child containers while leaving the source's direct loose cargo and the nested containers themselves in place.
 - Vicinity `Unpack` operates on the shown cargo-bearing vicinity containers and ignores loose vicinity items.
-- `Shift + Click` routes one cargo/vicinity item to the active destination; `Alt + Click` routes one cargo/vicinity item to the resolved preferred destination.
-- `Shift + Left Drag` is a source-zone batch Transfer: from cargo it moves all direct cargo children; from vicinity, a loose representative batches shown eligible non-container items while a cargo-bearing ground-container representative moves only that container.
-- `Alt + Left Drag` is an exact-class batch move using the dragged item's exact `GetType()`: from cargo it selects matching direct cargo children; from vicinity it selects matching shown eligible items, including same-class cargo-bearing ground containers.
+- TransferZ gesture keys are logical DayZ user actions exposed under the stock `TransferZ` Controls section; runtime gesture code must not hardcode physical Shift/Alt/U keycodes.
+- The Destination/Transfer modifier (default Shift) + Click routes one cargo/vicinity item to the active destination; the Preferred/Exact-class modifier (default Alt) + Click routes one cargo/vicinity item to the resolved preferred destination.
+- The Destination/Transfer modifier + Left Drag is a source-zone batch Transfer: from cargo it moves all direct cargo children; from vicinity, a loose representative batches shown eligible non-container items while a cargo-bearing ground-container representative moves only that container.
+- The Preferred/Exact-class modifier + Left Drag is an exact-class batch move using the dragged item's exact `GetType()`: from cargo it selects matching direct cargo children; from vicinity it selects matching shown eligible items, including same-class cargo-bearing ground containers.
+- The Unpack-container modifier (default U) + Left Drag uses the dragged cargo-bearing container itself as the Unpack source and the release target as the one-off destination; the source container does not move.
+- Configurable Destination, Transfer, Unpack, Link, Preferred, Sort, and Stack commands act on the open cargo/vicinity field under the mouse; command actions are unbound by default.
 - Right-click interactions belong to vanilla DayZ. TransferZ must not assign RMB click, RMB drag, or RMB double-click gestures to routing operations.
 - Native stack splitting remains DayZ-owned. TransferZ only chooses the destination of the new split entity in this preference order: active `D*` (exact cargo, or ground placement for `VICINITY`), then the stack's own immediate cargo container when it has room, then configured `P*`, then vanilla. If any preferred route cannot accept the split, continue to the next rule (`docs/SPLIT_ROUTING.md`).
 - Container links are session-local unless a future specification explicitly makes them persistent.
@@ -45,7 +48,7 @@ Before modifying this repository, read this file and `docs/CODEX_PROJECT_RULES.m
 
 - Prefer small `modded` hooks over replacement inventory UI classes.
 - If TransferZ does not own a click/double-click route for an item, fall back to vanilla behavior.
-- Preserve vanilla unmodified left drag, right-click, and Ctrl interactions.
+- Preserve vanilla unmodified left drag and right-click. Ctrl remains unbound by TransferZ by default; an explicit user rebind may intentionally create a conflict.
 - Avoid per-frame inventory scans and unnecessary RPC traffic.
 - Use dynamic inventory/cargo capability checks rather than allowlists of container classnames.
 - Do not introduce any additional mandatory third-party dependency without explicit approval.

@@ -502,6 +502,62 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("SendVicinityUnpackBatchRequest(sources, null, 0, true)", client)
         self.assertIn("TransferZNestedUnpackService.Unpack(player, source, destination)", fixture)
 
+    def test_configurable_inputs_are_packaged_and_runtime_code_is_keycode_free(self) -> None:
+        config = read("config.cpp")
+        inputs = read("inputs.xml")
+        stringtable = read("stringtable.csv")
+        build = read("tools/build-pbo.ps1")
+        input_source = read("Scripts/3_Game/TransferZ/TransferZ_Input.c")
+        mission_input = read("Scripts/5_Mission/TransferZ/TransferZ_InputCommands.c")
+        icon = read("Scripts/5_Mission/TransferZ/TransferZ_Icon.c")
+        vicinity = read("Scripts/5_Mission/TransferZ/TransferZ_VicinitySlotsContainer.c")
+        cargo = read("Scripts/5_Mission/TransferZ/TransferZ_CargoContainer.c")
+
+        self.assertIn('inputs = "TransferZ/inputs.xml";', config)
+        self.assertIn('<sorting name="transferz" loc="STR_TRANSFERZ_INPUT_GROUP">', inputs)
+        for action in (
+            "UATransferZTransferModifier",
+            "UATransferZClassModifier",
+            "UATransferZUnpackModifier",
+            "UATransferZDestination",
+            "UATransferZTransfer",
+            "UATransferZUnpack",
+            "UATransferZLink",
+            "UATransferZPreferred",
+            "UATransferZSort",
+            "UATransferZStack",
+        ):
+            self.assertIn(f'name="{action}"', inputs)
+            self.assertIn(action, input_source)
+
+        self.assertIn('<btn name="kLShift" />', inputs)
+        self.assertIn('<btn name="kRShift" />', inputs)
+        self.assertIn('<btn name="kLMenu" />', inputs)
+        self.assertIn('<btn name="kRMenu" />', inputs)
+        self.assertIn('<btn name="kU" />', inputs)
+        self.assertIn("STR_TRANSFERZ_INPUT_GROUP", stringtable)
+        self.assertIn("'inputs.xml'", build)
+        self.assertIn("'stringtable.csv'", build)
+        self.assertIn("'.xml'", build)
+        self.assertIn("'.csv'", build)
+
+        self.assertNotIn("KC_LSHIFT", icon)
+        self.assertNotIn("KC_RSHIFT", icon)
+        self.assertNotIn("KC_LMENU", icon)
+        self.assertNotIn("KC_RMENU", icon)
+        self.assertNotIn("KC_LSHIFT", vicinity)
+        self.assertNotIn("KC_RSHIFT", vicinity)
+        self.assertNotIn("KC_LMENU", vicinity)
+        self.assertNotIn("KC_RMENU", vicinity)
+        self.assertIn("TransferZInput.ModifierMode()", icon)
+        self.assertIn("TransferZInput.ModifierMode()", vicinity)
+        self.assertIn("TransferZOperation.UNPACK", icon)
+        self.assertIn("TransferZOperation.UNPACK, m_Obj, 0", vicinity)
+        self.assertIn("TransferZInput.PressedCommand()", mission_input)
+        self.assertIn("ExecuteInputCommandAtMousePosition(command)", mission_input)
+        self.assertIn("TransferZInputCommand.SORT", cargo)
+        self.assertIn("TransferZInputCommand.UNPACK", vicinity)
+
     def test_diag_fixture_has_machine_readable_suite_marker(self) -> None:
         fixture = read("test/TransferZTest.ChernarusPlus/init.c")
         self.assertIn("[TransferZTest] SUITE PASS", fixture)
