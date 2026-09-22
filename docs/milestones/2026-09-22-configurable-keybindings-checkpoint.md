@@ -20,11 +20,11 @@ Default gesture actions:
 
 - Destination / Transfer modifier: Left Shift or Right Shift.
 - Preferred / Exact-class modifier: Left Alt or Right Alt.
-- Unpack container drag modifier: U.
+- Unload container drag modifier: U.
 
 The physical keys are no longer hardcoded by the TransferZ modifier click/drag code. More than one TransferZ modifier held at the same time fails safe and does not claim the gesture.
 
-The Unpack modifier uses the dragged cargo-bearing container itself as the Unpack source. The container does not move; the release target selects the one-off Unpack destination. Dropping onto VICINITY uses the existing ground unpack path. Holding the Unpack modifier on a non-container does not claim the drag, and an Unpack-modifier click without an actual drag has no TransferZ click action.
+The Unload modifier uses the dragged cargo-bearing container itself as a direct Transfer source. The container does not move; its direct cargo children move to the release target. Dropping onto VICINITY transfers those direct children to the ground. Holding the Unload modifier on a non-container does not claim the drag, and an Unload-modifier click without an actual drag has no TransferZ click action. This is intentionally different from the existing recursive/nested Unpack command.
 
 The following discrete stock DayZ user actions are exposed but deliberately have no default key:
 
@@ -52,9 +52,15 @@ Rebuild the PBO before continuing the matrix; the next check is simply that the 
 
 ## Second in-game finding
 
-The Unpack modifier initially did not work for worn/attached cargo-bearing containers. Root cause: DayZ represents those items with `SlotsIcon`, the same class used for VICINITY, but TransferZ's new `SlotsIcon.OnIconDrag()` required a `VicinitySlotsContainer` before it considered any modifier. That made U-drag unreachable for backpacks, vests, pouches, and other cargo-bearing attachment-slot items.
+The container modifier initially did not work for worn/attached cargo-bearing containers. Root cause: DayZ represents those items with `SlotsIcon`, the same class used for VICINITY, but TransferZ's new `SlotsIcon.OnIconDrag()` required a `VicinitySlotsContainer` before it considered any modifier. That made U-drag unreachable for backpacks, vests, pouches, and other cargo-bearing attachment-slot items.
 
-The fix evaluates container-Unpack first and requires only that the dragged `m_Obj` has cargo. Transfer/Exact-class batching still requires an actual VICINITY parent.
+The fix evaluates container-Unload first and requires only that the dragged `m_Obj` has cargo. Transfer/Exact-class batching still requires an actual VICINITY parent.
+
+## Third in-game clarification
+
+The intended U-drag behavior was clarified with the concrete case: a Protective Case inside a backpack contains soda cans directly, and `U + drag Protective Case -> external container` must move those cans while leaving the case in the backpack. The earlier implementation incorrectly mapped the gesture to TransferZ's existing recursive/nested Unpack operation.
+
+The gesture is now named **Unload container drag modifier** and uses direct Transfer semantics from the dragged container itself. The existing header/discrete **Unpack** operation is unchanged.
 
 ## Required in-game validation
 
@@ -65,9 +71,9 @@ Do not merge before these checks are completed:
 3. Rebind Destination / Transfer modifier away from Shift. Confirm old Shift stops invoking TransferZ and the new binding works for both single-item click and source-zone drag.
 4. Confirm default Alt click and exact-class drag behavior still matches the previous release.
 5. Rebind Preferred / Exact-class modifier away from Alt. Confirm old Alt stops invoking TransferZ and the new binding works for both click and exact-class drag.
-6. U + drag cargo-bearing containers from each relevant representation (at least worn/attached, cargo-nested, and VICINITY) onto another open cargo grid. Confirm the source container stays in place and only eligible nested leaf cargo is unpacked to the target.
-7. U + drag a cargo-bearing container onto VICINITY. Confirm the source container stays in place and eligible nested leaf cargo goes to the ground.
-8. U + click without dragging a container. Confirm no TransferZ Unpack operation is triggered.
+6. Put two soda cans directly inside a Protective Case that is itself inside a backpack. U + drag the Protective Case onto an external container. Confirm the case stays in the backpack and the two soda cans move to the external container. Repeat from worn/attached and VICINITY container representations.
+7. U + drag a cargo-bearing container onto VICINITY. Confirm the source container stays in place and its direct cargo children go to the ground.
+8. U + click without dragging a container. Confirm no TransferZ Unload operation is triggered.
 9. U + drag a non-container item. Confirm TransferZ does not claim the drag and normal DayZ behavior remains available.
 10. Bind and exercise Destination, Transfer, Unpack, Link, Preferred, Sort, and Stack. Confirm each acts on the intended open cargo grid under the mouse.
 11. With the mouse over VICINITY, confirm bound Destination, Transfer, and Unpack commands operate on VICINITY; Link/Preferred/Sort/Stack should not fabricate a vicinity equivalent.

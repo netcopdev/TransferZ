@@ -147,7 +147,7 @@ Default gesture bindings:
 
 - **Destination / Transfer modifier** — Left Shift or Right Shift.
 - **Preferred / Exact-class modifier** — Left Alt or Right Alt.
-- **Unpack container drag modifier** — U.
+- **Unload container drag modifier** — U.
 
 The modifier actions can be rebound like normal DayZ controls. Destination, Transfer, Unpack, Link, Preferred, Sort, and Stack are also exposed as configurable keyboard commands, but have no default binding. These discrete commands are evaluated only while the inventory menu is open. A command acts on the open cargo grid under the mouse; Destination, Transfer, and Unpack also work on the visible `VICINITY` field.
 
@@ -204,9 +204,11 @@ From vicinity:
 
 Exact class means exact class. Similar ammunition, magazines, food variants, or other related items are not grouped unless they share the same actual `GetType()`.
 
-### Unpack container modifier + Left Drag
+### Unload container modifier + Left Drag
 
-Hold **Unpack container drag modifier** (default `U`) and left-drag a cargo-bearing container, whether it is in cargo, shown in VICINITY, held in hands, or worn/attached in an inventory slot. The dragged container becomes the Unpack source; dropping on another open cargo grid unpacks eligible nested leaf cargo into that target without moving the container itself. Dropping on `VICINITY` unpacks those leaves to the ground. On a non-container item, this modifier does not claim the drag.
+Hold **Unload container drag modifier** (default `U`) and left-drag a cargo-bearing container, whether it is in cargo, shown in VICINITY, held in hands, or worn/attached in an inventory slot. The dragged container itself stays where it is; its **direct cargo children** are transferred to the drop target. Dropping on `VICINITY` moves those direct children to the ground. Cargo-bearing direct children move intact with their own contents. On a non-container item, this modifier does not claim the drag.
+
+Example: if a Protective Case in your backpack directly contains two soda cans, `U + drag` the Protective Case onto a barrel moves the two cans to the barrel and leaves the Protective Case in the backpack. This gesture is deliberately different from the existing **Unpack** command, which traverses nested child containers for leaf items.
 
 ### Ctrl and conflicting bindings
 

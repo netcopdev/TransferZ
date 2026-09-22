@@ -519,7 +519,7 @@ class RepositoryContracts(unittest.TestCase):
         for action in (
             "UATransferZTransferModifier",
             "UATransferZClassModifier",
-            "UATransferZUnpackModifier",
+            "UATransferZUnloadModifier",
             "UATransferZDestination",
             "UATransferZTransfer",
             "UATransferZUnpack",
@@ -562,11 +562,15 @@ class RepositoryContracts(unittest.TestCase):
         self.assertNotIn("KC_RMENU", vicinity)
         self.assertIn("TransferZInput.ModifierMode()", icon)
         self.assertIn("TransferZInput.ModifierMode()", vicinity)
-        self.assertIn("TransferZOperation.UNPACK", icon)
-        self.assertIn("TransferZOperation.UNPACK, m_Obj, 0", vicinity)
+        self.assertIn("TransferZInputModifier.UNLOAD", icon)
+        self.assertIn("TransferZOperation.TRANSFER, m_TransferZModifierDragSource", icon)
+        self.assertNotIn("TransferZOperation.UNPACK, m_TransferZModifierDragSource", icon)
+        self.assertIn("TransferZInputModifier.UNLOAD", vicinity)
+        self.assertIn("TransferZOperation.TRANSFER, m_Obj, 0", vicinity)
+        self.assertNotIn("TransferZOperation.UNPACK, m_Obj, 0", vicinity)
         slots_drag = function_body(vicinity, "override void OnIconDrag(")
         self.assertLess(
-            slots_drag.index("mode == TransferZInputModifier.UNPACK"),
+            slots_drag.index("mode == TransferZInputModifier.UNLOAD"),
             slots_drag.index("VicinitySlotsContainer vicinity = TransferZFindVicinitySource()"),
         )
         self.assertNotIn("if (!vicinity || !m_Obj)", slots_drag)

@@ -43,15 +43,15 @@ Hover a control for a short explanation. Transfer and Unpack also show a subdued
 | **Preferred / Exact-class modifier** (default `Alt`) + Left Drag | Move all eligible items of the dragged item's exact `GetType()` from the same source zone. |
 | `Double Left Click` | Use link/preferred routing when TransferZ owns the route; otherwise preserve vanilla DayZ behavior. |
 
-Unmodified left drag remains vanilla DayZ drag behavior. TransferZ key actions are configurable in DayZ **Settings > Controls > TransferZ**. By default, the Transfer modifier is Shift, the exact-class modifier is Alt, and the container-Unpack drag modifier is U. Ctrl remains unassigned by default; assigning a conflicting key is an explicit user choice.
+Unmodified left drag remains vanilla DayZ drag behavior. TransferZ key actions are configurable in DayZ **Settings > Controls > TransferZ**. By default, the Transfer modifier is Shift, the exact-class modifier is Alt, and the container-Unload drag modifier is U. Ctrl remains unassigned by default; assigning a conflicting key is an explicit user choice.
 
 **Right click is not assigned to TransferZ operations.** Normal DayZ right-click behavior, including stack splitting, remains available.
 
 ### Configurable controls
 
-TransferZ registers its actions in the stock DayZ key configuration UI under **TransferZ**. The three gesture modifiers have defaults; Destination, Transfer, Unpack, Link, Preferred, Sort, and Stack keyboard commands are unbound by default and may be assigned by the player.
+TransferZ registers its actions in the stock DayZ key configuration UI under **TransferZ**. The three gesture modifiers have defaults; Destination, Transfer, Unpack, Link, Preferred, Sort, and Stack keyboard commands are unbound by default and may be assigned by the player. The configurable **Unload** drag gesture is distinct from the existing **Unpack** command.
 
-Holding the **Unpack container drag modifier** (default `U`) while dragging a cargo-bearing container starts an Unpack operation from that dragged container itself. Drop it on another open cargo grid or on `VICINITY`; the container stays where it is while its eligible nested leaf cargo is unpacked to the drop target.
+Holding the **Unload container drag modifier** (default `U`) while dragging a cargo-bearing container transfers that container's direct cargo children to the drop target while leaving the dragged container itself in place. Drop it on another open cargo grid or on `VICINITY`. Nested child containers, if any, move intact just like a normal Transfer.
 
 ### Exact-class transfer with the configurable class modifier
 
