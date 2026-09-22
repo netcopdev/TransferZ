@@ -636,8 +636,8 @@ class TransferZHeaderControls : Managed
         if (w == m_UnpackButton)
         {
             if (destinationName != "")
-                return "Unpack nested contents -> " + destinationName;
-            return "Unpack nested contents: select destination";
+                return "Unpack contents -> " + destinationName;
+            return "Unpack contents: select destination";
         }
         if (w == m_LinkButton)
         {

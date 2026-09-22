@@ -146,6 +146,18 @@ class RepositoryContracts(unittest.TestCase):
         self.assertNotIn("JsonFileLoader", resolve)
         self.assertIn("EnsureLoaded()", resolve)
 
+    def test_unpack_preview_matches_postorder_flatten_semantics(self) -> None:
+        preview = read("Scripts/5_Mission/TransferZ/TransferZ_OperationPreview.c")
+        recurse = function_body(preview, "protected static void CollectUnpackItems(")
+        operation = function_body(preview, "protected static void CollectUnpackItemsForOperation(")
+        cargo_ui = read("Scripts/5_Mission/TransferZ/TransferZ_CargoContainer.c")
+
+        self.assertLess(recurse.index("CollectUnpackItems(item"), recurse.index("items.Insert(item)"))
+        self.assertIn("items.Insert(child)", operation)
+        self.assertIn("TransferZCargo.LocationMatches(childLocation, destination, destinationCargoIndex)", operation)
+        self.assertIn("Unpack contents -> ", cargo_ui)
+        self.assertNotIn("Unpack nested contents", cargo_ui)
+
     def test_batch_preview_does_not_claim_joint_fit_from_area_alone(self) -> None:
         preview = read("Scripts/5_Mission/TransferZ/TransferZ_OperationPreview.c")
         evaluate = function_body(preview, "protected static int EvaluateCandidates(")
@@ -574,8 +586,10 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("TransferZInput.ModifierMode()", icon)
         self.assertIn("TransferZInput.ModifierMode()", vicinity)
         self.assertIn("TransferZInputModifier.UNPACK", icon)
-        self.assertIn("TransferZOperation.UNPACK, m_TransferZModifierDragSource", icon)
-        self.assertNotIn("TransferZOperation.TRANSFER, m_TransferZModifierDragSource", icon)
+        self.assertIn(
+            "else if (m_TransferZModifierDragMode == TransferZInputModifier.UNPACK)\n            TransferZOperationDrag.BeginContainer(TransferZOperation.UNPACK, m_TransferZModifierDragSource",
+            icon,
+        )
         self.assertIn("TransferZInputModifier.UNPACK", vicinity)
         self.assertIn("TransferZOperation.UNPACK, m_Obj, 0", vicinity)
         slots_drag = function_body(vicinity, "override void OnIconDrag(")
@@ -600,7 +614,7 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("[TransferZTest] RUN unpack", fixture)
         self.assertIn("CreateEntityInCargo(typeName)", fixture)
         self.assertIn('TZTest_CreateCargoItem(nested, "BandageDressing")', fixture)
-        self.assertIn('TZTest_CreateCargoItem(nested, "Battery9V")', fixture)
+        self.assertIn('TZTest_CreateCargoItem(deeper, "Battery9V")', fixture)
         self.assertIn("TZTest_RunSelfTests", fixture)
 
 

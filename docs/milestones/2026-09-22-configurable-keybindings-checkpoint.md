@@ -10,7 +10,7 @@
 - GitHub Self-test for first implementation: run `35686899114` — passed.
 - GitHub Self-test for final implementation/refinement: run `35687069921` — passed.
 - Merge status: **not merged**. Do not merge until the feature is confirmed in game.
-- Real DayZ compile/in-game validation: **started**. The first launch confirmed that `inputs.xml` and all bindings load, but DayZ displayed raw `STR_TRANSFERZ_*` localization keys. The stringtable was then changed from the minimal 3-column CSV to the conservative full DayZ language schema with trailing commas. This localization fix still needs an in-game retest.
+- Real DayZ compile/in-game validation: **started**. The TransferZ Controls section and localized human-readable labels are confirmed in game. Unpack behavior remains under active in-game validation.
 
 ## Implemented behavior
 
@@ -48,7 +48,7 @@ Discrete commands are evaluated only while the inventory menu is open. Cargo com
 
 The initial Controls screen showed the TransferZ group and bindings, proving that `config.cpp -> inputs.xml` registration and default key bindings were working. All labels appeared as raw `STR_TRANSFERZ_*` keys, which isolated the failure to stringtable parsing/loading. The original table used a minimal `Language,original,english` schema. It has been replaced with DayZ's full standard language header and a trailing comma on every row, matching conservative production-mod stringtable practice.
 
-Rebuild the PBO before continuing the matrix; the next check is simply that the same Controls screen now renders human-readable labels.
+The localization fix was confirmed in game: the Controls screen now renders the human-readable TransferZ labels.
 
 ## Second in-game finding
 
@@ -70,6 +70,10 @@ For any selected/dragged source container:
 - successful completion leaves the source cargo empty and no cargo recursively nested under it.
 
 The header `U`, configurable Unpack command, and `U + drag container` all invoke this same server-side Unpack operation.
+
+## Static-gate follow-up
+
+The first unified-flatten commit failed its repository contract run because two assertions still encoded the previous implementation: one incorrectly banned the normal Transfer branch globally, and one expected the old flat Unpack fixture. Those assertions were corrected, and the Unpack operation preview was also upgraded from leaf-only collection to the same post-order flatten semantics as the server.
 
 ## Required in-game validation
 

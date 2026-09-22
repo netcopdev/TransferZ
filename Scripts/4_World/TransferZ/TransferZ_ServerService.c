@@ -148,18 +148,18 @@ class TransferZServerService
         return true;
     }
 
-    static bool AppendUnpackItem(EntityAI item, notnull array<EntityAI> leaves, TransferZUnpackScanBudget budget)
+    static bool AppendUnpackItem(EntityAI item, notnull array<EntityAI> items, TransferZUnpackScanBudget budget)
     {
         if (!item || !budget || budget.exceeded)
             return false;
 
-        if (leaves.Count() >= MAX_BATCH_ITEMS)
+        if (items.Count() >= MAX_BATCH_ITEMS)
         {
             budget.exceeded = true;
             return false;
         }
 
-        leaves.Insert(item);
+        items.Insert(item);
         return true;
     }
 
@@ -291,7 +291,7 @@ class TransferZServerService
         }
     }
 
-    static bool CollectUnpackItems(EntityAI container, EntityAI destination, notnull array<EntityAI> leaves, TransferZUnpackScanBudget budget, int depth)
+    static bool CollectUnpackItems(EntityAI container, EntityAI destination, notnull array<EntityAI> items, TransferZUnpackScanBudget budget, int depth)
     {
         if (!container || !budget || budget.exceeded)
             return false;
@@ -320,14 +320,14 @@ class TransferZServerService
 
                 if (TransferZCargo.Exists(item, 0))
                 {
-                    if (!CollectUnpackItems(item, destination, leaves, budget, depth + 1))
+                    if (!CollectUnpackItems(item, destination, items, budget, depth + 1))
                         return false;
                 }
 
                 // Post-order flatten: contents first, then the container/item itself.
                 // This allows nested containers to be moved only after their cargo
                 // has been extracted.
-                if (!AppendUnpackItem(item, leaves, budget))
+                if (!AppendUnpackItem(item, items, budget))
                     return false;
             }
 
