@@ -206,7 +206,7 @@ Exact class means exact class. Similar ammunition, magazines, food variants, or 
 
 ### Unpack container modifier + Left Drag
 
-Hold **Unpack container drag modifier** (default `U`) and left-drag a cargo-bearing container. The dragged container becomes the Unpack source; dropping on another open cargo grid unpacks eligible nested leaf cargo into that target without moving the container itself. Dropping on `VICINITY` unpacks those leaves to the ground. On a non-container item, this modifier does not claim the drag.
+Hold **Unpack container drag modifier** (default `U`) and left-drag a cargo-bearing container, whether it is in cargo, shown in VICINITY, held in hands, or worn/attached in an inventory slot. The dragged container becomes the Unpack source; dropping on another open cargo grid unpacks eligible nested leaf cargo into that target without moving the container itself. Dropping on `VICINITY` unpacks those leaves to the ground. On a non-container item, this modifier does not claim the drag.
 
 ### Ctrl and conflicting bindings
 

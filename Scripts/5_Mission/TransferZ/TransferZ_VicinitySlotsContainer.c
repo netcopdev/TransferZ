@@ -801,15 +801,16 @@ modded class SlotsIcon
         super.OnIconDrag(w);
         m_TransferZVicinityModifierDragStarted = false;
 
-        VicinitySlotsContainer vicinity = TransferZFindVicinitySource();
-        if (!vicinity || !m_Obj)
+        if (!m_Obj)
             return;
 
         int mode = TransferZReadVicinityModifierMode();
         if (mode == TransferZInputModifier.NONE)
             return;
 
-        ref array<EntityAI> items = new array<EntityAI>();
+        // SlotsIcon is used both for VICINITY and for attachment/worn slots.
+        // Container-Unpack is about the dragged container itself, so it must
+        // not depend on the icon living under VicinitySlotsContainer.
         if (mode == TransferZInputModifier.UNPACK)
         {
             if (!TransferZCargo.Exists(m_Obj, 0))
@@ -818,6 +819,11 @@ modded class SlotsIcon
         }
         else
         {
+            VicinitySlotsContainer vicinity = TransferZFindVicinitySource();
+            if (!vicinity)
+                return;
+
+            ref array<EntityAI> items = new array<EntityAI>();
             if (mode == TransferZInputModifier.TRANSFER)
             {
                 if (!TransferZBuildTransferItems(vicinity, m_Obj, items))

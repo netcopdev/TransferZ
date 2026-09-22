@@ -564,6 +564,14 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("TransferZInput.ModifierMode()", vicinity)
         self.assertIn("TransferZOperation.UNPACK", icon)
         self.assertIn("TransferZOperation.UNPACK, m_Obj, 0", vicinity)
+        slots_drag = function_body(vicinity, "override void OnIconDrag(")
+        self.assertLess(
+            slots_drag.index("mode == TransferZInputModifier.UNPACK"),
+            slots_drag.index("VicinitySlotsContainer vicinity = TransferZFindVicinitySource()"),
+        )
+        self.assertNotIn("if (!vicinity || !m_Obj)", slots_drag)
+        self.assertIn("if (!m_Obj)", slots_drag)
+        self.assertIn("if (!vicinity)", slots_drag)
         self.assertIn("InventoryMenu.Cast(g_Game.GetUIManager().FindMenu(MENU_INVENTORY))", mission_input)
         self.assertIn("TransferZInput.PressedCommand()", mission_input)
         self.assertLess(mission_input.index("FindMenu(MENU_INVENTORY)"), mission_input.index("TransferZInput.PressedCommand()"))

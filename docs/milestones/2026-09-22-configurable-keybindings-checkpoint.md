@@ -50,6 +50,12 @@ The initial Controls screen showed the TransferZ group and bindings, proving tha
 
 Rebuild the PBO before continuing the matrix; the next check is simply that the same Controls screen now renders human-readable labels.
 
+## Second in-game finding
+
+The Unpack modifier initially did not work for worn/attached cargo-bearing containers. Root cause: DayZ represents those items with `SlotsIcon`, the same class used for VICINITY, but TransferZ's new `SlotsIcon.OnIconDrag()` required a `VicinitySlotsContainer` before it considered any modifier. That made U-drag unreachable for backpacks, vests, pouches, and other cargo-bearing attachment-slot items.
+
+The fix evaluates container-Unpack first and requires only that the dragged `m_Obj` has cargo. Transfer/Exact-class batching still requires an actual VICINITY parent.
+
 ## Required in-game validation
 
 Do not merge before these checks are completed:
@@ -59,7 +65,7 @@ Do not merge before these checks are completed:
 3. Rebind Destination / Transfer modifier away from Shift. Confirm old Shift stops invoking TransferZ and the new binding works for both single-item click and source-zone drag.
 4. Confirm default Alt click and exact-class drag behavior still matches the previous release.
 5. Rebind Preferred / Exact-class modifier away from Alt. Confirm old Alt stops invoking TransferZ and the new binding works for both click and exact-class drag.
-6. U + drag a cargo-bearing container onto another open cargo grid. Confirm the source container stays in place and only eligible nested leaf cargo is unpacked to the target.
+6. U + drag cargo-bearing containers from each relevant representation (at least worn/attached, cargo-nested, and VICINITY) onto another open cargo grid. Confirm the source container stays in place and only eligible nested leaf cargo is unpacked to the target.
 7. U + drag a cargo-bearing container onto VICINITY. Confirm the source container stays in place and eligible nested leaf cargo goes to the ground.
 8. U + click without dragging a container. Confirm no TransferZ Unpack operation is triggered.
 9. U + drag a non-container item. Confirm TransferZ does not claim the drag and normal DayZ behavior remains available.

@@ -80,7 +80,7 @@ TransferZ owns three configurable left-button modifier drags through named DayZ 
 
 - **Destination / Transfer modifier** (default Shift) + Left Drag: move the source zone as a Transfer batch.
 - **Preferred / Exact-class modifier** (default Alt) + Left Drag: move the exact-class batch selected by the dragged representative item.
-- **Unpack container drag modifier** (default U) + Left Drag: use the dragged cargo-bearing container itself as an Unpack source and resolve the release target as the one-off destination without moving that container.
+- **Unpack container drag modifier** (default U) + Left Drag: use the dragged cargo-bearing container itself as an Unpack source and resolve the release target as the one-off destination without moving that container. This applies to cargo-grid icons, VICINITY icons, hands containers, and worn/attached cargo-bearing slot icons.
 
 For a direct cargo child, the Transfer/Class source zone is its immediate cargo owner. The Transfer modifier selects all direct cargo children of that source. The Exact-class modifier selects only direct cargo children whose exact `GetType()` matches the dragged item. The Unpack modifier requires the dragged item itself to have cargo and starts normal container Unpack from cargo grid 0.
 
@@ -93,6 +93,8 @@ While a configurable Transfer/Class/Unpack modifier drag is active, TransferZ ow
 After scroll/capture churn, `GetWidgetUnderCursor()` is not sufficient proof of the destination. A hovered TransferZ drop overlay MUST also contain the current mouse point inside its owning container's live clipped drop-host rectangle; otherwise treat it as stale capture and continue with live geometry resolution.
 
 Every modifier-item completion path (global mouse-up, cargo registered drop, vicinity registered drop, and legacy widget completion helper) MUST delegate to `CompleteModifierDragAtMousePosition()`. No modifier path may commit directly from the callback receiver or cached entity.
+
+`SlotsIcon` is shared by VICINITY and worn/attachment slots. Container-Unpack modifier detection MUST be evaluated before requiring a `VicinitySlotsContainer`; only Transfer/Exact-class vicinity batching may require that parent.
 
 Critical modifier-drag event handling MUST live in the primary TransferZ implementation files. Do not split mouse-up, native-drop suppression, latching, scroll clipping, or destination resolution across filename-ordered `Z`/`ZZ`/`ZZZ` patch layers; Enforce Script modded-class ordering is not a valid correctness dependency.
 
