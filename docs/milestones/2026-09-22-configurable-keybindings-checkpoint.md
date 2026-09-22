@@ -10,7 +10,7 @@
 - GitHub Self-test for first implementation: run `35686899114` — passed.
 - GitHub Self-test for final implementation/refinement: run `35687069921` — passed.
 - Merge status: **not merged**. Do not merge until the feature is confirmed in game.
-- Real DayZ compile/in-game validation: **not yet performed**.
+- Real DayZ compile/in-game validation: **started**. The first launch confirmed that `inputs.xml` and all bindings load, but DayZ displayed raw `STR_TRANSFERZ_*` localization keys. The stringtable was then changed from the minimal 3-column CSV to the conservative full DayZ language schema with trailing commas. This localization fix still needs an in-game retest.
 
 ## Implemented behavior
 
@@ -43,6 +43,12 @@ Discrete commands are evaluated only while the inventory menu is open. Cargo com
 `config.cpp` registers `TransferZ/inputs.xml`.
 
 `tools/build-pbo.ps1` stages `inputs.xml` and `stringtable.csv` as runtime assets. The release PBO audit requires both assets to be present.
+
+## First in-game finding
+
+The initial Controls screen showed the TransferZ group and bindings, proving that `config.cpp -> inputs.xml` registration and default key bindings were working. All labels appeared as raw `STR_TRANSFERZ_*` keys, which isolated the failure to stringtable parsing/loading. The original table used a minimal `Language,original,english` schema. It has been replaced with DayZ's full standard language header and a trailing comma on every row, matching conservative production-mod stringtable practice.
+
+Rebuild the PBO before continuing the matrix; the next check is simply that the same Controls screen now renders human-readable labels.
 
 ## Required in-game validation
 

@@ -537,6 +537,14 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn('<btn name="kRMenu" />', inputs)
         self.assertIn('<btn name="kU" />', inputs)
         self.assertIn("STR_TRANSFERZ_INPUT_GROUP", stringtable)
+        self.assertTrue(
+            stringtable.startswith(
+                '"Language","original","english","czech","german","russian","polish","hungarian","italian","spanish","french","chinese","japanese","portuguese","chinesesimp",'
+            )
+        )
+        for line in stringtable.splitlines():
+            self.assertTrue(line.endswith(","), f"DayZ stringtable row must end with a trailing comma: {line}")
+            self.assertEqual(16, line.count(",") + 1, f"unexpected DayZ stringtable field count: {line}")
         self.assertIn("'inputs.xml'", build)
         self.assertIn("'stringtable.csv'", build)
         self.assertIn("'.xml'", build)

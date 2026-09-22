@@ -1,12 +1,12 @@
-"Language","original","english"
-"STR_TRANSFERZ_INPUT_GROUP","TransferZ","TransferZ"
-"STR_TRANSFERZ_INPUT_TRANSFER_MODIFIER","Destination / Transfer modifier","Destination / Transfer modifier"
-"STR_TRANSFERZ_INPUT_CLASS_MODIFIER","Preferred / Exact-class modifier","Preferred / Exact-class modifier"
-"STR_TRANSFERZ_INPUT_UNPACK_MODIFIER","Unpack container drag modifier","Unpack container drag modifier"
-"STR_TRANSFERZ_INPUT_DESTINATION","Destination","Destination"
-"STR_TRANSFERZ_INPUT_TRANSFER","Transfer","Transfer"
-"STR_TRANSFERZ_INPUT_UNPACK","Unpack","Unpack"
-"STR_TRANSFERZ_INPUT_LINK","Link","Link"
-"STR_TRANSFERZ_INPUT_PREFERRED","Preferred","Preferred"
-"STR_TRANSFERZ_INPUT_SORT","Sort","Sort"
-"STR_TRANSFERZ_INPUT_STACK","Stack","Stack"
+"Language","original","english","czech","german","russian","polish","hungarian","italian","spanish","french","chinese","japanese","portuguese","chinesesimp",
+"STR_TRANSFERZ_INPUT_GROUP","TransferZ","TransferZ","","","","","","","","","","","","",
+"STR_TRANSFERZ_INPUT_TRANSFER_MODIFIER","Destination / Transfer modifier","Destination / Transfer modifier","","","","","","","","","","","","",
+"STR_TRANSFERZ_INPUT_CLASS_MODIFIER","Preferred / Exact-class modifier","Preferred / Exact-class modifier","","","","","","","","","","","","",
+"STR_TRANSFERZ_INPUT_UNPACK_MODIFIER","Unpack container drag modifier","Unpack container drag modifier","","","","","","","","","","","","",
+"STR_TRANSFERZ_INPUT_DESTINATION","Destination","Destination","","","","","","","","","","","","",
+"STR_TRANSFERZ_INPUT_TRANSFER","Transfer","Transfer","","","","","","","","","","","","",
+"STR_TRANSFERZ_INPUT_UNPACK","Unpack","Unpack","","","","","","","","","","","","",
+"STR_TRANSFERZ_INPUT_LINK","Link","Link","","","","","","","","","","","","",
+"STR_TRANSFERZ_INPUT_PREFERRED","Preferred","Preferred","","","","","","","","","","","","",
+"STR_TRANSFERZ_INPUT_SORT","Sort","Sort","","","","","","","","","","","","",
+"STR_TRANSFERZ_INPUT_STACK","Stack","Stack","","","","","","","","","","","","",
