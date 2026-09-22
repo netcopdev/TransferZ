@@ -158,6 +158,29 @@ class TransferZVicinityHeaderControls : Managed
         return !s_Instance.m_Owner.IsHidden();
     }
 
+    static bool ExecuteInputCommandAtMousePosition(int mouseX, int mouseY, int command)
+    {
+        if (!s_Instance || !s_Instance.m_Source || !IsVicinityOpen())
+            return false;
+
+        Widget root = s_Instance.m_Source.GetRootWidget();
+        if (!root || !root.IsVisibleHierarchy())
+            return false;
+
+        float x;
+        float y;
+        float w;
+        float h;
+        root.GetScreenPos(x, y);
+        root.GetScreenSize(w, h);
+        if (w <= 0.0 || h <= 0.0)
+            return false;
+        if (mouseX < x || mouseX >= x + w || mouseY < y || mouseY >= y + h)
+            return false;
+
+        return s_Instance.ExecuteInputCommand(command);
+    }
+
     static bool CompleteModifierDragAtMousePosition(int mouseX, int mouseY)
     {
         if (!TransferZOperationDrag.IsActive() || !s_Instance || !s_Instance.m_Source || !IsVicinityOpen())
@@ -615,6 +638,36 @@ class TransferZVicinityHeaderControls : Managed
             SetDropTargetVisible(false);
     }
 
+    protected bool ExecuteInputCommand(int command)
+    {
+        if (!m_Source || !IsVicinityOpen())
+            return false;
+
+        if (command == TransferZInputCommand.DESTINATION)
+        {
+            TransferZClientState.Get().ToggleVicinityDestinationSelection();
+            TransferZHeaderControls.RefreshAll();
+            return true;
+        }
+        if (command == TransferZInputCommand.TRANSFER)
+        {
+            ref array<EntityAI> transferItems = new array<EntityAI>();
+            Snapshot(transferItems);
+            TransferZClientState.Get().RequestVicinityTransfer(transferItems);
+            RefreshOperationStatus();
+            return true;
+        }
+        if (command == TransferZInputCommand.UNPACK)
+        {
+            ref array<EntityAI> unpackItems = new array<EntityAI>();
+            Snapshot(unpackItems);
+            TransferZClientState.Get().RequestVicinityUnpack(unpackItems);
+            RefreshOperationStatus();
+            return true;
+        }
+        return false;
+    }
+
     void OnDestination(Widget w, int x, int y, int button)
     {
         if (button != MouseState.LEFT)
@@ -652,10 +705,6 @@ class TransferZVicinityHeaderControls : Managed
 
 modded class SlotsIcon
 {
-    protected static const int TRANSFERZ_VICINITY_MODIFIER_NONE = 0;
-    protected static const int TRANSFERZ_VICINITY_MODIFIER_SHIFT = 1;
-    protected static const int TRANSFERZ_VICINITY_MODIFIER_ALT = 2;
-
     protected bool m_TransferZVicinityModifierDragStarted;
     protected static int s_TransferZModifierClickSuppressUntil;
     protected static EntityAI s_TransferZModifierClickSuppressItem;
@@ -675,19 +724,10 @@ modded class SlotsIcon
 
     protected int TransferZReadVicinityModifierMode()
     {
-        if (KeyState(KeyCode.KC_LCONTROL) || KeyState(KeyCode.KC_RCONTROL))
-            return TRANSFERZ_VICINITY_MODIFIER_NONE;
-
-        bool shiftDown = KeyState(KeyCode.KC_LSHIFT) || KeyState(KeyCode.KC_RSHIFT);
-        bool altDown = KeyState(KeyCode.KC_LMENU) || KeyState(KeyCode.KC_RMENU);
-        if (shiftDown == altDown)
-            return TRANSFERZ_VICINITY_MODIFIER_NONE;
-        if (shiftDown)
-            return TRANSFERZ_VICINITY_MODIFIER_SHIFT;
-        return TRANSFERZ_VICINITY_MODIFIER_ALT;
+        return TransferZInput.ModifierMode();
     }
 
-    protected bool TransferZBuildShiftItems(VicinitySlotsContainer vicinity, EntityAI representative, notnull array<EntityAI> matches)
+    protected bool TransferZBuildTransferItems(VicinitySlotsContainer vicinity, EntityAI representative, notnull array<EntityAI> matches)
     {
         matches.Clear();
         if (!vicinity || !representative)
@@ -705,7 +745,7 @@ modded class SlotsIcon
             if (item == representative)
                 representativeStillVisible = true;
 
-            // VICINITY has no ownership boundary. Shift on a ground container
+            // VICINITY has no ownership boundary. The Transfer modifier on a ground container
             // therefore means that container only; Shift on loose loot batches
             // loose items but deliberately leaves ground containers alone.
             if (representativeIsContainer && item != representative)
@@ -746,7 +786,7 @@ modded class SlotsIcon
                 continue;
 
             // Ground containers are items too. Cargo presence must not exclude
-            // protective cases, ammo boxes, med kits, etc. from Alt batches.
+            // protective cases, ammo boxes, med kits, etc. from exact-class batches.
             ItemBase itemBase = ItemBase.Cast(item);
             if (!itemBase || !itemBase.IsTakeable() || !item.GetInventory().CanRemoveEntity())
                 continue;
@@ -761,29 +801,43 @@ modded class SlotsIcon
         super.OnIconDrag(w);
         m_TransferZVicinityModifierDragStarted = false;
 
-        VicinitySlotsContainer vicinity = TransferZFindVicinitySource();
-        if (!vicinity || !m_Obj)
+        if (!m_Obj)
             return;
 
         int mode = TransferZReadVicinityModifierMode();
-        if (mode == TRANSFERZ_VICINITY_MODIFIER_NONE)
+        if (mode == TransferZInputModifier.NONE)
             return;
 
-        ref array<EntityAI> items = new array<EntityAI>();
-        if (mode == TRANSFERZ_VICINITY_MODIFIER_SHIFT)
+        // SlotsIcon is used both for VICINITY and for attachment/worn slots.
+        // Container-Unpack is about the dragged container itself, so it must
+        // not depend on the icon living under VicinitySlotsContainer.
+        if (mode == TransferZInputModifier.UNPACK)
         {
-            if (!TransferZBuildShiftItems(vicinity, m_Obj, items))
+            if (!TransferZCargo.Exists(m_Obj, 0))
                 return;
+            TransferZOperationDrag.BeginContainer(TransferZOperation.UNPACK, m_Obj, 0);
         }
-        else if (!TransferZBuildExactClassItems(vicinity, m_Obj, items))
+        else
         {
-            return;
+            VicinitySlotsContainer vicinity = TransferZFindVicinitySource();
+            if (!vicinity)
+                return;
+
+            ref array<EntityAI> items = new array<EntityAI>();
+            if (mode == TransferZInputModifier.TRANSFER)
+            {
+                if (!TransferZBuildTransferItems(vicinity, m_Obj, items))
+                    return;
+            }
+            else if (!TransferZBuildExactClassItems(vicinity, m_Obj, items))
+            {
+                return;
+            }
+
+            if (items.Count() == 0)
+                return;
+            TransferZOperationDrag.BeginVicinity(TransferZOperation.TRANSFER, items);
         }
-
-        if (items.Count() == 0)
-            return;
-
-        TransferZOperationDrag.BeginVicinity(TransferZOperation.TRANSFER, items);
         TransferZOperationDrag.LatchModifierItemDrag();
         TransferZHeaderControls.SetOperationDropTargetsVisible(true);
         m_TransferZVicinityModifierDragStarted = true;
@@ -867,17 +921,13 @@ modded class VicinitySlotsContainer
     {
         m_TransferZModifierClickMode = TRANSFERZ_CLICK_NONE;
 
-        if (button == MouseState.LEFT && !KeyState(KeyCode.KC_LCONTROL) && !KeyState(KeyCode.KC_RCONTROL))
+        if (button == MouseState.LEFT)
         {
-            bool shiftDown = KeyState(KeyCode.KC_LSHIFT) || KeyState(KeyCode.KC_RSHIFT);
-            bool altDown = KeyState(KeyCode.KC_LMENU) || KeyState(KeyCode.KC_RMENU);
-            if (shiftDown != altDown)
-            {
-                if (shiftDown)
-                    m_TransferZModifierClickMode = TRANSFERZ_CLICK_DESTINATION;
-                else
-                    m_TransferZModifierClickMode = TRANSFERZ_CLICK_PREFERRED;
-            }
+            int modifierMode = TransferZInput.ModifierMode();
+            if (modifierMode == TransferZInputModifier.TRANSFER)
+                m_TransferZModifierClickMode = TRANSFERZ_CLICK_DESTINATION;
+            else if (modifierMode == TransferZInputModifier.EXACT_CLASS)
+                m_TransferZModifierClickMode = TRANSFERZ_CLICK_PREFERRED;
         }
 
         super.MouseButtonDown(w, x, y, button);

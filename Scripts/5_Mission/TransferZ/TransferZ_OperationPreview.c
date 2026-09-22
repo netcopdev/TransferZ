@@ -59,7 +59,7 @@ class TransferZOperationPreview
         }
     }
 
-    protected static void CollectUnpackLeaves(EntityAI container, EntityAI excludedDestination, notnull array<EntityAI> leaves)
+    protected static void CollectUnpackItems(EntityAI container, EntityAI excludedDestination, notnull array<EntityAI> items)
     {
         if (!container)
             return;
@@ -78,18 +78,18 @@ class TransferZOperationPreview
                     continue;
 
                 if (TransferZCargo.Exists(item, 0))
-                    CollectUnpackLeaves(item, excludedDestination, leaves);
-                else
-                    leaves.Insert(item);
+                    CollectUnpackItems(item, excludedDestination, items);
+
+                items.Insert(item);
             }
 
             cargoIndex++;
         }
     }
 
-    protected static void CollectUnpackLeavesForOperation(EntityAI source, int sourceCargoIndex, EntityAI destination, notnull array<EntityAI> leaves)
+    protected static void CollectUnpackItemsForOperation(EntityAI source, int sourceCargoIndex, EntityAI destination, int destinationCargoIndex, notnull array<EntityAI> items)
     {
-        leaves.Clear();
+        items.Clear();
         if (!source)
             return;
 
@@ -100,10 +100,18 @@ class TransferZOperationPreview
         for (int i = 0; i < cargo.GetItemCount(); i++)
         {
             EntityAI child = cargo.GetItem(i);
-            if (!child || child == destination || !TransferZCargo.Exists(child, 0))
+            if (!child || child == destination)
                 continue;
 
-            CollectUnpackLeaves(child, destination, leaves);
+            if (TransferZCargo.Exists(child, 0))
+                CollectUnpackItems(child, destination, items);
+
+            // Self-unpack flattens nested cargo into the same source grid.
+            // Direct children are already at the destination and need no move.
+            InventoryLocation childLocation = new InventoryLocation();
+            bool alreadyAtDestination = destination && child.GetInventory().GetCurrentInventoryLocation(childLocation) && TransferZCargo.LocationMatches(childLocation, destination, destinationCargoIndex);
+            if (!alreadyAtDestination)
+                items.Insert(child);
         }
     }
 
@@ -254,7 +262,7 @@ class TransferZOperationPreview
             if (!destinationIsVicinity && destination != source && IsDescendantOf(destination, source))
                 return TransferZOperationPreviewResult.IMPOSSIBLE;
 
-            CollectUnpackLeavesForOperation(source, sourceCargoIndex, destination, candidates);
+            CollectUnpackItemsForOperation(source, sourceCargoIndex, destination, destinationCargoIndex, candidates);
         }
         else
         {
@@ -302,7 +310,7 @@ class TransferZOperationPreview
             {
                 if (!container || container == destination || !TransferZCargo.Exists(container, 0))
                     continue;
-                CollectUnpackLeaves(container, destination, candidates);
+                CollectUnpackItems(container, destination, candidates);
             }
         }
         else

@@ -139,6 +139,20 @@ Stack does not:
 - move stacks to another container;
 - recreate items or manually copy quantity/state.
 
+## Key configuration
+
+TransferZ registers a **TransferZ** section in DayZ's stock **Settings > Controls** interface.
+
+Default gesture bindings:
+
+- **Destination / Transfer modifier** — Left Shift or Right Shift.
+- **Preferred / Exact-class modifier** — Left Alt or Right Alt.
+- **Unpack container drag modifier** — U.
+
+The modifier actions can be rebound like normal DayZ controls. Destination, Transfer, Unpack, Link, Preferred, Sort, and Stack are also exposed as configurable keyboard commands, but have no default binding. These discrete commands are evaluated only while the inventory menu is open. A command acts on the open cargo grid under the mouse; Destination, Transfer, and Unpack also work on the visible `VICINITY` field.
+
+If more than one mutually exclusive TransferZ modifier is held, TransferZ does not claim the click/drag. Likewise, if conflicting TransferZ command actions fire on the same frame, no command is executed.
+
 ## Item gestures
 
 ### Normal left drag
@@ -149,19 +163,19 @@ Unmodified left drag remains standard DayZ inventory dragging.
 
 Right click, right drag, and double-right-click are not assigned to TransferZ routing operations. DayZ retains its native right-click behavior, including stack splitting.
 
-### `Shift + Click`
+### **Destination / Transfer modifier** (default `Shift`) + Click
 
 Moves the clicked item to the active destination.
 
 This works for cargo items and shown vicinity items. If no valid destination exists or the item cannot be accepted, it stays where it is.
 
-### `Alt + Click`
+### **Preferred / Exact-class modifier** (default `Alt`) + Click
 
 Moves the clicked item to the preferred personal destination.
 
 If no valid preferred target resolves, nothing is moved.
 
-### `Shift + Left Drag`
+### **Destination / Transfer modifier** (default `Shift`) + Left Drag
 
 Moves the source zone as a Transfer batch and lets you drop that batch onto another container.
 
@@ -170,7 +184,7 @@ Moves the source zone as a Transfer batch and lets you drop that batch onto anot
 - From a cargo-bearing ground container, only that dragged container is selected; its contents remain inside it.
 - From a cargo source, dropping onto `VICINITY` moves the batch to the ground through DayZ's normal drop path.
 
-### `Alt + Left Drag`
+### **Preferred / Exact-class modifier** (default `Alt`) + Left Drag
 
 Selects an exact-class batch using the dragged item as the representative.
 
@@ -190,9 +204,17 @@ From vicinity:
 
 Exact class means exact class. Similar ammunition, magazines, food variants, or other related items are not grouped unless they share the same actual `GetType()`.
 
-### `Ctrl`
+### Unpack container modifier + Left Drag
 
-TransferZ does not claim Ctrl click/drag gestures. Vanilla DayZ behavior remains in control.
+Hold **Unpack container drag modifier** (default `U`) and left-drag a cargo-bearing container. This invokes the same Unpack operation as the header `U`: the dragged/source container stays where it is, while all of its cargo is flattened into the drop target.
+
+Nested containers are processed contents-first. Their cargo is moved out recursively, then the now-empty nested containers themselves are moved to the target. Dropping on `VICINITY` applies the same flattening to the ground. On a non-container item, this modifier does not claim the drag.
+
+Example: a Protective Case in your backpack contains soda cans and a First Aid Kit containing a bandage. `U + drag` the Protective Case onto a barrel: the case stays in the backpack, while the soda cans, bandage, and now-empty First Aid Kit become direct cargo of the barrel.
+
+### Ctrl and conflicting bindings
+
+TransferZ does not bind Ctrl by default. All TransferZ actions are configurable in the stock DayZ Controls interface; assigning a key or combination that conflicts with a vanilla action is an explicit user choice.
 
 ## Native stack splitting and preferred destination
 
@@ -324,7 +346,7 @@ Hold `Alt` and left-drag one representative vicinity item of that class onto the
 1. Click Link on container A.
 2. Click Link on container B.
 3. Double-left-click items in either container to route them to the other.
-4. Use `Alt + Left Drag` when you want to move every exact-class match as a batch.
+4. Use **Preferred / Exact-class modifier** (default `Alt`) + Left Drag when you want to move every exact-class match as a batch.
 
 ## Dependency and Workshop
 

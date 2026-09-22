@@ -466,6 +466,53 @@ class TransferZHeaderControls : Managed
     }
 
 
+    static bool ExecuteInputCommandAtMousePosition(int command)
+    {
+        if (command == TransferZInputCommand.NONE || TransferZOperationDrag.IsActive())
+            return false;
+
+        int mouseX;
+        int mouseY;
+        GetMousePos(mouseX, mouseY);
+
+        TransferZHeaderControls best;
+        float bestArea = 999999999.0;
+
+        if (s_Instances)
+        {
+            for (int i = s_Instances.Count() - 1; i >= 0; i--)
+            {
+                TransferZHeaderControls controls = s_Instances.Get(i);
+                if (!controls || !controls.m_Entity || !controls.m_DropHost || !controls.IsOpenTarget())
+                    continue;
+                if (!TransferZCargo.Exists(controls.m_Entity, controls.m_CargoIndex))
+                    continue;
+
+                ScrollWidget scroll = controls.FindScrollWidget();
+                if (!TransferZPointInsideClippedWidget(controls.m_DropHost, scroll, mouseX, mouseY))
+                    continue;
+
+                float x;
+                float y;
+                float w;
+                float h;
+                controls.m_DropHost.GetScreenPos(x, y);
+                controls.m_DropHost.GetScreenSize(w, h);
+                float area = w * h;
+                if (!best || area < bestArea)
+                {
+                    best = controls;
+                    bestArea = area;
+                }
+            }
+        }
+
+        if (best && best.ExecuteInputCommand(command))
+            return true;
+
+        return TransferZVicinityHeaderControls.ExecuteInputCommandAtMousePosition(mouseX, mouseY, command);
+    }
+
     protected void RegisterButton(ButtonWidget button, string clickFunction)
     {
         if (!button)
@@ -589,8 +636,8 @@ class TransferZHeaderControls : Managed
         if (w == m_UnpackButton)
         {
             if (destinationName != "")
-                return "Unpack nested contents -> " + destinationName;
-            return "Unpack nested contents: select destination";
+                return "Unpack contents -> " + destinationName;
+            return "Unpack contents: select destination";
         }
         if (w == m_LinkButton)
         {
@@ -1232,6 +1279,57 @@ class TransferZHeaderControls : Managed
 
         TransferZMaintenanceClient.RequestStack(m_Entity, m_CargoIndex);
         ShowTooltip(w);
+    }
+
+    protected bool ExecuteInputCommand(int command)
+    {
+        if (!m_Entity || !IsOpenTarget() || !TransferZCargo.Exists(m_Entity, m_CargoIndex))
+            return false;
+
+        TransferZClientState state = TransferZClientState.Get();
+        if (command == TransferZInputCommand.DESTINATION)
+        {
+            state.ToggleDestinationSelection(m_Entity, m_CargoIndex);
+            RefreshAll();
+            return true;
+        }
+        if (command == TransferZInputCommand.TRANSFER)
+        {
+            state.RequestTransfer(m_Entity, m_CargoIndex);
+            RefreshOperationStatus();
+            return true;
+        }
+        if (command == TransferZInputCommand.UNPACK)
+        {
+            state.RequestNestedUnpack(m_Entity, m_CargoIndex);
+            RefreshOperationStatus();
+            return true;
+        }
+        if (command == TransferZInputCommand.LINK)
+        {
+            state.ToggleLink(m_Entity, m_CargoIndex);
+            RefreshAll();
+            return true;
+        }
+        if (command == TransferZInputCommand.PREFERRED)
+        {
+            if (!CanBePreferred())
+                return false;
+            state.TogglePreferred(m_Entity, m_CargoIndex);
+            RefreshAll();
+            return true;
+        }
+        if (command == TransferZInputCommand.SORT)
+        {
+            TransferZMaintenanceClient.RequestSort(m_Entity, m_CargoIndex);
+            return true;
+        }
+        if (command == TransferZInputCommand.STACK)
+        {
+            TransferZMaintenanceClient.RequestStack(m_Entity, m_CargoIndex);
+            return true;
+        }
+        return false;
     }
 
     protected bool MouseInsideWidget(Widget widget, int mouseX, int mouseY)

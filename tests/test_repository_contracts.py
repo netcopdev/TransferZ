@@ -146,6 +146,18 @@ class RepositoryContracts(unittest.TestCase):
         self.assertNotIn("JsonFileLoader", resolve)
         self.assertIn("EnsureLoaded()", resolve)
 
+    def test_unpack_preview_matches_postorder_flatten_semantics(self) -> None:
+        preview = read("Scripts/5_Mission/TransferZ/TransferZ_OperationPreview.c")
+        recurse = function_body(preview, "protected static void CollectUnpackItems(")
+        operation = function_body(preview, "protected static void CollectUnpackItemsForOperation(")
+        cargo_ui = read("Scripts/5_Mission/TransferZ/TransferZ_CargoContainer.c")
+
+        self.assertLess(recurse.index("CollectUnpackItems(item"), recurse.index("items.Insert(item)"))
+        self.assertIn("items.Insert(child)", operation)
+        self.assertIn("TransferZCargo.LocationMatches(childLocation, destination, destinationCargoIndex)", operation)
+        self.assertIn("Unpack contents -> ", cargo_ui)
+        self.assertNotIn("Unpack nested contents", cargo_ui)
+
     def test_batch_preview_does_not_claim_joint_fit_from_area_alone(self) -> None:
         preview = read("Scripts/5_Mission/TransferZ/TransferZ_OperationPreview.c")
         evaluate = function_body(preview, "protected static int EvaluateCandidates(")
@@ -352,7 +364,8 @@ class RepositoryContracts(unittest.TestCase):
 
         unpack_many = function_body(nested, "static int UnpackMany(")
         self.assertIn("TransferZUnpackScanBudget", unpack_many)
-        self.assertIn("CollectNestedLeaves", unpack_many)
+        self.assertIn("CollectUnpackItemsFromSource", unpack_many)
+        self.assertIn("CanMoveFlattenedItem", unpack_many)
         self.assertIn("TryMoveToExactCargo", unpack_many)
         self.assertIn("TryMoveToVicinity", unpack_many)
 
@@ -390,22 +403,32 @@ class RepositoryContracts(unittest.TestCase):
         )
 
         self.assertNotIn("static int Unpack(", server)
-        self.assertNotIn("CollectUnpackLeavesForOperation", server)
+        self.assertNotIn("CollectUnpackItemsForOperation", server)
 
-        collect = function_body(server, "static bool CollectUnpackLeaves(")
+        collect = function_body(server, "static bool CollectUnpackItems(")
         self.assertIn("depth > MAX_UNPACK_DEPTH", collect)
         self.assertIn("ConsumeUnpackScanNode", collect)
-        self.assertIn("AppendUnpackLeaf", collect)
+        self.assertIn("AppendUnpackItem", collect)
+        self.assertLess(
+            collect.index("CollectUnpackItems(item"),
+            collect.index("AppendUnpackItem(item"),
+        )
 
         nested = read("Scripts/4_World/TransferZ/TransferZ_NestedUnpackService.c")
-        nested_collect = function_body(nested, "static bool CollectNestedLeaves(")
+        nested_collect = function_body(nested, "static bool CollectUnpackItemsFromSource(")
         nested_unpack = function_body(nested, "static int Unpack(")
         self.assertIn("ConsumeUnpackScanNode", nested_collect)
-        self.assertIn("CollectUnpackLeaves", nested_collect)
-        self.assertIn("TransferZUnpackScanBudget", nested_unpack)
-        self.assertIn("CollectNestedLeaves", nested_unpack)
+        self.assertIn("CollectUnpackItems", nested_collect)
+        self.assertIn("AppendUnpackItem(child", nested_collect)
         self.assertLess(
-            nested_unpack.index("CollectNestedLeaves"),
+            nested_collect.index("CollectUnpackItems(child"),
+            nested_collect.index("AppendUnpackItem(child"),
+        )
+        self.assertIn("TransferZUnpackScanBudget", nested_unpack)
+        self.assertIn("CollectUnpackItemsFromSource", nested_unpack)
+        self.assertIn("CanMoveFlattenedItem", nested_unpack)
+        self.assertLess(
+            nested_unpack.index("CollectUnpackItemsFromSource"),
             nested_unpack.index("TryMoveToExactCargo"),
         )
 
@@ -502,6 +525,88 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("SendVicinityUnpackBatchRequest(sources, null, 0, true)", client)
         self.assertIn("TransferZNestedUnpackService.Unpack(player, source, destination)", fixture)
 
+    def test_configurable_inputs_are_packaged_and_runtime_code_is_keycode_free(self) -> None:
+        config = read("config.cpp")
+        inputs = read("inputs.xml")
+        stringtable = read("stringtable.csv")
+        build = read("tools/build-pbo.ps1")
+        release_build = read("tools/build.ps1")
+        input_source = read("Scripts/3_Game/TransferZ/TransferZ_Input.c")
+        mission_input = read("Scripts/5_Mission/TransferZ/TransferZ_InputCommands.c")
+        icon = read("Scripts/5_Mission/TransferZ/TransferZ_Icon.c")
+        vicinity = read("Scripts/5_Mission/TransferZ/TransferZ_VicinitySlotsContainer.c")
+        cargo = read("Scripts/5_Mission/TransferZ/TransferZ_CargoContainer.c")
+
+        self.assertIn('inputs = "TransferZ/inputs.xml";', config)
+        self.assertIn('<sorting name="transferz" loc="STR_TRANSFERZ_INPUT_GROUP">', inputs)
+        for action in (
+            "UATransferZTransferModifier",
+            "UATransferZClassModifier",
+            "UATransferZUnpackModifier",
+            "UATransferZDestination",
+            "UATransferZTransfer",
+            "UATransferZUnpack",
+            "UATransferZLink",
+            "UATransferZPreferred",
+            "UATransferZSort",
+            "UATransferZStack",
+        ):
+            self.assertIn(f'name="{action}"', inputs)
+            self.assertIn(action, input_source)
+
+        self.assertIn('<btn name="kLShift" />', inputs)
+        self.assertIn('<btn name="kRShift" />', inputs)
+        self.assertIn('<btn name="kLMenu" />', inputs)
+        self.assertIn('<btn name="kRMenu" />', inputs)
+        self.assertIn('<btn name="kU" />', inputs)
+        self.assertIn("STR_TRANSFERZ_INPUT_GROUP", stringtable)
+        self.assertTrue(
+            stringtable.startswith(
+                '"Language","original","english","czech","german","russian","polish","hungarian","italian","spanish","french","chinese","japanese","portuguese","chinesesimp",'
+            )
+        )
+        for line in stringtable.splitlines():
+            self.assertTrue(line.endswith(","), f"DayZ stringtable row must end with a trailing comma: {line}")
+            self.assertEqual(16, line.count(",") + 1, f"unexpected DayZ stringtable field count: {line}")
+        self.assertIn("'inputs.xml'", build)
+        self.assertIn("'stringtable.csv'", build)
+        self.assertIn("'.xml'", build)
+        self.assertIn("'.csv'", build)
+        self.assertIn("@('inputs.xml', 'stringtable.csv')", release_build)
+        self.assertIn("Release PBO is missing required runtime asset", release_build)
+
+        self.assertNotIn("KC_LSHIFT", icon)
+        self.assertNotIn("KC_RSHIFT", icon)
+        self.assertNotIn("KC_LMENU", icon)
+        self.assertNotIn("KC_RMENU", icon)
+        self.assertNotIn("KC_LSHIFT", vicinity)
+        self.assertNotIn("KC_RSHIFT", vicinity)
+        self.assertNotIn("KC_LMENU", vicinity)
+        self.assertNotIn("KC_RMENU", vicinity)
+        self.assertIn("TransferZInput.ModifierMode()", icon)
+        self.assertIn("TransferZInput.ModifierMode()", vicinity)
+        self.assertIn("TransferZInputModifier.UNPACK", icon)
+        self.assertIn(
+            "else if (m_TransferZModifierDragMode == TransferZInputModifier.UNPACK)\n            TransferZOperationDrag.BeginContainer(TransferZOperation.UNPACK, m_TransferZModifierDragSource",
+            icon,
+        )
+        self.assertIn("TransferZInputModifier.UNPACK", vicinity)
+        self.assertIn("TransferZOperation.UNPACK, m_Obj, 0", vicinity)
+        slots_drag = function_body(vicinity, "override void OnIconDrag(")
+        self.assertLess(
+            slots_drag.index("mode == TransferZInputModifier.UNPACK"),
+            slots_drag.index("VicinitySlotsContainer vicinity = TransferZFindVicinitySource()"),
+        )
+        self.assertNotIn("if (!vicinity || !m_Obj)", slots_drag)
+        self.assertIn("if (!m_Obj)", slots_drag)
+        self.assertIn("if (!vicinity)", slots_drag)
+        self.assertIn("InventoryMenu.Cast(g_Game.GetUIManager().FindMenu(MENU_INVENTORY))", mission_input)
+        self.assertIn("TransferZInput.PressedCommand()", mission_input)
+        self.assertLess(mission_input.index("FindMenu(MENU_INVENTORY)"), mission_input.index("TransferZInput.PressedCommand()"))
+        self.assertIn("ExecuteInputCommandAtMousePosition(command)", mission_input)
+        self.assertIn("TransferZInputCommand.SORT", cargo)
+        self.assertIn("TransferZInputCommand.UNPACK", vicinity)
+
     def test_diag_fixture_has_machine_readable_suite_marker(self) -> None:
         fixture = read("test/TransferZTest.ChernarusPlus/init.c")
         self.assertIn("[TransferZTest] SUITE PASS", fixture)
@@ -509,7 +614,7 @@ class RepositoryContracts(unittest.TestCase):
         self.assertIn("[TransferZTest] RUN unpack", fixture)
         self.assertIn("CreateEntityInCargo(typeName)", fixture)
         self.assertIn('TZTest_CreateCargoItem(nested, "BandageDressing")', fixture)
-        self.assertIn('TZTest_CreateCargoItem(nested, "Battery9V")', fixture)
+        self.assertIn('TZTest_CreateCargoItem(deeper, "Battery9V")', fixture)
         self.assertIn("TZTest_RunSelfTests", fixture)
 
 

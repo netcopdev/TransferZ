@@ -79,10 +79,12 @@ New-Item -ItemType Directory -Force -Path $stagedProjectRoot | Out-Null
 
 try {
     Copy-RuntimeFile -Source (Join-Path $projectRootFull 'config.cpp') -RelativeDestination 'config.cpp' -StageRoot $stagedProjectRoot
+    Copy-RuntimeFile -Source (Join-Path $projectRootFull 'inputs.xml') -RelativeDestination 'inputs.xml' -StageRoot $stagedProjectRoot
+    Copy-RuntimeFile -Source (Join-Path $projectRootFull 'stringtable.csv') -RelativeDestination 'stringtable.csv' -StageRoot $stagedProjectRoot
     Copy-RuntimeTree -SourceRoot (Join-Path $projectRootFull 'Scripts') -RelativeDestination 'Scripts' -StageRoot $stagedProjectRoot -Extensions @('.c')
     Copy-RuntimeTree -SourceRoot (Join-Path $projectRootFull 'GUI') -RelativeDestination 'GUI' -StageRoot $stagedProjectRoot -Extensions @('.layout')
 
-    $allowedExtensions = @('.cpp', '.c', '.layout')
+    $allowedExtensions = @('.cpp', '.c', '.layout', '.xml', '.csv')
     $unexpected = @(Get-ChildItem -LiteralPath $stagedProjectRoot -Recurse -File | Where-Object { $allowedExtensions -notcontains $_.Extension.ToLowerInvariant() })
     if ($unexpected.Count -gt 0) {
         throw "TransferZ runtime staging contains unexpected development files."

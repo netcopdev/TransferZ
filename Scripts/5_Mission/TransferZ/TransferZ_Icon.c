@@ -1,10 +1,6 @@
 modded class Icon
 {
-    protected static const int TRANSFERZ_MODIFIER_NONE = 0;
-    protected static const int TRANSFERZ_MODIFIER_SHIFT = 1;
-    protected static const int TRANSFERZ_MODIFIER_ALT = 2;
-
-    protected int m_TransferZModifierDragMode = TRANSFERZ_MODIFIER_NONE;
+    protected int m_TransferZModifierDragMode = TransferZInputModifier.NONE;
     protected bool m_TransferZModifierDragStarted;
     protected EntityAI m_TransferZModifierDragSource;
     protected int m_TransferZModifierDragSourceCargoIndex = 0;
@@ -90,21 +86,12 @@ modded class Icon
 
     protected int TransferZReadModifierDragMode()
     {
-        if (KeyState(KeyCode.KC_LCONTROL) || KeyState(KeyCode.KC_RCONTROL))
-            return TRANSFERZ_MODIFIER_NONE;
-
-        bool shiftDown = KeyState(KeyCode.KC_LSHIFT) || KeyState(KeyCode.KC_RSHIFT);
-        bool altDown = KeyState(KeyCode.KC_LMENU) || KeyState(KeyCode.KC_RMENU);
-        if (shiftDown == altDown)
-            return TRANSFERZ_MODIFIER_NONE;
-        if (shiftDown)
-            return TRANSFERZ_MODIFIER_SHIFT;
-        return TRANSFERZ_MODIFIER_ALT;
+        return TransferZInput.ModifierMode();
     }
 
     protected void TransferZResetModifierDrag()
     {
-        m_TransferZModifierDragMode = TRANSFERZ_MODIFIER_NONE;
+        m_TransferZModifierDragMode = TransferZInputModifier.NONE;
         m_TransferZModifierDragStarted = false;
         m_TransferZModifierDragSource = null;
         m_TransferZModifierDragSourceCargoIndex = 0;
@@ -115,9 +102,23 @@ modded class Icon
         if (button == MouseState.LEFT)
         {
             TransferZResetModifierDrag();
-            m_TransferZModifierDragSource = TransferZGetDirectCargoSource(m_TransferZModifierDragSourceCargoIndex);
-            if (m_TransferZModifierDragSource && m_Obj)
-                m_TransferZModifierDragMode = TransferZReadModifierDragMode();
+            int mode = TransferZReadModifierDragMode();
+
+            if (mode == TransferZInputModifier.UNPACK)
+            {
+                if (m_Obj && TransferZCargo.Exists(m_Obj, 0))
+                {
+                    m_TransferZModifierDragSource = m_Obj;
+                    m_TransferZModifierDragSourceCargoIndex = 0;
+                    m_TransferZModifierDragMode = mode;
+                }
+            }
+            else
+            {
+                m_TransferZModifierDragSource = TransferZGetDirectCargoSource(m_TransferZModifierDragSourceCargoIndex);
+                if (m_TransferZModifierDragSource && m_Obj)
+                    m_TransferZModifierDragMode = mode;
+            }
         }
 
         super.MouseClick(w, x, y, button);
@@ -125,7 +126,8 @@ modded class Icon
         if (button == MouseState.LEFT)
         {
             m_TransferZModifierClickMode = m_TransferZModifierDragMode;
-            m_TransferZModifierClickPending = m_TransferZModifierClickMode != TRANSFERZ_MODIFIER_NONE && m_Obj && !m_HandsIcon;
+            bool clickModifier = m_TransferZModifierClickMode == TransferZInputModifier.TRANSFER || m_TransferZModifierClickMode == TransferZInputModifier.EXACT_CLASS;
+            m_TransferZModifierClickPending = clickModifier && m_Obj && !m_HandsIcon;
         }
     }
 
@@ -133,19 +135,24 @@ modded class Icon
     {
         super.CreateWhiteBackground();
 
-        if (m_TransferZModifierDragMode == TRANSFERZ_MODIFIER_NONE || !m_Obj || !m_TransferZModifierDragSource)
+        if (m_TransferZModifierDragMode == TransferZInputModifier.NONE || !m_Obj || !m_TransferZModifierDragSource)
             return;
 
-        InventoryLocation location = new InventoryLocation();
-        if (!m_Obj.GetInventory().GetCurrentInventoryLocation(location))
-            return;
-        if (!TransferZCargo.LocationMatches(location, m_TransferZModifierDragSource, m_TransferZModifierDragSourceCargoIndex))
-            return;
+        if (m_TransferZModifierDragMode != TransferZInputModifier.UNPACK)
+        {
+            InventoryLocation location = new InventoryLocation();
+            if (!m_Obj.GetInventory().GetCurrentInventoryLocation(location))
+                return;
+            if (!TransferZCargo.LocationMatches(location, m_TransferZModifierDragSource, m_TransferZModifierDragSourceCargoIndex))
+                return;
+        }
 
-        if (m_TransferZModifierDragMode == TRANSFERZ_MODIFIER_SHIFT)
+        if (m_TransferZModifierDragMode == TransferZInputModifier.TRANSFER)
             TransferZOperationDrag.BeginContainer(TransferZOperation.TRANSFER, m_TransferZModifierDragSource, m_TransferZModifierDragSourceCargoIndex);
-        else if (m_TransferZModifierDragMode == TRANSFERZ_MODIFIER_ALT)
+        else if (m_TransferZModifierDragMode == TransferZInputModifier.EXACT_CLASS)
             TransferZOperationDrag.BeginClassTransfer(m_TransferZModifierDragSource, m_Obj, m_TransferZModifierDragSourceCargoIndex);
+        else if (m_TransferZModifierDragMode == TransferZInputModifier.UNPACK)
+            TransferZOperationDrag.BeginContainer(TransferZOperation.UNPACK, m_TransferZModifierDragSource, m_TransferZModifierDragSourceCargoIndex);
         else
             return;
 
@@ -175,15 +182,15 @@ modded class Icon
         bool pending = m_TransferZModifierClickPending;
         int mode = m_TransferZModifierClickMode;
         m_TransferZModifierClickPending = false;
-        m_TransferZModifierClickMode = TRANSFERZ_MODIFIER_NONE;
+        m_TransferZModifierClickMode = TransferZInputModifier.NONE;
 
         if (!pending || !m_Obj || m_HandsIcon)
             return;
 
         TransferZClientState state = TransferZClientState.Get();
-        if (mode == TRANSFERZ_MODIFIER_SHIFT)
+        if (mode == TransferZInputModifier.TRANSFER)
             state.RequestItemToDestination(m_Obj);
-        else if (mode == TRANSFERZ_MODIFIER_ALT)
+        else if (mode == TransferZInputModifier.EXACT_CLASS)
             state.RequestItemToPreferred(m_Obj);
     }
 

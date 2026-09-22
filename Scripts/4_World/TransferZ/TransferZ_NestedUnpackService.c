@@ -1,6 +1,6 @@
 class TransferZNestedUnpackService
 {
-    static bool CollectNestedLeaves(EntityAI source, int sourceCargoIndex, EntityAI destination, notnull array<EntityAI> leaves, TransferZUnpackScanBudget budget)
+    static bool CollectUnpackItemsFromSource(EntityAI source, int sourceCargoIndex, EntityAI destination, notnull array<EntityAI> items, TransferZUnpackScanBudget budget)
     {
         if (!source || !budget || budget.exceeded)
             return false;
@@ -15,14 +15,47 @@ class TransferZNestedUnpackService
                 return false;
 
             EntityAI child = cargo.GetItem(i);
-            if (!child || child == destination || !TransferZCargo.Exists(child, 0))
+            if (!child || child == destination)
                 continue;
 
-            if (!TransferZServerService.CollectUnpackLeaves(child, destination, leaves, budget, 1))
+            if (TransferZCargo.Exists(child, 0))
+            {
+                if (!TransferZServerService.CollectUnpackItems(child, destination, items, budget, 1))
+                    return false;
+            }
+
+            if (!TransferZServerService.AppendUnpackItem(child, items, budget))
                 return false;
         }
 
         return true;
+    }
+
+    protected static bool CargoIsEmpty(EntityAI container)
+    {
+        if (!container)
+            return false;
+
+        int cargoIndex = 0;
+        while (true)
+        {
+            CargoBase cargo = TransferZCargo.Get(container, cargoIndex);
+            if (!cargo)
+                break;
+            if (cargo.GetItemCount() > 0)
+                return false;
+            cargoIndex++;
+        }
+        return true;
+    }
+
+    protected static bool CanMoveFlattenedItem(EntityAI item)
+    {
+        if (!item)
+            return false;
+        if (!TransferZCargo.Exists(item, 0))
+            return true;
+        return CargoIsEmpty(item);
     }
 
     static int Unpack(PlayerBase player, EntityAI source, EntityAI destination, int sourceCargoIndex = 0, int destinationCargoIndex = 0)
@@ -39,17 +72,19 @@ class TransferZNestedUnpackService
         if (destination != source && TransferZServerService.IsDescendantOf(destination, source))
             return 0;
 
-        ref array<EntityAI> leaves = new array<EntityAI>();
+        ref array<EntityAI> items = new array<EntityAI>();
         TransferZUnpackScanBudget budget = new TransferZUnpackScanBudget();
-        if (!CollectNestedLeaves(source, sourceCargoIndex, destination, leaves, budget))
+        if (!CollectUnpackItemsFromSource(source, sourceCargoIndex, destination, items, budget))
         {
-            Print("[TransferZ] Nested unpack rejected: traversal budget exceeded scanned=" + budget.scannedNodes.ToString() + " leaves=" + leaves.Count().ToString());
+            Print("[TransferZ] Nested unpack rejected: traversal budget exceeded scanned=" + budget.scannedNodes.ToString() + " items=" + items.Count().ToString());
             return 0;
         }
 
         int moved = 0;
-        foreach (EntityAI item : leaves)
+        foreach (EntityAI item : items)
         {
+            if (!CanMoveFlattenedItem(item))
+                continue;
             if (TransferZServerService.TryMoveToExactCargo(player, item, destination, destinationCargoIndex))
                 moved++;
         }
@@ -61,17 +96,19 @@ class TransferZNestedUnpackService
         if (!player || !source || !TransferZServerService.IsReachable(player, source) || !TransferZCargo.Exists(source, sourceCargoIndex))
             return 0;
 
-        ref array<EntityAI> leaves = new array<EntityAI>();
+        ref array<EntityAI> items = new array<EntityAI>();
         TransferZUnpackScanBudget budget = new TransferZUnpackScanBudget();
-        if (!CollectNestedLeaves(source, sourceCargoIndex, null, leaves, budget))
+        if (!CollectUnpackItemsFromSource(source, sourceCargoIndex, null, items, budget))
         {
-            Print("[TransferZ] Nested unpack to vicinity rejected: traversal budget exceeded scanned=" + budget.scannedNodes.ToString() + " leaves=" + leaves.Count().ToString());
+            Print("[TransferZ] Nested unpack to vicinity rejected: traversal budget exceeded scanned=" + budget.scannedNodes.ToString() + " items=" + items.Count().ToString());
             return 0;
         }
 
         int moved = 0;
-        foreach (EntityAI item : leaves)
+        foreach (EntityAI item : items)
         {
+            if (!CanMoveFlattenedItem(item))
+                continue;
             if (TransferZServerService.TryMoveToVicinity(player, item))
                 moved++;
         }
@@ -89,7 +126,7 @@ class TransferZNestedUnpackService
                 return 0;
         }
 
-        ref array<EntityAI> leaves = new array<EntityAI>();
+        ref array<EntityAI> items = new array<EntityAI>();
         TransferZUnpackScanBudget budget = new TransferZUnpackScanBudget();
 
         foreach (EntityAI source : sources)
@@ -103,16 +140,19 @@ class TransferZNestedUnpackService
             if (destinationIsVicinity)
                 excludedDestination = null;
 
-            if (!CollectNestedLeaves(source, 0, excludedDestination, leaves, budget))
+            if (!CollectUnpackItemsFromSource(source, 0, excludedDestination, items, budget))
             {
-                Print("[TransferZ] Nested unpack batch rejected: traversal budget exceeded scanned=" + budget.scannedNodes.ToString() + " leaves=" + leaves.Count().ToString());
+                Print("[TransferZ] Nested unpack batch rejected: traversal budget exceeded scanned=" + budget.scannedNodes.ToString() + " items=" + items.Count().ToString());
                 return 0;
             }
         }
 
         int moved = 0;
-        foreach (EntityAI item : leaves)
+        foreach (EntityAI item : items)
         {
+            if (!CanMoveFlattenedItem(item))
+                continue;
+
             if (destinationIsVicinity)
             {
                 if (TransferZServerService.TryMoveToVicinity(player, item))

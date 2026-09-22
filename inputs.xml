@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<modded_inputs>
+    <inputs>
+        <actions>
+            <input name="UATransferZTransferModifier" loc="STR_TRANSFERZ_INPUT_TRANSFER_MODIFIER" />
+            <input name="UATransferZClassModifier" loc="STR_TRANSFERZ_INPUT_CLASS_MODIFIER" />
+            <input name="UATransferZUnpackModifier" loc="STR_TRANSFERZ_INPUT_UNPACK_MODIFIER" />
+            <input name="UATransferZDestination" loc="STR_TRANSFERZ_INPUT_DESTINATION" />
+            <input name="UATransferZTransfer" loc="STR_TRANSFERZ_INPUT_TRANSFER" />
+            <input name="UATransferZUnpack" loc="STR_TRANSFERZ_INPUT_UNPACK" />
+            <input name="UATransferZLink" loc="STR_TRANSFERZ_INPUT_LINK" />
+            <input name="UATransferZPreferred" loc="STR_TRANSFERZ_INPUT_PREFERRED" />
+            <input name="UATransferZSort" loc="STR_TRANSFERZ_INPUT_SORT" />
+            <input name="UATransferZStack" loc="STR_TRANSFERZ_INPUT_STACK" />
+        </actions>
+
+        <sorting name="transferz" loc="STR_TRANSFERZ_INPUT_GROUP">
+            <input name="UATransferZTransferModifier" />
+            <input name="UATransferZClassModifier" />
+            <input name="UATransferZUnpackModifier" />
+            <input name="UATransferZDestination" />
+            <input name="UATransferZTransfer" />
+            <input name="UATransferZUnpack" />
+            <input name="UATransferZLink" />
+            <input name="UATransferZPreferred" />
+            <input name="UATransferZSort" />
+            <input name="UATransferZStack" />
+        </sorting>
+    </inputs>
+
+    <preset>
+        <input name="UATransferZTransferModifier">
+            <btn name="kLShift" />
+            <btn name="kRShift" />
+        </input>
+        <input name="UATransferZClassModifier">
+            <btn name="kLMenu" />
+            <btn name="kRMenu" />
+        </input>
+        <input name="UATransferZUnpackModifier">
+            <btn name="kU" />
+        </input>
+    </preset>
+</modded_inputs>

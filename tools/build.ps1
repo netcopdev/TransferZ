@@ -81,6 +81,14 @@ function Assert-PboContents {
         throw "Release PBO contains development assets:`n  $($forbidden -join "`n  ")"
     }
 
+    $requiredRuntimeAssets = @('inputs.xml', 'stringtable.csv')
+    foreach ($requiredAsset in $requiredRuntimeAssets) {
+        $present = @($listing | Where-Object { [System.IO.Path]::GetFileName($_.Trim()) -ieq $requiredAsset }).Count -gt 0
+        if (-not $present) {
+            throw "Release PBO is missing required runtime asset '$requiredAsset'."
+        }
+    }
+
     $scriptCount = @($listing | Where-Object { $_ -match '(?i)\.c$' }).Count
     Write-Host "PBO content audit passed:"
     Write-Host "  Scripts      : $scriptCount"

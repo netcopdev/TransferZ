@@ -10,10 +10,10 @@ For the complete control reference and examples, see [`docs/USAGE.md`](docs/USAG
 
 1. Use **D (Destination)** on the cargo grid that should receive items. The active destination grid is highlighted. The same `D` control on `VICINITY` selects the ground/vicinity zone instead.
 2. Use **T (Transfer)** on a source container to move its direct cargo children to the active destination.
-3. Use **U (Unpack)** on a source container to extract leaf items from nested cargo containers while leaving the nested containers and the source's existing direct loose cargo in place.
+3. Use **U (Unpack)** on a source container to flatten all of its cargo into the destination: the source container stays where it is, while direct items, nested contents, and the now-empty nested containers move to the destination.
 4. Drag `T` or `U` directly onto another open container for a one-off operation without changing the active destination.
 5. Use the **Sort** and **Stack** controls on the right side of a cargo header to organize that container in place.
-6. Use `Shift + Left Drag` for a whole source-zone transfer and `Alt + Left Drag` for an exact-class batch move.
+6. Use the **Destination / Transfer modifier** (default `Shift`) + Left Drag for a whole source-zone transfer and the **Preferred / Exact-class modifier** (default `Alt`) + Left Drag for an exact-class batch move.
 
 ## Header controls
 
@@ -23,7 +23,7 @@ Transfer/navigation controls remain on the **left** side of cargo headers. Conta
 | --- | --- |
 | `D` — Destination | Select or clear this exact cargo grid as the active destination. |
 | `T` — Transfer | Move the source container's direct cargo children to the active destination. Also draggable. |
-| `U` — Unpack | Move leaf items out of nested cargo containers while leaving direct loose cargo and the nested containers in place. Also draggable. |
+| `U` — Unpack | Recursively empty the source cargo into the destination while leaving the source container itself in place; emptied nested containers move to the destination too. Also draggable. |
 | `L` — Link | Start, complete, replace, or remove the current temporary cargo-grid link pair. |
 | `P` — Preferred | Store or clear this worn/attached cargo grid as the persistent preferred personal destination. |
 | Sort | Compact/reorder this container's direct cargo in place. |
@@ -37,23 +37,29 @@ Hover a control for a short explanation. Transfer and Unpack also show a subdued
 
 | Gesture | Action |
 | --- | --- |
-| `Shift + Click` | Move the clicked item to the active destination. |
-| `Alt + Click` | Move the clicked item to the preferred personal destination. |
-| `Shift + Left Drag` | From cargo, move all direct cargo as a batch. From vicinity, dragging loose loot batches shown eligible non-container items; dragging a cargo-bearing ground container moves only that container. |
-| `Alt + Left Drag` | Move all eligible items of the dragged item's exact `GetType()` from the same source zone. |
+| **Destination / Transfer modifier** (default `Shift`) + Click | Move the clicked item to the active destination. |
+| **Preferred / Exact-class modifier** (default `Alt`) + Click | Move the clicked item to the preferred personal destination. |
+| **Destination / Transfer modifier** (default `Shift`) + Left Drag | From cargo, move all direct cargo as a batch. From vicinity, dragging loose loot batches shown eligible non-container items; dragging a cargo-bearing ground container moves only that container. |
+| **Preferred / Exact-class modifier** (default `Alt`) + Left Drag | Move all eligible items of the dragged item's exact `GetType()` from the same source zone. |
 | `Double Left Click` | Use link/preferred routing when TransferZ owns the route; otherwise preserve vanilla DayZ behavior. |
 
-Unmodified left drag remains vanilla DayZ drag behavior. `Ctrl` interactions remain vanilla and are not reassigned by TransferZ.
+Unmodified left drag remains vanilla DayZ drag behavior. TransferZ key actions are configurable in DayZ **Settings > Controls > TransferZ**. By default, the Transfer modifier is Shift, the exact-class modifier is Alt, and the container-Unpack drag modifier is U. Ctrl remains unassigned by default; assigning a conflicting key is an explicit user choice.
 
 **Right click is not assigned to TransferZ operations.** Normal DayZ right-click behavior, including stack splitting, remains available.
 
-### Exact-class transfer with Alt drag
+### Configurable controls
 
-From a cargo container, `Alt + Left Drag` on one item selects all direct cargo items in that same source container whose exact `GetType()` matches the representative item. Drop onto another open TransferZ container to move those matches there. Dropping onto `VICINITY` moves those matching source-cargo items to the ground.
+TransferZ registers its actions in the stock DayZ key configuration UI under **TransferZ**. The three gesture modifiers have defaults; Destination, Transfer, Unpack, Link, Preferred, Sort, and Stack keyboard commands are unbound by default and may be assigned by the player.
 
-From `VICINITY`, `Alt + Left Drag` selects currently shown takeable, removable items whose exact `GetType()` matches the representative item. Same-class cargo-bearing ground containers are included and move intact with their contents. Vicinity-to-vicinity is a no-op because those items are already there.
+Holding the **Unpack container drag modifier** (default `U`) while dragging a cargo-bearing container performs the same Unpack operation as the `U` header control: the dragged container stays where it is, all cargo is recursively flattened into the drop target, and emptied nested containers move to the target too.
 
-Different classnames are never included just because they are similar items. For example, Alt-dragging one ammunition classname moves only that exact ammunition classname.
+### Exact-class transfer with the configurable class modifier
+
+From a cargo container, the **Preferred / Exact-class modifier** (default `Alt`) + Left Drag on one item selects all direct cargo items in that same source container whose exact `GetType()` matches the representative item. Drop onto another open TransferZ container to move those matches there. Dropping onto `VICINITY` moves those matching source-cargo items to the ground.
+
+From `VICINITY`, the **Preferred / Exact-class modifier** (default `Alt`) + Left Drag selects currently shown takeable, removable items whose exact `GetType()` matches the representative item. Same-class cargo-bearing ground containers are included and move intact with their contents. Vicinity-to-vicinity is a no-op because those items are already there.
+
+Different classnames are never included just because they are similar items. For example, using the exact-class modifier while dragging one ammunition classname moves only that exact ammunition classname.
 
 ## Native stack splitting and P*
 
@@ -93,13 +99,33 @@ When `VICINITY` is the destination, direct source items are dropped through DayZ
 
 ## Unpack
 
-Unpack traverses cargo-bearing direct children of the source and moves non-container leaf cargo found inside them. The source's direct loose cargo and the nested cargo containers themselves stay where they are.
+Unpack has one meaning everywhere: **empty the selected/source container into the destination while leaving that source container itself in place**.
 
-Using the example above, Unpack to a Barrel attempts to move `ammo` and `bandage`. `Knife`, `Ammo Box`, and `Medical Pouch` remain in the Backpack.
+All cargo levels are flattened. Direct loose items move to the destination. Nested containers are emptied recursively; their contents move to the destination first, then the now-empty nested containers themselves move to the destination. On a successful complete Unpack, nothing remains nested under the source and the source cargo is empty.
 
-Dragging Unpack back onto its own source container flattens nested cargo into that source while leaving its existing direct loose cargo alone.
+Example:
 
-Attachments are not traversed by Unpack in 0.1.0.
+```text
+Backpack
+└─ Protective Case
+   ├─ Soda
+   └─ First Aid Kit
+      └─ Bandage
+```
+
+Unpack the Protective Case to a Barrel:
+
+```text
+Backpack
+└─ Protective Case          (empty)
+
+Barrel
+├─ Soda
+├─ Bandage
+└─ First Aid Kit            (empty)
+```
+
+The same semantics apply to the header `U`, the configurable Unpack command, and **Unpack container drag modifier + Left Drag**. Attachments are not traversed as cargo.
 
 ## Sort
 
@@ -132,10 +158,10 @@ TransferZ does not define its own ammo-family/category matching, does not merge 
 - Destination: select ground/vicinity as the active destination.
 - Transfer: move currently shown loose takeable vicinity items, excluding cargo-bearing containers, into the selected container.
 - Unpack: unpack currently shown vicinity cargo containers into the destination while leaving those containers in place.
-- `Shift + Click`: move one shown item to the active destination.
-- `Alt + Click`: move one shown item to the preferred personal destination.
-- `Shift + Left Drag`: when started on loose ground loot, move the shown eligible non-container items as a transfer batch; when started on a cargo-bearing ground container, move only that container.
-- `Alt + Left Drag`: move shown eligible items of the dragged item's exact class, including same-class cargo-bearing containers.
+- the **Destination / Transfer modifier** (default `Shift`) + Click: move one shown item to the active destination.
+- the **Preferred / Exact-class modifier** (default `Alt`) + Click: move one shown item to the preferred personal destination.
+- the **Destination / Transfer modifier** (default `Shift`) + Left Drag: when started on loose ground loot, move the shown eligible non-container items as a transfer batch; when started on a cargo-bearing ground container, move only that container.
+- the **Preferred / Exact-class modifier** (default `Alt`) + Left Drag: move shown eligible items of the dragged item's exact class, including same-class cargo-bearing containers.
 
 With `VICINITY` itself selected, vicinity Transfer is a no-op and vicinity Unpack empties shown cargo containers onto the ground.
 
@@ -225,7 +251,7 @@ dist\release\@TransferZ\
 
 This release intentionally does not provide arbitrary category filters, TransferZ-owned stack splitting, persistent world-container links, attachment traversal during Unpack, or persistent preferred targets for containers nested in cargo rather than attached through slots.
 
-Exact-class matching is available through `Alt + Left Drag`. Stack merging is available only through DayZ's own native compatibility rules.
+Exact-class matching is available through the **Preferred / Exact-class modifier** (default `Alt`) + Left Drag. Stack merging is available only through DayZ's own native compatibility rules.
 
 ## Development
 

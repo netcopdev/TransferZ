@@ -76,28 +76,33 @@ Stack is a container-local merge operation.
 
 Normal unmodified left-button item drag remains vanilla behavior.
 
-TransferZ owns two left-button modifier drags:
+TransferZ owns three configurable left-button modifier drags through named DayZ user actions:
 
-- `Shift + Left Drag`: move the source zone as a Transfer batch.
-- `Alt + Left Drag`: move the exact-class batch selected by the dragged representative item.
+- **Destination / Transfer modifier** (default Shift) + Left Drag: move the source zone as a Transfer batch.
+- **Preferred / Exact-class modifier** (default Alt) + Left Drag: move the exact-class batch selected by the dragged representative item.
+- **Unpack container drag modifier** (default U) + Left Drag: perform the same Unpack operation as the header/command on the dragged cargo-bearing container. The dragged source stays; all cargo descendants are flattened into the release target; nested containers are emptied contents-first and then moved empty. This applies to cargo-grid icons, VICINITY icons, hands containers, and worn/attached cargo-bearing slot icons.
 
-For a direct cargo child, the source zone is its immediate cargo owner. Shift selects all direct cargo children of that source. Alt selects only direct cargo children whose exact `GetType()` matches the dragged item.
+For a direct cargo child, the Transfer/Class source zone is its immediate cargo owner. The Transfer modifier selects all direct cargo children of that source. The Exact-class modifier selects only direct cargo children whose exact `GetType()` matches the dragged item. The Unpack modifier requires the dragged item itself to have cargo and starts the normal Unpack operation from that dragged container's cargo grid 0.
 
-For an item shown in `VICINITY`, Shift depends on the representative: a loose item selects the currently shown eligible non-container vicinity items, while a cargo-bearing ground container selects only itself. Alt selects shown eligible items whose exact `GetType()` matches the dragged item, including same-class cargo-bearing ground containers. Moved containers keep their contents intact.
+For an item shown in `VICINITY`, the Transfer modifier depends on the representative: a loose item selects the currently shown eligible non-container vicinity items, while a cargo-bearing ground container selects only itself. The Exact-class modifier selects shown eligible items whose exact `GetType()` matches the dragged item, including same-class cargo-bearing ground containers. Moved containers keep their contents intact.
 
-Both modifier drags may target another visible cargo container. A cargo-source Shift or Alt drag may also target `VICINITY`; a vicinity-source Shift or Alt drag to vicinity is a no-op because those loose items are already there.
+All three modifier drags may target another visible cargo container. A cargo-source Transfer, Exact-class, or Unpack drag may also target `VICINITY`; a vicinity-source Transfer or Exact-class drag to vicinity is a no-op because those loose items are already there.
 
-While a Shift/Alt drag is active, TransferZ owns final release and destination resolution. Native DayZ drop callbacks from the representative dragged icon must be consumed and must never execute a second predictive item move. On actual LMB release, cancel the native widget drag before committing the TransferZ batch, and suppress only the immediately trailing native drop event window needed to discard already-queued callbacks.
+While a configurable Transfer/Class/Unpack modifier drag is active, TransferZ owns final release and destination resolution. Native DayZ drop callbacks from the representative dragged icon must be consumed and must never execute a second predictive item move. On actual LMB release, cancel the native widget drag before committing the TransferZ batch, and suppress only the immediately trailing native drop event window needed to discard already-queued callbacks.
 
 After scroll/capture churn, `GetWidgetUnderCursor()` is not sufficient proof of the destination. A hovered TransferZ drop overlay MUST also contain the current mouse point inside its owning container's live clipped drop-host rectangle; otherwise treat it as stale capture and continue with live geometry resolution.
 
 Every modifier-item completion path (global mouse-up, cargo registered drop, vicinity registered drop, and legacy widget completion helper) MUST delegate to `CompleteModifierDragAtMousePosition()`. No modifier path may commit directly from the callback receiver or cached entity.
 
+`SlotsIcon` is shared by VICINITY and worn/attachment slots. Container-Unpack modifier detection MUST be evaluated before requiring a `VicinitySlotsContainer`; only Transfer/Exact-class vicinity batching may require that parent.
+
 Critical modifier-drag event handling MUST live in the primary TransferZ implementation files. Do not split mouse-up, native-drop suppression, latching, scroll clipping, or destination resolution across filename-ordered `Z`/`ZZ`/`ZZZ` patch layers; Enforce Script modded-class ordering is not a valid correctness dependency.
 
 Do not broaden exact-class matching into category matching, inheritance matching, ammo-family matching, or fuzzy similarity without an explicit new specification.
 
-Do not assign `Ctrl + Drag` to TransferZ. Stock DayZ owns Ctrl-related inventory interactions and TransferZ must not compete with or suppress them.
+TransferZ does not bind Ctrl by default. Physical Ctrl is not a special suppression rule for configurable TransferZ actions; if a player explicitly rebinds a TransferZ action to a Ctrl combination, that conflict is their chosen control mapping.
+
+Discrete Destination, Transfer, Unpack, Link, Preferred, Sort, and Stack commands are stock DayZ user actions, unbound by default. Poll them only while the inventory menu is open. Resolve the command target from the live open cargo/vicinity field under the mouse and use the same underlying operation/state methods as the corresponding UI control.
 
 ### Right-click and native stack splitting
 
@@ -118,12 +123,13 @@ This destination selection is not a new RMB gesture and must not change whether 
 
 A modifier click is a single-item route, distinct from the source-zone batch behavior of the same modifier followed by an actual left drag.
 
-- `Shift + Click`: move the clicked cargo/vicinity item to the active destination.
-- `Alt + Click`: move the clicked cargo/vicinity item to the resolved preferred destination.
+- Destination / Transfer modifier (default Shift) + Click: move the clicked cargo/vicinity item to the active destination.
+- Preferred / Exact-class modifier (default Alt) + Click: move the clicked cargo/vicinity item to the resolved preferred destination.
+- Unpack container drag modifier has no click action; without an actual drag, normal DayZ click behavior remains in control.
 
-The active destination may be a cargo container or `VICINITY`. If the requested destination is missing, invalid, already owns the item in the requested location, or cannot accept it, the item stays where it is. `Alt + Click` does nothing when no valid preferred target resolves.
+The active destination may be a cargo container or `VICINITY`. If the requested destination is missing, invalid, already owns the item in the requested location, or cannot accept it, the item stays where it is. Preferred / Exact-class modifier + Click does nothing when no valid preferred target resolves.
 
-`Ctrl + Click` remains vanilla DayZ behavior and must not be intercepted by TransferZ.
+Ctrl remains unbound by TransferZ by default. A player may explicitly rebind a TransferZ action to a conflicting key or combination through DayZ Controls.
 
 ### Vicinity batch actions
 
@@ -131,12 +137,13 @@ The `VICINITY` header exposes Destination, Transfer, and Unpack controls.
 
 - Vicinity Destination selects vicinity/ground as the active destination.
 - Vicinity Transfer moves currently shown loose, takeable vicinity items except cargo-bearing containers into a selected container destination.
-- Vicinity Unpack unpacks currently shown vicinity cargo-bearing containers into the destination while leaving the containers themselves in place.
+- Vicinity Unpack keeps each selected vicinity source/root container in place while recursively flattening its cargo into the destination; emptied nested containers move to the destination.
 - If a selected container destination is itself in vicinity, skip it as a source and allow it to receive the other items.
 - With vicinity itself selected, vicinity Transfer is a no-op because those loose items are already there; vicinity Unpack unpacks shown containers onto the ground.
 - Vicinity Transfer and Unpack may also be dragged onto a visible cargo container field for a one-off direct batch action.
-- `Shift + Left Drag` from loose vicinity loot selects the shown eligible non-container items; from a cargo-bearing ground container it selects only that dragged container.
-- `Alt + Left Drag` from a vicinity item selects shown eligible items of that exact class, including same-class cargo-bearing containers.
+- The Transfer modifier + Left Drag from loose vicinity loot selects the shown eligible non-container items; from a cargo-bearing ground container it selects only that dragged container.
+- The Exact-class modifier + Left Drag from a vicinity item selects shown eligible items of that exact class, including same-class cargo-bearing containers.
+- The Unpack modifier + Left Drag on a cargo-bearing vicinity container performs normal Unpack: the dragged source stays while all cargo descendants and emptied nested containers flatten into the target.
 
 ### Links and double-click routing
 
@@ -193,7 +200,7 @@ Left group:
 
 - `D`: select/toggle this container as the active Destination.
 - `T`: Transfer direct cargo to the active destination; also draggable.
-- `U`: Unpack leaf cargo from nested child containers while leaving direct loose cargo and nested containers in place; also draggable.
+- `U`: Unpack/flatten all cargo descendants into the destination while leaving the source/root container in place; nested containers are emptied and then moved; also draggable.
 - `L`: start, complete, replace, or remove the single temporary Link pair.
 - `P`: store/toggle the attached cargo container's attachment-slot path as the Preferred personal target.
 
@@ -208,7 +215,7 @@ TransferZ must preserve DayZ's native title geometry. Do not move or shrink the 
 
 DayZ may finish sizing header previews and cargo widgets after TransferZ's first setup call. Initial placement therefore uses bounded deferred GUI-layout correction after the immediate pass. Keep this initialization-only; do not introduce permanent per-frame layout polling.
 
-Transfer/Unpack drag targets cover the visible destination container field rather than only the header. The same destination overlays are reused by `Shift + Left Drag` and `Alt + Left Drag` item batches. The temporary drag overlay must forward mouse-wheel scrolling to the appropriate native inventory scroller.
+Transfer/Unpack drag targets cover the visible destination container field rather than only the header. The same destination overlays are reused by the configurable Transfer, Exact-class, and Unpack-container modifier drags. The temporary drag overlay must forward mouse-wheel scrolling to the appropriate native inventory scroller.
 
 Hover tooltips must stay close to the hovered control, use a dark mostly-opaque background, and wrap onto additional lines instead of clipping longer messages. If state changes while a control remains hovered, rebuild both tooltip text and calculated geometry immediately rather than requiring mouse-out/mouse-in. Do not use the word `recursive` in player-facing tooltip text.
 
@@ -237,10 +244,10 @@ Therefore:
 
 ## Scope boundaries for 0.1
 
-- No arbitrary item-category filtering; exact-class matching is available through `Alt + Left Drag`.
+- No arbitrary item-category filtering; exact-class matching is available through the configurable Preferred / Exact-class modifier + Left Drag.
 - No persistent world-container links.
 - No TransferZ-owned stack splitting; DayZ owns split quantity/state and TransferZ only applies the documented preferred/source destination selection around native splits.
-- No automatic relocation of empty nested containers after Unpack.
+- Unpack deliberately relocates emptied nested cargo containers to the destination after their contents have been flattened.
 - No persistent preferred personal targets for containers nested in cargo rather than attached through slots.
 - No class allowlists for container support.
 - No custom replacement inventory screen.
@@ -248,7 +255,7 @@ Therefore:
 - Modifier item drags own their native drag teardown: before TransferZ commits the batch, the native `Icon` / `SlotsIcon` visual drag state MUST be explicitly reset, then widget dragging may be cancelled. `CancelWidgetDragging()` alone is not sufficient because it does not run the registered native drop cleanup and can leave colored cursor borders behind.
 - VICINITY modifier-drop hit testing uses the visible vicinity slots root directly. Do not clip that root against `VicinityContainer`'s cargo scroller; current DayZ reparents vicinity slots into a separate LeftArea slots area.
 
-- VICINITY has no implicit ownership boundary. Shift-dragging a cargo-bearing ground container moves only that dragged container. Shift-dragging loose ground loot batches eligible loose items but excludes cargo-bearing ground containers. Alt-drag remains the explicit homogeneous batch operation and includes same-class cargo-bearing siblings. Container contents remain inside moved containers; unpack is a separate operation.
+- VICINITY has no implicit ownership boundary. Transfer-modifier dragging a cargo-bearing ground container moves only that dragged container intact. Transfer-modifier dragging loose ground loot batches eligible loose items but excludes cargo-bearing ground containers. Exact-class-modifier drag remains the explicit homogeneous batch operation and includes same-class cargo-bearing siblings. Unpack-modifier drag leaves the dragged source container in place and flattens all of its cargo descendants into the target.
 
 - Sort orientation preference: the planner first attempts a complete layout that keeps every item's current orientation. Only if that fails does it retry with detachable magazines (`MagazineStorage`) preferring vertical placement (height >= width), and only if that also fails does it allow unrestricted rotation. Ammunition piles are not treated as magazines for this rule.
 
