@@ -37,10 +37,10 @@ Hover a control for a short explanation. Transfer and Unpack also show a subdued
 
 | Gesture | Action |
 | --- | --- |
-| the **Destination / Transfer modifier** (default `Shift`) + Click | Move the clicked item to the active destination. |
-| the **Preferred / Exact-class modifier** (default `Alt`) + Click | Move the clicked item to the preferred personal destination. |
-| the **Destination / Transfer modifier** (default `Shift`) + Left Drag | From cargo, move all direct cargo as a batch. From vicinity, dragging loose loot batches shown eligible non-container items; dragging a cargo-bearing ground container moves only that container. |
-| the **Preferred / Exact-class modifier** (default `Alt`) + Left Drag | Move all eligible items of the dragged item's exact `GetType()` from the same source zone. |
+| **Destination / Transfer modifier** (default `Shift`) + Click | Move the clicked item to the active destination. |
+| **Preferred / Exact-class modifier** (default `Alt`) + Click | Move the clicked item to the preferred personal destination. |
+| **Destination / Transfer modifier** (default `Shift`) + Left Drag | From cargo, move all direct cargo as a batch. From vicinity, dragging loose loot batches shown eligible non-container items; dragging a cargo-bearing ground container moves only that container. |
+| **Preferred / Exact-class modifier** (default `Alt`) + Left Drag | Move all eligible items of the dragged item's exact `GetType()` from the same source zone. |
 | `Double Left Click` | Use link/preferred routing when TransferZ owns the route; otherwise preserve vanilla DayZ behavior. |
 
 Unmodified left drag remains vanilla DayZ drag behavior. TransferZ key actions are configurable in DayZ **Settings > Controls > TransferZ**. By default, the Transfer modifier is Shift, the exact-class modifier is Alt, and the container-Unpack drag modifier is U. Ctrl remains unassigned by default; assigning a conflicting key is an explicit user choice.
@@ -59,7 +59,7 @@ From a cargo container, the **Preferred / Exact-class modifier** (default `Alt`)
 
 From `VICINITY`, the **Preferred / Exact-class modifier** (default `Alt`) + Left Drag selects currently shown takeable, removable items whose exact `GetType()` matches the representative item. Same-class cargo-bearing ground containers are included and move intact with their contents. Vicinity-to-vicinity is a no-op because those items are already there.
 
-Different classnames are never included just because they are similar items. For example, Using the exact-class modifier while dragging one ammunition classname moves only that exact ammunition classname.
+Different classnames are never included just because they are similar items. For example, using the exact-class modifier while dragging one ammunition classname moves only that exact ammunition classname.
 
 ## Native stack splitting and P*
 

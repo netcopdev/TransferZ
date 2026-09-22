@@ -149,7 +149,7 @@ Default gesture bindings:
 - **Preferred / Exact-class modifier** — Left Alt or Right Alt.
 - **Unpack container drag modifier** — U.
 
-The modifier actions can be rebound like normal DayZ controls. Destination, Transfer, Unpack, Link, Preferred, Sort, and Stack are also exposed as configurable keyboard commands, but have no default binding. A command acts on the open cargo grid under the mouse; Destination, Transfer, and Unpack also work on the visible `VICINITY` field.
+The modifier actions can be rebound like normal DayZ controls. Destination, Transfer, Unpack, Link, Preferred, Sort, and Stack are also exposed as configurable keyboard commands, but have no default binding. These discrete commands are evaluated only while the inventory menu is open. A command acts on the open cargo grid under the mouse; Destination, Transfer, and Unpack also work on the visible `VICINITY` field.
 
 If more than one mutually exclusive TransferZ modifier is held, TransferZ does not claim the click/drag. Likewise, if conflicting TransferZ command actions fire on the same frame, no command is executed.
 

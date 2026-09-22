@@ -4,7 +4,8 @@ modded class MissionGameplay
     {
         super.OnUpdate(timeslice);
 
-        if (TransferZOperationDrag.IsActive())
+        InventoryMenu inventory = InventoryMenu.Cast(g_Game.GetUIManager().FindMenu(MENU_INVENTORY));
+        if (!inventory || TransferZOperationDrag.IsActive())
             return;
 
         int command = TransferZInput.PressedCommand();
