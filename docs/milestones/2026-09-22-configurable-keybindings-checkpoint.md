@@ -6,7 +6,9 @@
 - Branch: `feature/configurable-keybindings`
 - Base: `main` at `3637f6b2171f850ec0e5786a747ab840a32c7a09`
 - First implementation commit: `d5805b0d6e34e6ecb5e50d4bee3586e759b5c797`
+- Final implementation/refinement commit: `e6b19226aa510f4f8b6f6252e730d93f076294eb`
 - GitHub Self-test for first implementation: run `35686899114` — passed.
+- GitHub Self-test for final implementation/refinement: run `35687069921` — passed.
 - Merge status: **not merged**. Do not merge until the feature is confirmed in game.
 - Real DayZ compile/in-game validation: **not yet performed**.
 
@@ -81,4 +83,4 @@ If the build configuration is not in the default `%LOCALAPPDATA%\TransferZ\build
 .\tools\build.ps1 -BuildConfig 'C:\path\to\build.psd1'
 ```
 
-After the final refinement commit, verify its GitHub Self-test is green before deploying the branch build for the in-game matrix above.
+The final implementation/refinement Self-test is green. Build and deploy the feature branch for the in-game matrix above; do not merge until those checks are confirmed.
