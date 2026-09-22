@@ -352,7 +352,8 @@ class RepositoryContracts(unittest.TestCase):
 
         unpack_many = function_body(nested, "static int UnpackMany(")
         self.assertIn("TransferZUnpackScanBudget", unpack_many)
-        self.assertIn("CollectNestedLeaves", unpack_many)
+        self.assertIn("CollectUnpackItemsFromSource", unpack_many)
+        self.assertIn("CanMoveFlattenedItem", unpack_many)
         self.assertIn("TryMoveToExactCargo", unpack_many)
         self.assertIn("TryMoveToVicinity", unpack_many)
 
@@ -390,22 +391,32 @@ class RepositoryContracts(unittest.TestCase):
         )
 
         self.assertNotIn("static int Unpack(", server)
-        self.assertNotIn("CollectUnpackLeavesForOperation", server)
+        self.assertNotIn("CollectUnpackItemsForOperation", server)
 
-        collect = function_body(server, "static bool CollectUnpackLeaves(")
+        collect = function_body(server, "static bool CollectUnpackItems(")
         self.assertIn("depth > MAX_UNPACK_DEPTH", collect)
         self.assertIn("ConsumeUnpackScanNode", collect)
-        self.assertIn("AppendUnpackLeaf", collect)
+        self.assertIn("AppendUnpackItem", collect)
+        self.assertLess(
+            collect.index("CollectUnpackItems(item"),
+            collect.index("AppendUnpackItem(item"),
+        )
 
         nested = read("Scripts/4_World/TransferZ/TransferZ_NestedUnpackService.c")
-        nested_collect = function_body(nested, "static bool CollectNestedLeaves(")
+        nested_collect = function_body(nested, "static bool CollectUnpackItemsFromSource(")
         nested_unpack = function_body(nested, "static int Unpack(")
         self.assertIn("ConsumeUnpackScanNode", nested_collect)
-        self.assertIn("CollectUnpackLeaves", nested_collect)
-        self.assertIn("TransferZUnpackScanBudget", nested_unpack)
-        self.assertIn("CollectNestedLeaves", nested_unpack)
+        self.assertIn("CollectUnpackItems", nested_collect)
+        self.assertIn("AppendUnpackItem(child", nested_collect)
         self.assertLess(
-            nested_unpack.index("CollectNestedLeaves"),
+            nested_collect.index("CollectUnpackItems(child"),
+            nested_collect.index("AppendUnpackItem(child"),
+        )
+        self.assertIn("TransferZUnpackScanBudget", nested_unpack)
+        self.assertIn("CollectUnpackItemsFromSource", nested_unpack)
+        self.assertIn("CanMoveFlattenedItem", nested_unpack)
+        self.assertLess(
+            nested_unpack.index("CollectUnpackItemsFromSource"),
             nested_unpack.index("TryMoveToExactCargo"),
         )
 
@@ -519,7 +530,7 @@ class RepositoryContracts(unittest.TestCase):
         for action in (
             "UATransferZTransferModifier",
             "UATransferZClassModifier",
-            "UATransferZUnloadModifier",
+            "UATransferZUnpackModifier",
             "UATransferZDestination",
             "UATransferZTransfer",
             "UATransferZUnpack",
@@ -562,15 +573,14 @@ class RepositoryContracts(unittest.TestCase):
         self.assertNotIn("KC_RMENU", vicinity)
         self.assertIn("TransferZInput.ModifierMode()", icon)
         self.assertIn("TransferZInput.ModifierMode()", vicinity)
-        self.assertIn("TransferZInputModifier.UNLOAD", icon)
-        self.assertIn("TransferZOperation.TRANSFER, m_TransferZModifierDragSource", icon)
-        self.assertNotIn("TransferZOperation.UNPACK, m_TransferZModifierDragSource", icon)
-        self.assertIn("TransferZInputModifier.UNLOAD", vicinity)
-        self.assertIn("TransferZOperation.TRANSFER, m_Obj, 0", vicinity)
-        self.assertNotIn("TransferZOperation.UNPACK, m_Obj, 0", vicinity)
+        self.assertIn("TransferZInputModifier.UNPACK", icon)
+        self.assertIn("TransferZOperation.UNPACK, m_TransferZModifierDragSource", icon)
+        self.assertNotIn("TransferZOperation.TRANSFER, m_TransferZModifierDragSource", icon)
+        self.assertIn("TransferZInputModifier.UNPACK", vicinity)
+        self.assertIn("TransferZOperation.UNPACK, m_Obj, 0", vicinity)
         slots_drag = function_body(vicinity, "override void OnIconDrag(")
         self.assertLess(
-            slots_drag.index("mode == TransferZInputModifier.UNLOAD"),
+            slots_drag.index("mode == TransferZInputModifier.UNPACK"),
             slots_drag.index("VicinitySlotsContainer vicinity = TransferZFindVicinitySource()"),
         )
         self.assertNotIn("if (!vicinity || !m_Obj)", slots_drag)

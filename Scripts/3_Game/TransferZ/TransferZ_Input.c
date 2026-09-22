@@ -3,7 +3,7 @@ enum TransferZInputModifier
     NONE = 0,
     TRANSFER = 1,
     EXACT_CLASS = 2,
-    UNLOAD = 3
+    UNPACK = 3
 }
 
 enum TransferZInputCommand
@@ -22,7 +22,7 @@ class TransferZInput
 {
     static const string ACTION_TRANSFER_MODIFIER = "UATransferZTransferModifier";
     static const string ACTION_CLASS_MODIFIER = "UATransferZClassModifier";
-    static const string ACTION_UNLOAD_MODIFIER = "UATransferZUnloadModifier";
+    static const string ACTION_UNPACK_MODIFIER = "UATransferZUnpackModifier";
     static const string ACTION_DESTINATION = "UATransferZDestination";
     static const string ACTION_TRANSFER = "UATransferZTransfer";
     static const string ACTION_UNPACK = "UATransferZUnpack";
@@ -33,7 +33,7 @@ class TransferZInput
 
     protected static UAInput s_TransferModifier;
     protected static UAInput s_ClassModifier;
-    protected static UAInput s_UnloadModifier;
+    protected static UAInput s_UnpackModifier;
     protected static UAInput s_Destination;
     protected static UAInput s_Transfer;
     protected static UAInput s_Unpack;
@@ -52,8 +52,8 @@ class TransferZInput
             s_TransferModifier = api.GetInputByName(ACTION_TRANSFER_MODIFIER);
         if (!s_ClassModifier)
             s_ClassModifier = api.GetInputByName(ACTION_CLASS_MODIFIER);
-        if (!s_UnloadModifier)
-            s_UnloadModifier = api.GetInputByName(ACTION_UNLOAD_MODIFIER);
+        if (!s_UnpackModifier)
+            s_UnpackModifier = api.GetInputByName(ACTION_UNPACK_MODIFIER);
         if (!s_Destination)
             s_Destination = api.GetInputByName(ACTION_DESTINATION);
         if (!s_Transfer)
@@ -86,14 +86,14 @@ class TransferZInput
 
         bool transfer = IsHeld(s_TransferModifier);
         bool exactClass = IsHeld(s_ClassModifier);
-        bool unload = IsHeld(s_UnloadModifier);
+        bool unpack = IsHeld(s_UnpackModifier);
         int active = 0;
 
         if (transfer)
             active++;
         if (exactClass)
             active++;
-        if (unload)
+        if (unpack)
             active++;
 
         if (active != 1)
@@ -102,7 +102,7 @@ class TransferZInput
             return TransferZInputModifier.TRANSFER;
         if (exactClass)
             return TransferZInputModifier.EXACT_CLASS;
-        return TransferZInputModifier.UNLOAD;
+        return TransferZInputModifier.UNPACK;
     }
 
     static int PressedCommand()

@@ -809,13 +809,13 @@ modded class SlotsIcon
             return;
 
         // SlotsIcon is used both for VICINITY and for attachment/worn slots.
-        // Container-Unload is about the dragged container itself, so it must
+        // Container-Unpack is about the dragged container itself, so it must
         // not depend on the icon living under VicinitySlotsContainer.
-        if (mode == TransferZInputModifier.UNLOAD)
+        if (mode == TransferZInputModifier.UNPACK)
         {
             if (!TransferZCargo.Exists(m_Obj, 0))
                 return;
-            TransferZOperationDrag.BeginContainer(TransferZOperation.TRANSFER, m_Obj, 0);
+            TransferZOperationDrag.BeginContainer(TransferZOperation.UNPACK, m_Obj, 0);
         }
         else
         {

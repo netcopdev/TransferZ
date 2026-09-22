@@ -246,23 +246,24 @@ void TZTest_RunUnpackSelfTest(PlayerBase player)
     EntityAI directApple = TZTest_CreateItem(source, "Apple");
     EntityAI nested = TZTest_CreateItem(source, "SmallProtectorCase");
     EntityAI nestedBandage = TZTest_CreateCargoItem(nested, "BandageDressing");
-    EntityAI nestedBattery = TZTest_CreateCargoItem(nested, "Battery9V");
+    EntityAI deeper = TZTest_CreateCargoItem(nested, "FirstAidKit");
+    EntityAI deepBattery = TZTest_CreateCargoItem(deeper, "Battery9V");
 
     TZTest_Check(directApple != null, "unpack fixture direct loose item created");
     TZTest_Check(nestedBandage != null, "unpack fixture nested bandage created");
-    TZTest_Check(nestedBattery != null, "unpack fixture nested battery created");
-    TZTest_Check(!TransferZCargo.Exists(directApple, 0), "unpack fixture loose item has no cargo grid");
-    TZTest_Check(TransferZCargo.Exists(nested, 0), "unpack fixture nested container cargo resolves");
-    TZTest_Check(!TransferZCargo.Exists(nested, 1), "unpack fixture invalid cargo grid is rejected");
-    TZTest_Check(!TransferZCargo.Exists(nestedBandage, 0), "unpack fixture nested bandage has no cargo grid");
-    TZTest_Check(!TransferZCargo.Exists(nestedBattery, 0), "unpack fixture nested battery has no cargo grid");
+    TZTest_Check(deeper != null, "unpack fixture deeper container created");
+    TZTest_Check(deepBattery != null, "unpack fixture deep battery created");
 
     int moved = TransferZNestedUnpackService.Unpack(player, source, destination);
-    TZTest_Check(moved == 2, "unpack moved nested leaves only");
-    TZTest_Check(TZTest_IsDirectCargoChild(source, directApple), "unpack kept direct loose cargo");
-    TZTest_Check(TZTest_IsDirectCargoChild(source, nested), "unpack kept nested container");
-    TZTest_Check(TZTest_IsDirectCargoChild(destination, nestedBandage), "unpack moved nested bandage");
-    TZTest_Check(TZTest_IsDirectCargoChild(destination, nestedBattery), "unpack moved nested battery");
+    TZTest_Check(moved == 5, "unpack flattened all cargo descendants");
+    TZTest_Check(TZTest_IsDirectCargoChild(destination, directApple), "unpack moved direct loose cargo");
+    TZTest_Check(TZTest_IsDirectCargoChild(destination, nestedBandage), "unpack moved nested loose cargo");
+    TZTest_Check(TZTest_IsDirectCargoChild(destination, deepBattery), "unpack moved deep loose cargo");
+    TZTest_Check(TZTest_IsDirectCargoChild(destination, deeper), "unpack moved emptied deeper container");
+    TZTest_Check(TZTest_IsDirectCargoChild(destination, nested), "unpack moved emptied direct nested container");
+    TZTest_Check(TransferZCargo.Get(source, 0).GetItemCount() == 0, "unpack left source container empty");
+    TZTest_Check(TransferZCargo.Get(nested, 0).GetItemCount() == 0, "unpack left nested container empty");
+    TZTest_Check(TransferZCargo.Get(deeper, 0).GetItemCount() == 0, "unpack left deeper container empty");
 
     TZTest_DeleteFixture(source);
     TZTest_DeleteFixture(destination);
@@ -306,9 +307,13 @@ void TZTest_RunVicinityUnpackBatchSelfTest(PlayerBase player)
     sources.Insert(sourceB);
 
     int moved = TransferZNestedUnpackService.UnpackMany(player, sources, destination, 0, false);
-    TZTest_Check(moved == 2, "vicinity unpack batch moved leaves from all containers");
-    TZTest_Check(TZTest_IsDirectCargoChild(destination, bandageA), "vicinity unpack batch moved first nested leaf");
-    TZTest_Check(TZTest_IsDirectCargoChild(destination, bandageB), "vicinity unpack batch moved second nested leaf");
+    TZTest_Check(moved == 4, "vicinity unpack batch flattened all source cargo");
+    TZTest_Check(TZTest_IsDirectCargoChild(destination, bandageA), "vicinity unpack batch moved first nested item");
+    TZTest_Check(TZTest_IsDirectCargoChild(destination, bandageB), "vicinity unpack batch moved second nested item");
+    TZTest_Check(TZTest_IsDirectCargoChild(destination, nestedA), "vicinity unpack batch moved first empty nested container");
+    TZTest_Check(TZTest_IsDirectCargoChild(destination, nestedB), "vicinity unpack batch moved second empty nested container");
+    TZTest_Check(TransferZCargo.Get(sourceA, 0).GetItemCount() == 0, "vicinity unpack left first root container empty");
+    TZTest_Check(TransferZCargo.Get(sourceB, 0).GetItemCount() == 0, "vicinity unpack left second root container empty");
 
     TZTest_DeleteFixture(sourceA);
     TZTest_DeleteFixture(sourceB);

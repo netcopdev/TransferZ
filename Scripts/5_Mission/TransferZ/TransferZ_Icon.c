@@ -104,7 +104,7 @@ modded class Icon
             TransferZResetModifierDrag();
             int mode = TransferZReadModifierDragMode();
 
-            if (mode == TransferZInputModifier.UNLOAD)
+            if (mode == TransferZInputModifier.UNPACK)
             {
                 if (m_Obj && TransferZCargo.Exists(m_Obj, 0))
                 {
@@ -138,7 +138,7 @@ modded class Icon
         if (m_TransferZModifierDragMode == TransferZInputModifier.NONE || !m_Obj || !m_TransferZModifierDragSource)
             return;
 
-        if (m_TransferZModifierDragMode != TransferZInputModifier.UNLOAD)
+        if (m_TransferZModifierDragMode != TransferZInputModifier.UNPACK)
         {
             InventoryLocation location = new InventoryLocation();
             if (!m_Obj.GetInventory().GetCurrentInventoryLocation(location))
@@ -151,8 +151,8 @@ modded class Icon
             TransferZOperationDrag.BeginContainer(TransferZOperation.TRANSFER, m_TransferZModifierDragSource, m_TransferZModifierDragSourceCargoIndex);
         else if (m_TransferZModifierDragMode == TransferZInputModifier.EXACT_CLASS)
             TransferZOperationDrag.BeginClassTransfer(m_TransferZModifierDragSource, m_Obj, m_TransferZModifierDragSourceCargoIndex);
-        else if (m_TransferZModifierDragMode == TransferZInputModifier.UNLOAD)
-            TransferZOperationDrag.BeginContainer(TransferZOperation.TRANSFER, m_TransferZModifierDragSource, m_TransferZModifierDragSourceCargoIndex);
+        else if (m_TransferZModifierDragMode == TransferZInputModifier.UNPACK)
+            TransferZOperationDrag.BeginContainer(TransferZOperation.UNPACK, m_TransferZModifierDragSource, m_TransferZModifierDragSourceCargoIndex);
         else
             return;
 

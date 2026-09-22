@@ -147,7 +147,7 @@ Default gesture bindings:
 
 - **Destination / Transfer modifier** — Left Shift or Right Shift.
 - **Preferred / Exact-class modifier** — Left Alt or Right Alt.
-- **Unload container drag modifier** — U.
+- **Unpack container drag modifier** — U.
 
 The modifier actions can be rebound like normal DayZ controls. Destination, Transfer, Unpack, Link, Preferred, Sort, and Stack are also exposed as configurable keyboard commands, but have no default binding. These discrete commands are evaluated only while the inventory menu is open. A command acts on the open cargo grid under the mouse; Destination, Transfer, and Unpack also work on the visible `VICINITY` field.
 
@@ -204,11 +204,13 @@ From vicinity:
 
 Exact class means exact class. Similar ammunition, magazines, food variants, or other related items are not grouped unless they share the same actual `GetType()`.
 
-### Unload container modifier + Left Drag
+### Unpack container modifier + Left Drag
 
-Hold **Unload container drag modifier** (default `U`) and left-drag a cargo-bearing container, whether it is in cargo, shown in VICINITY, held in hands, or worn/attached in an inventory slot. The dragged container itself stays where it is; its **direct cargo children** are transferred to the drop target. Dropping on `VICINITY` moves those direct children to the ground. Cargo-bearing direct children move intact with their own contents. On a non-container item, this modifier does not claim the drag.
+Hold **Unpack container drag modifier** (default `U`) and left-drag a cargo-bearing container. This invokes the same Unpack operation as the header `U`: the dragged/source container stays where it is, while all of its cargo is flattened into the drop target.
 
-Example: if a Protective Case in your backpack directly contains two soda cans, `U + drag` the Protective Case onto a barrel moves the two cans to the barrel and leaves the Protective Case in the backpack. This gesture is deliberately different from the existing **Unpack** command, which traverses nested child containers for leaf items.
+Nested containers are processed contents-first. Their cargo is moved out recursively, then the now-empty nested containers themselves are moved to the target. Dropping on `VICINITY` applies the same flattening to the ground. On a non-container item, this modifier does not claim the drag.
+
+Example: a Protective Case in your backpack contains soda cans and a First Aid Kit containing a bandage. `U + drag` the Protective Case onto a barrel: the case stays in the backpack, while the soda cans, bandage, and now-empty First Aid Kit become direct cargo of the barrel.
 
 ### Ctrl and conflicting bindings
 
